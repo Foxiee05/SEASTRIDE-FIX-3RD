@@ -444,8 +444,8 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         const el = document.querySelector(step.target as string);
         if (el) {
           el.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
+            behavior: "auto",
+            block: "nearest",
             inline: "nearest",
           });
         }
@@ -454,37 +454,26 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
 
       setTimeout(() => {
         setRun(true);
-      }, 100);
-    }, 200);
+      }, 50);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [tutorialTrigger]);
 
-  // Auto-Scroll to current tutorial target whenever step or tab changes
+  // Instant scroll alignment to current tutorial target whenever step or tab changes
   useEffect(() => {
     if (!run) return;
     const currentStep = GLOBAL_STEPS[stepIndex];
     if (!currentStep || currentStep.target === "body") return;
 
-    const scrollToStepTarget = () => {
-      const el = document.querySelector(currentStep.target as string);
-      if (el) {
-        el.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-          inline: "nearest",
-        });
-      }
-    };
-
-    scrollToStepTarget();
-    const timer1 = setTimeout(scrollToStepTarget, 80);
-    const timer2 = setTimeout(scrollToStepTarget, 220);
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
+    const el = document.querySelector(currentStep.target as string);
+    if (el) {
+      el.scrollIntoView({
+        behavior: "auto",
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
   }, [stepIndex, run, activeTab]);
 
   const handleJoyrideCallback = (data: any) => {
@@ -502,7 +491,6 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     ) {
       document.querySelectorAll(".tutorial-active-target").forEach((el) => {
         el.classList.remove("tutorial-active-target");
-        (el as HTMLElement).style.zIndex = "";
       });
     }
 
@@ -522,12 +510,11 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
       const targetEl = document.querySelector(step.target as string);
       if (targetEl && step.target !== "body") {
         targetEl.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
+          behavior: "auto",
+          block: "nearest",
           inline: "nearest",
         });
         targetEl.classList.add("tutorial-active-target");
-        (targetEl as HTMLElement).style.zIndex = "10001";
       }
     }
 
@@ -544,15 +531,25 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
               const el = document.querySelector(nextStep.target as string);
               if (el) {
                 el.scrollIntoView({
-                  behavior: "smooth",
-                  block: "center",
+                  behavior: "auto",
+                  block: "nearest",
                   inline: "nearest",
                 });
               }
             }
             setStepIndex(nextIndex);
-          }, 150);
+          }, 80);
         } else {
+          if (nextStep.target !== "body") {
+            const el = document.querySelector(nextStep.target as string);
+            if (el) {
+              el.scrollIntoView({
+                behavior: "auto",
+                block: "nearest",
+                inline: "nearest",
+              });
+            }
+          }
           setStepIndex(nextIndex);
         }
       } else {
@@ -567,7 +564,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         const nextStep = GLOBAL_STEPS[nextIndex];
         if (nextStep._tab !== activeTab) {
           setActiveTab(nextStep._tab as any);
-          setTimeout(() => setStepIndex(nextIndex), 150);
+          setTimeout(() => setStepIndex(nextIndex), 80);
         } else {
           setStepIndex(nextIndex);
         }
@@ -587,15 +584,23 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
       continuous={true}
       scrollToFirstStep={false}
       tooltipComponent={CustomTooltip}
+      styles={{
+        spotlight: {
+          stroke: "#f59e0b",
+          strokeWidth: 2,
+        },
+      }}
       options={{
         arrowColor: "#f0dec1",
         overlayColor: "rgba(0, 0, 0, 0.45)",
         zIndex: 10000,
-        scrollDuration: 250,
-        scrollOffset: 80,
+        scrollDuration: 0,
+        scrollOffset: 60,
         spotlightPadding: 6,
+        spotlightRadius: 14,
         overlayClickAction: false,
         dismissKeyAction: false,
+        skipBeacon: true,
       }}
       floatingOptions={{
         flipOptions: {
