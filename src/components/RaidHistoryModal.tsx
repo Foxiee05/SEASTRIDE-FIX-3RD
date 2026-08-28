@@ -19,7 +19,7 @@ export const RaidHistoryModal: React.FC<RaidHistoryModalProps> = ({
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-[#facc15]" />
             <h2 className="text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-              Battle & Raid History Log
+              Battle History Log
             </h2>
           </div>
 

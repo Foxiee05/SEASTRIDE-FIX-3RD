@@ -50,61 +50,62 @@ export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
       <div className="relative z-10 w-full h-full flex flex-row pb-[env(safe-area-inset-bottom)]">
         
         {/* LEFT VERTICAL ACTION SIDEBAR */}
-        <div className="w-[85px] sm:w-[100px] flex flex-col justify-center gap-2.5 sm:gap-4 pl-2 sm:pl-3 z-20 shrink-0 py-4 h-full">
-          
-          {/* SHOP BUTTON */}
-          <button
-            onClick={() => openModal("shop")}
-            className="tutorial-shop relative group bg-indigo-500 hover:bg-indigo-400 active:scale-95 transition-all border-b-[4px] border-indigo-700 py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
-          >
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
-            <ShoppingBag className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-100 drop-shadow-md" />
-            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-indigo-50">Shop</span>
-          </button>
+        <div className="w-[85px] sm:w-[100px] flex flex-col justify-center pl-2 sm:pl-3 z-20 shrink-0 py-4 h-full">
+          <div className="tutorial-hub flex flex-col gap-2.5 sm:gap-4 w-full p-1 -m-1 rounded-2xl">
+            {/* SHOP BUTTON */}
+            <button
+              onClick={() => openModal("shop")}
+              className="tutorial-shop relative group bg-indigo-500 hover:bg-indigo-400 active:scale-95 transition-all border-b-[4px] border-indigo-700 py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
+              <ShoppingBag className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-100 drop-shadow-md" />
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-indigo-50">Shop</span>
+            </button>
 
-          {/* UPGRADE BUTTON */}
-          <button
-            onClick={() => openModal("upgrades")}
-            className="tutorial-upgrades relative group bg-sky-500 hover:bg-sky-400 active:scale-95 transition-all border-b-[4px] border-sky-700 py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
-          >
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
-            <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-md" />
-            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-50">Upgrades</span>
-          </button>
+            {/* UPGRADE BUTTON */}
+            <button
+              onClick={() => openModal("upgrades")}
+              className="tutorial-upgrades relative group bg-sky-500 hover:bg-sky-400 active:scale-95 transition-all border-b-[4px] border-sky-700 py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
+              <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-md" />
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-50">Upgrades</span>
+            </button>
 
-          {/* REPAIR BUTTON */}
-          <button
-            onClick={() => openModal("repair")}
-            disabled={shipCondition >= 100}
-            className={`tutorial-repair relative group transition-all border-b-[4px] py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)] ${
-              shipCondition >= 100
-                ? "bg-slate-600 border-slate-800 opacity-80"
-                : "bg-emerald-500 hover:bg-emerald-400 active:scale-95 border-emerald-700"
-            }`}
-          >
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
-            <Wrench className={`w-6 h-6 sm:w-7 sm:h-7 drop-shadow-md ${shipCondition >= 100 ? "text-slate-300" : "text-white"}`} />
-            <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${shipCondition >= 100 ? "text-slate-200" : "text-emerald-50"}`}>
-              Repair
-            </span>
-          </button>
-
-          {/* RAID LOG BUTTON */}
-          <button
-            onClick={() => openModal("raids")}
-            className="tutorial-raids relative group bg-rose-500 hover:bg-rose-400 active:scale-95 transition-all border-b-[4px] border-rose-700 py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
-          >
-            {raidLogs.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-950 text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md border border-rose-600 z-10">
-                {raidLogs.length}
+            {/* REPAIR BUTTON */}
+            <button
+              onClick={() => openModal("repair")}
+              disabled={shipCondition >= 100}
+              className={`tutorial-repair relative group transition-all border-b-[4px] py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)] ${
+                shipCondition >= 100
+                  ? "bg-slate-600 border-slate-800 opacity-80"
+                  : "bg-emerald-500 hover:bg-emerald-400 active:scale-95 border-emerald-700"
+              }`}
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
+              <Wrench className={`w-6 h-6 sm:w-7 sm:h-7 drop-shadow-md ${shipCondition >= 100 ? "text-slate-300" : "text-white"}`} />
+              <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${shipCondition >= 100 ? "text-slate-200" : "text-emerald-50"}`}>
+                Repair
               </span>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
-            <History className="w-6 h-6 sm:w-7 sm:h-7 text-rose-100 drop-shadow-md" />
-            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-50">
-              Raids
-            </span>
-          </button>
+            </button>
+
+            {/* HISTORY / RAID LOG BUTTON */}
+            <button
+              onClick={() => openModal("raids")}
+              className="tutorial-raids relative group bg-rose-500 hover:bg-rose-400 active:scale-95 transition-all border-b-[4px] border-rose-700 py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
+            >
+              {raidLogs.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-950 text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md border border-rose-600 z-10">
+                  {raidLogs.length}
+                </span>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
+              <History className="w-6 h-6 sm:w-7 sm:h-7 text-rose-100 drop-shadow-md" />
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-50">
+                History
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* RIGHT/CENTER HERO SECTION */}

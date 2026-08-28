@@ -21,7 +21,7 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
   return (
     <div
       {...tooltipProps}
-      className="bg-[#f0dec1] text-[#4a2c17] rounded-2xl border-4 border-[#8b5a33] shadow-[0_6px_0_#4a2c17] p-3.5 sm:p-4 font-serif box-border max-w-[calc(100vw-24px)] w-[clamp(260px,85vw,360px)] z-[10002] select-none"
+      className="bg-[#f0dec1] text-[#4a2c17] rounded-2xl border-4 border-[#8b5a33] shadow-[0_6px_0_#4a2c17] p-3 sm:p-4 font-serif box-border max-w-[calc(100vw-16px)] w-[min(320px,calc(100vw-100px))] z-[10002] select-none"
     >
       {/* Top Header: Step Badge & Skip Button (replaces 'X' icon) */}
       <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-[#8b5a33]/25">
@@ -74,42 +74,6 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
 };
 
 const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
-  // Menu
-  {
-    target: "body",
-    placement: "center",
-    _tab: "menu",
-    skipScroll: true,
-    content: (
-      <div className="font-serif">
-        <h2 className="text-[clamp(1.1rem,3.8vw,1.35rem)] font-black text-[#4a2c17] mb-1.5 uppercase">
-          Welcome to SeaStride!
-        </h2>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Every real-world step you take powers your pirate fleet. Let's
-          get started!
-        </p>
-      </div>
-    ),
-  },
-  {
-    target: ".tutorial-start-voyage",
-    placement: "top",
-    _tab: "menu",
-    hideFooter: true,
-    disableOverlayClose: true,
-    spotlightClicks: true,
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Start Voyage
-        </h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Tap here to begin your adventure and enter the game!
-        </p>
-      </div>
-    ),
-  },
   // Home
   {
     target: ".tutorial-steps-bar",
@@ -137,21 +101,6 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
           Complete quests and walk to earn XP. Leveling up unlocks stronger ships!
-        </p>
-      </div>
-    ),
-  },
-  {
-    target: ".tutorial-stats",
-    placement: "top",
-    _tab: "home",
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Daily Stats
-        </h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Monitor your distance, calories burned, and active time.
         </p>
       </div>
     ),
@@ -212,78 +161,23 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
           Energy
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Walking generates Energy. Use it to sail, explore, and battle.
+          Energy resets everyday, use it to bomb other ships.
         </p>
       </div>
     ),
   },
   {
-    target: ".tutorial-currency",
-    placement: "bottom",
-    _tab: "build",
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">Loot</h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Gold Coins and Gems you've collected. Use them to upgrade your fleet.
-        </p>
-      </div>
-    ),
-  },
-  {
-    target: ".tutorial-shop",
-    placement: "top",
-    _tab: "build",
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">Shop</h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Buy supplies, gems, and special items with your hard-earned gold.
-        </p>
-      </div>
-    ),
-  },
-  {
-    target: ".tutorial-upgrades",
-    placement: "top",
+    target: ".tutorial-hub",
+    placement: "right",
+    offset: 8,
     _tab: "build",
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Upgrades
+          HUB
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Improve your ship's cannons, hull, and sails here.
-        </p>
-      </div>
-    ),
-  },
-  {
-    target: ".tutorial-repair",
-    placement: "top",
-    _tab: "build",
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Repair
-        </h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Fix hull damage after battles. You cannot sail if your ship is destroyed!
-        </p>
-      </div>
-    ),
-  },
-  {
-    target: ".tutorial-raids",
-    placement: "top",
-    _tab: "build",
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Raids
-        </h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          View your history of battles and loot from other players here.
+          Shop for supplies and gems, upgrade your ship and defenses, repair battle damage, and review your history of fights and loot.
         </p>
       </div>
     ),
@@ -319,21 +213,6 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
       </div>
     ),
   },
-  {
-    target: ".tutorial-sea-view-area",
-    placement: "center",
-    _tab: "sea",
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Exploration
-        </h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Drag to pan the camera. Tap on ships to attack them!
-        </p>
-      </div>
-    ),
-  },
   // Fleet
   {
     target: ".tutorial-fleet-nav",
@@ -346,36 +225,6 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
           Check out the global rankings and your weekly performance.
-        </p>
-      </div>
-    ),
-  },
-  {
-    target: ".tutorial-fleet-tabs",
-    placement: "bottom",
-    _tab: "leaderboard",
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Leaderboard Tabs
-        </h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Switch between Player Level and Coins Earned to see different rankings.
-        </p>
-      </div>
-    ),
-  },
-  {
-    target: ".tutorial-fleet-list",
-    placement: "top",
-    _tab: "leaderboard",
-    content: (
-      <div className="font-serif">
-        <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Top Pirates
-        </h3>
-        <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          See who rules the seas! Compete with others to climb the ranks.
         </p>
       </div>
     ),
@@ -400,17 +249,17 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     return () => window.removeEventListener("TUTORIAL_ADVANCE", handleAdvance);
   }, []);
 
-  // Auto-Trigger on App Load (First-Time User Only)
+  // Auto-Trigger on Entering Home / Game for First-Time Users
   useEffect(() => {
-    const hasSeen = localStorage.getItem("seastride_has_seen_global_tutorial_v6");
-    if (!hasSeen) {
+    const hasSeen = localStorage.getItem("seastride_has_seen_global_tutorial_v7");
+    if (!hasSeen && activeTab !== "menu") {
       const timer = setTimeout(() => {
         setStepIndex(0);
         setRun(true);
       }, 350);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [activeTab]);
 
   // Explicit Trigger (When user clicks "?" help button on HUD)
   useEffect(() => {
@@ -501,7 +350,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
       finishedStatuses.includes(status as any)
     ) {
       setRun(false);
-      localStorage.setItem("seastride_has_seen_global_tutorial_v6", "true");
+      localStorage.setItem("seastride_has_seen_global_tutorial_v7", "true");
       if (onTutorialEnd) onTutorialEnd();
       return;
     }
@@ -554,7 +403,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         }
       } else {
         setRun(false);
-        localStorage.setItem("seastride_has_seen_global_tutorial_v6", "true");
+        localStorage.setItem("seastride_has_seen_global_tutorial_v7", "true");
         if (onTutorialEnd) onTutorialEnd();
       }
     } else if (type === EVENTS.TARGET_NOT_FOUND) {
@@ -570,7 +419,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         }
       } else {
         setRun(false);
-        localStorage.setItem("seastride_has_seen_global_tutorial_v6", "true");
+        localStorage.setItem("seastride_has_seen_global_tutorial_v7", "true");
         if (onTutorialEnd) onTutorialEnd();
       }
     }
@@ -596,15 +445,20 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         zIndex: 10000,
         scrollDuration: 0,
         scrollOffset: 60,
-        spotlightPadding: 6,
+        spotlightPadding: 4,
         spotlightRadius: 14,
         overlayClickAction: false,
         dismissKeyAction: false,
         skipBeacon: true,
       }}
       floatingOptions={{
+        shiftOptions: {
+          padding: 8,
+          crossAxis: true,
+        },
         flipOptions: {
-          padding: 12,
+          padding: 8,
+          fallbackPlacements: ["bottom", "top", "right"],
         },
       }}
       onEvent={handleJoyrideCallback}
