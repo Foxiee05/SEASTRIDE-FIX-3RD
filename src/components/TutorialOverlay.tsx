@@ -239,7 +239,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
 }) => {
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-  const pendingStepRef = useRef<number | null>(null);
+  const hasAutoStartedRef = useRef(false);
 
   useEffect(() => {
     const handleAdvance = () => {
@@ -249,17 +249,19 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     return () => window.removeEventListener("TUTORIAL_ADVANCE", handleAdvance);
   }, []);
 
-  // Auto-Trigger on Entering Home / Game for First-Time Users
+  // Auto-Trigger on Entering Home / Game for First-Time Users (runs only once upon initial launch)
   useEffect(() => {
+    if (hasAutoStartedRef.current || run) return;
     const hasSeen = localStorage.getItem("seastride_has_seen_global_tutorial_v7");
     if (!hasSeen && activeTab !== "menu") {
+      hasAutoStartedRef.current = true;
       const timer = setTimeout(() => {
         setStepIndex(0);
         setRun(true);
       }, 350);
       return () => clearTimeout(timer);
     }
-  }, [activeTab]);
+  }, [activeTab, run]);
 
   // Explicit Trigger (When user clicks "?" help button on HUD)
   useEffect(() => {
