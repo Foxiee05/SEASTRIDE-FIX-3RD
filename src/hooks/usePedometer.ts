@@ -40,17 +40,17 @@ export function usePedometer({ onStep }: UsePedometerOptions) {
     z: 9.81,
   });
 
-  // Thresholds based on sensitivity (m/s² linear acceleration magnitude - increased intensity +30%)
+  // Thresholds based on sensitivity (m/s² linear acceleration magnitude - increased intensity +20%)
   const getThreshold = (sens: SensitivityLevel) => {
     switch (sens) {
       case "high":
-        return 1.3; // Highly responsive for gentle phone holding / walking
+        return 1.05; // Ultra-responsive for gentle phone holding / subtle steps
       case "medium":
-        return 1.9; // Standard responsive step threshold (+30% sensitivity increase)
+        return 1.5; // Highly responsive step threshold (+20% intensity increase)
       case "low":
-        return 2.6; // Vigorous walking / jogging
+        return 2.1; // Vigorous walking / jogging
       default:
-        return 1.9;
+        return 1.5;
     }
   };
 
@@ -106,21 +106,21 @@ export function usePedometer({ onStep }: UsePedometerOptions) {
         linearMag = Math.sqrt(rawX * rawX + rawY * rawY + rawZ * rawZ);
       }
 
-      // Smooth magnitude using exponential filter tuned for high-responsiveness step peaks
-      smoothedMagRef.current = 0.65 * smoothedMagRef.current + 0.35 * linearMag;
+      // Smooth magnitude using exponential filter tuned for high-responsiveness step peaks (+20% intensity)
+      smoothedMagRef.current = 0.60 * smoothedMagRef.current + 0.40 * linearMag;
       const currentMag = Math.round(smoothedMagRef.current * 10) / 10;
       setLastMotionMagnitude(currentMag);
 
-      if (linearMag > 0.28 && !hasDetectedMotion) {
+      if (linearMag > 0.22 && !hasDetectedMotion) {
         setHasDetectedMotion(true);
         setPermissionStatus("granted");
         setIsListening(true);
       }
 
-      // Step Peak Detection with responsive timing and valley reset (+30% intensity tuning)
+      // Step Peak Detection with responsive timing and valley reset (+20% intensity tuning)
       const now = Date.now();
       const threshold = getThreshold(sensitivity);
-      const minStepInterval = 275; // min 275ms between step impacts (~3.63 steps/sec max) for higher intensity
+      const minStepInterval = 230; // min 230ms between step impacts (~4.35 steps/sec max) for higher intensity
 
       if (smoothedMagRef.current >= threshold) {
         if (
@@ -132,8 +132,8 @@ export function usePedometer({ onStep }: UsePedometerOptions) {
           setSensorStepsCount((prev) => prev + 1);
           onStepRef.current(1);
         }
-      } else if (smoothedMagRef.current < threshold * 0.65) {
-        // Allow faster re-arm for upcoming steps
+      } else if (smoothedMagRef.current < threshold * 0.70) {
+        // Faster re-arm between quick steps
         isPeakRef.current = false;
       }
     },
