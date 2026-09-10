@@ -84,37 +84,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         {/* MODE 1: SHIP BUILD SCREEN */}
         {activeTab === "build" ? (
           <div className="flex flex-col items-center justify-center space-y-4 animate-fade-in w-full">
-            {/* Top Server Quick Info Bar */}
-            <div className="w-full max-w-md bg-[#4a2c17]/90 border-4 border-[#2b1d19] rounded-2xl p-2.5 text-amber-100 shadow-xl backdrop-blur-sm flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {currentServer.type === "global" ? (
-                  <div className="p-1.5 bg-[#1e1b4b] border border-[#4338ca] rounded-lg text-sky-400">
-                    <Globe className="w-4 h-4" />
-                  </div>
-                ) : (
-                  <div className="p-1.5 bg-[#2b1d19] border border-[#b45309] rounded-lg text-[#facc15]">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                )}
-                <div>
-                  <div className="text-[10px] font-bold text-[#fde68a] uppercase font-serif">
-                    {currentServer.name}
-                  </div>
-                  <div className="text-[10px] text-[#fbbf24] font-mono">
-                    Code: {currentServer.code} • {currentServer.playerCount}{" "}
-                    Ships
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => openModal("server")}
-                className="bg-[#1d4ed8] hover:bg-[#2563eb] border-b-2 border-[#1e3a8a] text-white px-2.5 py-1 rounded-lg text-[10px] font-black uppercase italic shadow"
-              >
-                Change Server
-              </button>
-            </div>
-
             {/* GIANT SHIP BUILD CANVAS - NO CONTAINER BOX OR BORDER */}
             <ShipDisplay
               onInspectShip={() => openModal("shipInspect")}

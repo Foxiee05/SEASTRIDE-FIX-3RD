@@ -8,7 +8,6 @@ import {
   Wrench,
   ShoppingBag,
   History,
-  CircleDollarSign,
 } from "lucide-react";
 
 interface ShipBuildScreenProps {
@@ -28,10 +27,7 @@ interface ShipBuildScreenProps {
 export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
   openModal,
 }) => {
-  const { currentServer, shipCondition, raidLogs, shipLevel } = useGame();
-  
-  const shipUpgradeCost = shipLevel === 1 ? 1000 : 1000 + (shipLevel - 1) * 500;
-  const repairCost = Math.ceil((100 - shipCondition) / 5) * 5;
+  const { shipCondition, raidLogs } = useGame();
 
   return (
     <div className="relative h-full w-full flex flex-col overflow-hidden select-none bg-sky-950">
@@ -41,9 +37,8 @@ export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
           src={ASSETS.beachBg}
           alt="Backdrop"
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover filter brightness-90 saturate-125"
+          className="w-full h-full object-cover filter brightness-95 saturate-125"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1c0a02]/40 via-transparent to-[#1c0a02]/90" />
       </div>
 
       {/* Main Layout Container (Row) */}
