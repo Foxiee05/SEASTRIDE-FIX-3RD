@@ -224,14 +224,6 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
             )}
           </div>
 
-          {/* Pricing Header */}
-          <div className="flex items-center justify-between text-xs font-serif font-black uppercase text-sky-300 pt-1">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>Gems Pricing & Bundles</span>
-            </span>
-          </div>
-
           {/* In-App Purchase Tier Grid */}
           <div className="grid grid-cols-1 gap-2.5">
             {GEM_PACKAGES.map((pkg) => {
