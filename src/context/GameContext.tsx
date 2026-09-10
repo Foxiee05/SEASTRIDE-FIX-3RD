@@ -122,7 +122,24 @@ interface GameContextType {
   
   buyDecoration: (decId: string, currency: 'coins' | 'gems', price: number) => boolean;
   toggleEquipDecoration: (decId: string) => void;
-  watchAdForGems: () => void;
+  watchAdForGems: () => boolean;
+  dailyAdWatches: number;
+  maxDailyAds: number;
+  buyGemsIAP: (tier: { id: string; name: string; price: string; gems: number }) => void;
+  exchangeGemsForCoins: (tier: { id: string; name: string; gemsCost: number; coinsReward: number }) => boolean;
+  
+  // Independent Modal Windows
+  isGemsModalOpen: boolean;
+  isCoinsModalOpen: boolean;
+  openGemsModal: () => void;
+  openCoinsModal: () => void;
+  closeGemsModal: () => void;
+  closeCoinsModal: () => void;
+
+  // Shop Modal State (Decorations)
+  isShopModalOpen: boolean;
+  openShopModal: () => void;
+  closeShopModal: () => void;
   
   // Logs
   raidLogs: RaidLog[];
@@ -261,6 +278,49 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {}
     return null;
   });
+
+  // Daily Ad Watches Tracking (Max 3 per day)
+  const maxDailyAds = 3;
+  const [dailyAdWatches, setDailyAdWatches] = useState<number>(() => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const savedDate = localStorage.getItem('pirate_ad_date');
+      if (savedDate === today) {
+        const count = parseInt(localStorage.getItem('pirate_ad_count') || '0', 10);
+        return isNaN(count) ? 0 : count;
+      }
+    } catch (e) {}
+    return 0;
+  });
+
+  // Separate Modal Windows State
+  const [isGemsModalOpen, setIsGemsModalOpen] = useState<boolean>(false);
+  const [isCoinsModalOpen, setIsCoinsModalOpen] = useState<boolean>(false);
+  const [isShopModalOpen, setIsShopModalOpen] = useState<boolean>(false);
+
+  const openGemsModal = () => {
+    setIsGemsModalOpen(true);
+  };
+
+  const closeGemsModal = () => {
+    setIsGemsModalOpen(false);
+  };
+
+  const openCoinsModal = () => {
+    setIsCoinsModalOpen(true);
+  };
+
+  const closeCoinsModal = () => {
+    setIsCoinsModalOpen(false);
+  };
+
+  const openShopModal = () => {
+    setIsShopModalOpen(true);
+  };
+
+  const closeShopModal = () => {
+    setIsShopModalOpen(false);
+  };
 
   useEffect(() => {
     try {
@@ -1686,10 +1746,48 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     soundFx.playClick();
   };
 
-  // Watch Ad for Gems (+5 gems)
-  const watchAdForGems = () => {
+  // Watch Ad for Gems (+5 gems, maximum 3 times a day)
+  const watchAdForGems = (): boolean => {
+    const today = new Date().toISOString().split('T')[0];
+    const savedDate = localStorage.getItem('pirate_ad_date');
+    let currentCount = dailyAdWatches;
+    if (savedDate !== today) {
+      currentCount = 0;
+    }
+    
+    if (currentCount >= maxDailyAds) {
+      alert(`You have already claimed all ${maxDailyAds} daily broadcast rewards today! Check back tomorrow.`);
+      return false;
+    }
+
+    const nextCount = currentCount + 1;
+    setDailyAdWatches(nextCount);
+    try {
+      localStorage.setItem('pirate_ad_date', today);
+      localStorage.setItem('pirate_ad_count', nextCount.toString());
+    } catch (e) {}
+
     setGems(g => g + 5);
     soundFx.playVictory();
+    return true;
+  };
+
+  // In-App Purchase Gems Tier
+  const buyGemsIAP = (tier: { id: string; name: string; price: string; gems: number }) => {
+    setGems(g => g + tier.gems);
+    soundFx.playVictory();
+  };
+
+  // Exchange Gems for Gold Coins
+  const exchangeGemsForCoins = (tier: { id: string; name: string; gemsCost: number; coinsReward: number }): boolean => {
+    if (gems < tier.gemsCost) {
+      alert(`Not enough gems! Required: ${tier.gemsCost} 💎 gems.`);
+      return false;
+    }
+    setGems(g => g - tier.gemsCost);
+    setCoins(c => c + tier.coinsReward);
+    soundFx.playVictory();
+    return true;
   };
 
   return (
@@ -1766,6 +1864,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         buyDecoration,
         toggleEquipDecoration,
         watchAdForGems,
+        dailyAdWatches,
+        maxDailyAds,
+        buyGemsIAP,
+        exchangeGemsForCoins,
+        isGemsModalOpen,
+        isCoinsModalOpen,
+        openGemsModal,
+        openCoinsModal,
+        closeGemsModal,
+        closeCoinsModal,
+        isShopModalOpen,
+        openShopModal,
+        closeShopModal,
         raidLogs,
         isMuted,
         toggleMute,

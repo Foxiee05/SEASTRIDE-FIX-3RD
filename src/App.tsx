@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { GameProvider } from "./context/GameContext";
+import { GameProvider, useGame } from "./context/GameContext";
 import { HeaderHUD } from "./components/HeaderHUD";
 import { HomeScreen } from "./components/HomeScreen";
 import { ShipBuildScreen } from "./components/ShipBuildScreen";
@@ -7,6 +7,8 @@ import { TheSeaScreen } from "./components/TheSeaScreen";
 import { MenuScreen } from "./components/MenuScreen";
 import { UpgradesModal } from "./components/UpgradesModal";
 import { ShopModal } from "./components/ShopModal";
+import { GemsPurchaseModal } from "./components/GemsPurchaseModal";
+import { CoinsExchangeModal } from "./components/CoinsExchangeModal";
 import { ServerModal } from "./components/ServerModal";
 import { RepairModal } from "./components/RepairModal";
 import { RaidHistoryModal } from "./components/RaidHistoryModal";
@@ -30,6 +32,15 @@ type ActiveModal =
   | null;
 
 function MainAppContent() {
+  const {
+    isShopModalOpen,
+    closeShopModal,
+    isGemsModalOpen,
+    closeGemsModal,
+    openGemsModal,
+    isCoinsModalOpen,
+    closeCoinsModal,
+  } = useGame();
   const [activeTab, setActiveTab] = useState<
     "menu" | "home" | "build" | "sea" | "leaderboard"
   >("menu");
@@ -160,7 +171,23 @@ function MainAppContent() {
 
         {/* Interactive Modals */}
         {activeModal === "upgrades" && <UpgradesModal onClose={closeModal} />}
-        {activeModal === "shop" && <ShopModal onClose={closeModal} />}
+        {(activeModal === "shop" || isShopModalOpen) && (
+          <ShopModal
+            onClose={() => {
+              closeModal();
+              closeShopModal();
+            }}
+          />
+        )}
+        {isGemsModalOpen && (
+          <GemsPurchaseModal onClose={closeGemsModal} />
+        )}
+        {isCoinsModalOpen && (
+          <CoinsExchangeModal
+            onClose={closeCoinsModal}
+            onOpenGemsModal={openGemsModal}
+          />
+        )}
         {activeModal === "server" && <ServerModal onClose={closeModal} />}
         {activeModal === "repair" && <RepairModal onClose={closeModal} />}
         {activeModal === "raids" && <RaidHistoryModal onClose={closeModal} />}
