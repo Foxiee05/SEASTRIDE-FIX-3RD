@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Player, ServerInfo, BattleResult, RaidLog, StepRecord, StepStats, DailyCoinRecord, CannonItem, ShieldItem, ServerRaidState, SeaMonsterConfig, SeaMonsterId, RaidParticipant, ServerTreasure, TreasureActivityLog, TreasureRewardType, Decoration, UserTodayLoot, SeaGameMode } from '../types';
+import { Player, ServerInfo, BattleResult, RaidLog, StepRecord, StepStats, DailyCoinRecord, CannonItem, ShieldItem, ServerRaidState, SeaMonsterConfig, SeaMonsterId, RaidParticipant, ServerTreasure, TreasureActivityLog, TreasureRewardType, Decoration, UserTodayLoot, SeaGameMode, RaidMilestoneBounty } from '../types';
 import { INITIAL_SERVERS } from '../data/mockPlayers';
-import { SEA_MONSTERS } from '../data/monsters';
+import { SEA_MONSTERS, getMonsterMilestones } from '../data/monsters';
 import { soundFx } from '../utils/audio';
 import { PIRATE_AVATARS } from '../assets';
 import { generateDailyTreasures, rollTreasureReward, getRarityMetadata } from '../utils/treasureRewards';
@@ -86,6 +86,7 @@ interface GameContextType {
   joinRaid: (serverCode?: string) => void;
   dealRaidDamage: (amount: number, isDirectAttack?: boolean) => { damageDealt: number; isCritical: boolean; bossDefeated: boolean };
   claimRaidPrize: () => { coinsWon: number; gemsWon: number; percent: number; chestName: string } | null;
+  claimMilestoneBounty: (hpThreshold: number) => { bounty: RaidMilestoneBounty; coinsWon: number; gemsWon: number; percent: number } | null;
   respawnRaidBoss: (bossId?: SeaMonsterId) => void;
 
   // Treasure Hunting Game Mode
@@ -144,32 +145,174 @@ const INITIAL_STEP_RECORDS: StepRecord[] = [
 ];
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [coins, setCoins] = useState<number>(1250);
-  const [gems, setGems] = useState<number>(20);
+  const [coins, setCoins] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_coins');
+      if (saved !== null) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val)) return val;
+      }
+    } catch (e) {}
+    return 1250;
+  });
+
+  const [gems, setGems] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_gems');
+      if (saved !== null) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val)) return val;
+      }
+    } catch (e) {}
+    return 20;
+  });
+
   const [energy, setEnergy] = useState<number>(5);
   const maxEnergy = 5;
 
   // Profile State
-  const [profile, setProfile] = useState<PlayerProfile>({
-    username: 'Captain Blackbeard',
-    aboutMe: 'Sailing the Seven Seas in search of legendary step treasures and gold!',
-    avatarUrl: PIRATE_AVATARS[0]?.url || '',
+  const [profile, setProfile] = useState<PlayerProfile>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_player_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.username) return parsed;
+      }
+    } catch (e) {}
+    return {
+      username: 'Captain Blackbeard',
+      aboutMe: 'Sailing the Seven Seas in search of legendary step treasures and gold!',
+      avatarUrl: PIRATE_AVATARS[0]?.url || '',
+    };
   });
 
   const updateProfile = (newProfile: Partial<PlayerProfile>) => {
-    setProfile(prev => ({ ...prev, ...newProfile }));
+    setProfile(prev => {
+      const updated = { ...prev, ...newProfile };
+      try {
+        localStorage.setItem('pirate_player_profile', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     soundFx.playUpgrade();
   };
 
   // Player Ship Specs
-  const [shipLevel, setShipLevel] = useState<number>(1);
-  const [shipCondition, setShipCondition] = useState<number>(95);
+  const [shipLevel, setShipLevel] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_ship_level');
+      if (saved !== null) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val)) return val;
+      }
+    } catch (e) {}
+    return 1;
+  });
+
+  const [shipCondition, setShipCondition] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_ship_condition');
+      if (saved !== null) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val)) return val;
+      }
+    } catch (e) {}
+    return 95;
+  });
   
-  // Equipment
-  const [ownedCannons, setOwnedCannons] = useState<CannonItem[]>([{ id: 'c_1', level: 1 }]);
-  const [equippedCannons, setEquippedCannons] = useState<string[]>(['c_1']);
-  const [ownedShields, setOwnedShields] = useState<ShieldItem[]>([]);
-  const [equippedShield, setEquippedShield] = useState<string | null>(null);
+  // Equipment & Inventory
+  const [ownedCannons, setOwnedCannons] = useState<CannonItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_owned_cannons');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [{ id: 'c_1', level: 1 }];
+  });
+
+  const [equippedCannons, setEquippedCannons] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_equipped_cannons');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return ['c_1'];
+  });
+
+  const [ownedShields, setOwnedShields] = useState<ShieldItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_owned_shields');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  const [equippedShield, setEquippedShield] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_equipped_shield');
+      if (saved) return saved;
+    } catch (e) {}
+    return null;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_coins', coins.toString());
+    } catch (e) {}
+  }, [coins]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_gems', gems.toString());
+    } catch (e) {}
+  }, [gems]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_ship_level', shipLevel.toString());
+    } catch (e) {}
+  }, [shipLevel]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_ship_condition', shipCondition.toString());
+    } catch (e) {}
+  }, [shipCondition]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_owned_cannons', JSON.stringify(ownedCannons));
+    } catch (e) {}
+  }, [ownedCannons]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_equipped_cannons', JSON.stringify(equippedCannons));
+    } catch (e) {}
+  }, [equippedCannons]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_owned_shields', JSON.stringify(ownedShields));
+    } catch (e) {}
+  }, [ownedShields]);
+
+  useEffect(() => {
+    try {
+      if (equippedShield) {
+        localStorage.setItem('pirate_equipped_shield', equippedShield);
+      } else {
+        localStorage.removeItem('pirate_equipped_shield');
+      }
+    } catch (e) {}
+  }, [equippedShield]);
 
   // Computed values for backward compatibility
   const cannonCount = equippedCannons.length;
@@ -348,6 +491,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const serverState = prev[code] || currentRaidState;
       if (serverState.hasJoined) return prev;
 
+      const currentHpPercent = Math.max(0, Math.min(100, (serverState.currentHp / serverState.maxHp) * 100));
+
       const hasUser = serverState.participants.some(p => p.isUser || p.id === 'user_player');
       const updatedParticipants = hasUser
         ? serverState.participants.map(p => (p.isUser || p.id === 'user_player') ? { ...p, name: profile.username, avatarUrl: profile.avatarUrl, shipLevel } : p)
@@ -369,6 +514,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         [code]: {
           ...serverState,
           hasJoined: true,
+          joinedHpPercent: Math.round(currentHpPercent * 10) / 10,
+          joinedAtHp: serverState.currentHp,
           participants: updatedParticipants,
         }
       };
@@ -463,18 +610,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
 
+    const joinedHpPercent = currentRaidState.joinedHpPercent !== undefined ? currentRaidState.joinedHpPercent : 100;
+    if (joinedHpPercent <= 0) {
+      alert('You cannot claim the victory bounty because this Sea Monster was already defeated before you joined.');
+      return null;
+    }
+
     const userParticipant = currentRaidState.participants.find(p => p.isUser || p.id === 'user_player');
     const userDamage = userParticipant ? userParticipant.damage : 0;
     const totalDamage = currentRaidState.participants.reduce((sum, p) => sum + p.damage, 0);
 
     if (userDamage <= 0 || totalDamage <= 0) {
-      alert('You have not contributed any damage to this Sea Monster yet. Walk or strike to earn your share!');
       return null;
     }
 
-    const pct = (userDamage / totalDamage);
-    const coinsWon = Math.max(100, Math.round(currentMonster.totalPrizeCoins * pct));
-    const gemsWon = Math.max(5, Math.round(currentMonster.totalPrizeGems * pct));
+    const pct = userDamage / totalDamage;
+    if (pct <= 0) return null;
+
+    const coinsWon = Math.max(1, Math.round(currentMonster.totalPrizeCoins * pct));
+    const gemsWon = Math.round(currentMonster.totalPrizeGems * pct);
 
     setCoins(c => c + coinsWon);
     setGems(g => g + gemsWon);
@@ -512,6 +666,84 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       gemsWon,
       percent: Math.round(pct * 1000) / 10,
       chestName: currentMonster.chestName,
+    };
+  };
+
+  // Claim Milestone Bounty based on damage share %
+  const claimMilestoneBounty = (hpThreshold: number): { bounty: RaidMilestoneBounty; coinsWon: number; gemsWon: number; percent: number } | null => {
+    const serverState = raidStates[currentServer.code] || currentRaidState;
+    const claimed = serverState.claimedMilestones || [];
+    if (claimed.includes(hpThreshold)) {
+      alert('You have already claimed this milestone reward!');
+      return null;
+    }
+
+    const joinedHpPercent = serverState.joinedHpPercent !== undefined ? serverState.joinedHpPercent : 100;
+    if (hpThreshold >= joinedHpPercent) {
+      alert('You cannot claim this milestone because it was reached before you joined this raid battle. You can only contribute towards and claim upcoming milestones!');
+      return null;
+    }
+
+    const hpPercent = (serverState.currentHp / serverState.maxHp) * 100;
+    if (hpPercent > hpThreshold) {
+      alert(`This milestone is locked! The server must bring the boss down to ${hpThreshold}% HP.`);
+      return null;
+    }
+
+    const userParticipant = serverState.participants.find(p => p.isUser || p.id === 'user_player');
+    const userDamage = userParticipant ? userParticipant.damage : 0;
+    const totalDamage = serverState.participants.reduce((sum, p) => sum + p.damage, 0);
+
+    if (userDamage <= 0 || totalDamage <= 0) {
+      return null;
+    }
+
+    const milestones = getMonsterMilestones(currentMonster);
+    const targetBounty = milestones.find(m => m.hpThresholdPercent === hpThreshold);
+    if (!targetBounty) return null;
+
+    const pct = totalDamage > 0 ? (userDamage / totalDamage) : 0;
+    if (pct <= 0) return null;
+
+    const coinsWon = Math.max(1, Math.round(targetBounty.coins * pct));
+    const gemsWon = Math.round(targetBounty.gems * pct);
+
+    setCoins(c => c + coinsWon);
+    setGems(g => g + gemsWon);
+
+    setRaidStates(prev => {
+      const sState = prev[currentServer.code] || currentRaidState;
+      const prevClaimed = sState.claimedMilestones || [];
+      return {
+        ...prev,
+        [currentServer.code]: {
+          ...sState,
+          claimedMilestones: [...prevClaimed, hpThreshold],
+        }
+      };
+    });
+
+    soundFx.playPrizeFanfare();
+
+    setRaidLogs(prev => [
+      {
+        id: `milestone_${hpThreshold}_${Date.now()}`,
+        timestamp: 'Just now',
+        type: 'attack',
+        opponentName: currentMonster.shortName,
+        outcome: 'victory',
+        coinsChange: coinsWon,
+        damage: 0,
+        cannonLostOrWon: `Claimed ${(pct * 100).toFixed(1)}% Share of ${hpThreshold}% HP Reward: +${coinsWon.toLocaleString()} Coins & +${gemsWon} Gems!`,
+      },
+      ...prev,
+    ]);
+
+    return {
+      bounty: targetBounty,
+      coinsWon,
+      gemsWon,
+      percent: Math.round(pct * 1000) / 10,
     };
   };
 
@@ -1165,7 +1397,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const c = ownedCannons.find(x => x.id === id);
       return sum + (c ? 2500 + (c.level - 1) * 2500 : 0);
     }, 0);
-    const actualDamage = Math.round(baseDamage * (shipCondition / 100));
+    const rawDamage = Math.round(baseDamage * (shipCondition / 100));
+
+    // Shield damage reduction logic:
+    // Each level of enemy shield reduces incoming bomb damage by 15% (Lv.1: 15%, Lv.2: 30%, Lv.3: 45%, capped at 75%)
+    const enemyShieldLevel = target.shieldLevel || 0;
+    const shieldReductionPercent = enemyShieldLevel > 0 ? Math.min(75, enemyShieldLevel * 15) : 0;
+    const shieldReducedDamage = Math.round(rawDamage * (shieldReductionPercent / 100));
+    const actualDamage = Math.max(1, rawDamage - shieldReducedDamage);
+    const shieldBlocked = shieldReductionPercent > 0;
 
     // Target HP logic
     const enemyRemainingHp = Math.max(0, target.currentHp - actualDamage);
@@ -1192,19 +1432,43 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Cannon Looting logic: if enemy ship HP drops below 30%, chance to loot their cannon
     let cannonLooted = false;
-    let lootedCannonLevel = target.cannonLevel;
+    let lootedCannonLevel = target.cannonLevel || 1;
     if (enemyHpPercent < 30 && target.cannonCount > 0) {
       const lootChance = Math.random();
       if (lootChance <= 0.6) {
         cannonLooted = true;
-        const newId = `c_${Date.now()}`;
-        setOwnedCannons(prev => [...prev, { id: newId, level: 1 }]);
-        setEquippedCannons(prev => prev.length < 6 ? [...prev, newId] : prev);
+        const newId = `c_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        setOwnedCannons(prev => [...prev, { id: newId, level: lootedCannonLevel }]);
       }
     }
 
     setCoins(c => c + coinsEarned);
     if (gemsEarned > 0) setGems(g => g + gemsEarned);
+
+    // Update target player in current server and server list
+    const updatedTargetPlayer: Player = {
+      ...target,
+      currentHp: enemyRemainingHp,
+      shipCondition: enemyHpPercent,
+      cannonCount: cannonLooted ? Math.max(0, target.cannonCount - 1) : target.cannonCount,
+    };
+
+    setServers(prevServers =>
+      prevServers.map(srv => {
+        if (srv.code === currentServer.code) {
+          return {
+            ...srv,
+            players: srv.players.map(p => (p.id === target.id ? updatedTargetPlayer : p)),
+          };
+        }
+        return srv;
+      })
+    );
+
+    setCurrentServer(prev => ({
+      ...prev,
+      players: prev.players.map(p => (p.id === target.id ? updatedTargetPlayer : p)),
+    }));
 
     // Log the raid
     const newLog: RaidLog = {
@@ -1220,14 +1484,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRaidLogs(prev => [newLog, ...prev]);
 
     return {
-      targetPlayer: target,
+      targetPlayer: updatedTargetPlayer,
       damageDealt: actualDamage,
+      rawDamage,
+      shieldReducedDamage,
+      shieldReductionPercent,
       enemyRemainingHpPercent: enemyHpPercent,
       coinsEarned,
       gemsEarned,
       cannonLooted,
       lootedCannonLevel,
-      shieldBlocked: false,
+      shieldBlocked,
     };
   };
 
@@ -1472,6 +1739,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         joinRaid,
         dealRaidDamage,
         claimRaidPrize,
+        claimMilestoneBounty,
         respawnRaidBoss,
         serverTreasures,
         treasureLogs,

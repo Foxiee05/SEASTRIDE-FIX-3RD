@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { ASSETS } from '../assets';
+import { getMonsterMilestones } from '../data/monsters';
+import { RaidMilestoneBounty } from '../types';
 import { soundFx } from '../utils/audio';
 import { useCutoutImage } from '../utils/imageUtils';
 
@@ -44,11 +46,17 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
     currentMonster, 
     joinRaid,
     claimRaidPrize, 
+    claimMilestoneBounty,
   } = useGame();
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showBountiesModal, setShowBountiesModal] = useState(false);
+  const [showYourDamageModal, setShowYourDamageModal] = useState(false);
+  const [showDamageShareModal, setShowDamageShareModal] = useState(false);
   const [floatingDamages] = useState<FloatingDamage[]>([]);
   const [claimResult, setClaimResult] = useState<{ coinsWon: number; gemsWon: number; percent: number; chestName: string } | null>(null);
+  const [milestoneClaimResult, setMilestoneClaimResult] = useState<{ bounty: RaidMilestoneBounty; coinsWon: number; gemsWon: number; percent: number } | null>(null);
+  const [selectedMilestonePreview, setSelectedMilestonePreview] = useState<RaidMilestoneBounty | null>(null);
   const [timeRemaining, setTimeRemaining] = useState('18h 42m 15s');
 
   // Daily timer countdown simulator
@@ -74,6 +82,49 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
   const userDamagePercent = totalDamageDealt > 0 ? ((userDamage / totalDamageDealt) * 100) : 0;
 
   const hpPercent = Math.max(0, Math.min(100, (currentRaidState.currentHp / currentRaidState.maxHp) * 100));
+  const joinedHpPercent = currentRaidState.joinedHpPercent !== undefined ? currentRaidState.joinedHpPercent : 100;
+
+  // All 6 Bounties (5 Milestone Bounties + 1 Final Bounty)
+  const allBounties = getMonsterMilestones(currentMonster);
+  const claimedMilestones = currentRaidState.claimedMilestones || [];
+
+  const availableToClaimCount = allBounties.filter(b => {
+    const isPassedBeforeJoin = joinedHpPercent !== undefined && b.hpThresholdPercent >= joinedHpPercent;
+    if (isPassedBeforeJoin) return false;
+
+    if (b.isFinal) {
+      return currentRaidState.isDefeated && !currentRaidState.dailyPrizeClaimed && userDamage > 0;
+    }
+    return hpPercent <= b.hpThresholdPercent && !claimedMilestones.includes(b.hpThresholdPercent) && userDamage > 0;
+  }).length;
+
+  // Calculate user's damage share % and reward amounts
+  const userShareRatio = totalDamageDealt > 0 ? (userDamage / totalDamageDealt) : 0;
+  const userSharePercent = Math.round(userShareRatio * 1000) / 10;
+
+  const getBountyRewardShare = (bounty: RaidMilestoneBounty) => {
+    const isPassedBeforeJoin = joinedHpPercent !== undefined && bounty.hpThresholdPercent >= joinedHpPercent;
+    if (isPassedBeforeJoin || userDamage <= 0 || userShareRatio <= 0) {
+      return {
+        coins: 0,
+        gems: 0,
+        percent: 0,
+        poolCoins: bounty.coins,
+        poolGems: bounty.gems,
+        hasDamage: false,
+        isPassedBeforeJoin,
+      };
+    }
+    return {
+      coins: Math.max(1, Math.round(bounty.coins * userShareRatio)),
+      gems: Math.round(bounty.gems * userShareRatio),
+      percent: userSharePercent,
+      poolCoins: bounty.coins,
+      poolGems: bounty.gems,
+      hasDamage: true,
+      isPassedBeforeJoin: false,
+    };
+  };
 
   const handleClaim = () => {
     const res = claimRaidPrize();
@@ -82,9 +133,24 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
     }
   };
 
+  const handleClaimMilestone = (threshold: number) => {
+    const res = claimMilestoneBounty(threshold);
+    if (res) {
+      setMilestoneClaimResult(res);
+    }
+  };
+
   // Sorted participants by damage
   const sortedParticipants = [...currentRaidState.participants].sort((a, b) => b.damage - a.damage);
   const userRankIndex = sortedParticipants.findIndex(p => p.isUser || p.id === 'user_player') + 1;
+
+  // Nearest upcoming milestone (first threshold strictly below current HP)
+  const upcomingMilestones = allBounties.filter(b => hpPercent > b.hpThresholdPercent);
+  const nearestUpcomingMilestone = upcomingMilestones.length > 0
+    ? upcomingMilestones.reduce((prev, curr) => curr.hpThresholdPercent > prev.hpThresholdPercent ? curr : prev)
+    : (allBounties.find(b => b.isFinal) || allBounties[allBounties.length - 1]);
+  const nearestMilestoneReward = nearestUpcomingMilestone ? getBountyRewardShare(nearestUpcomingMilestone) : null;
+  const isNearestPassedBeforeJoin = nearestUpcomingMilestone && joinedHpPercent !== undefined && nearestUpcomingMilestone.hpThresholdPercent >= joinedHpPercent;
 
   const rawMonsterImg = ASSETS.monsters[currentMonster.id] || ASSETS.monsters.kraken;
   const monsterImg = useCutoutImage(rawMonsterImg, { mode: 'edge', keepInternalGreenAsBlack: false });
@@ -104,44 +170,21 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(180,83,9,0.15)_0%,transparent_70%)] pointer-events-none" />
         <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
 
-        {/* Top Header Bar */}
-        <div className="relative z-20 flex items-center justify-between pb-2 border-b border-[#8b5a2b]/40 flex-shrink-0 w-full min-w-0">
-          <button
-            onClick={() => {
-              soundFx.playClick();
-              onBackToMenu?.();
-            }}
-            className="px-3 py-1 bg-[#2b1d19] hover:bg-[#3d291f] border border-[#8b5a2b] rounded-xl text-xs font-bold text-[#fde68a] shadow active:scale-95 transition-all flex items-center gap-1 flex-shrink-0"
-          >
-            <ArrowLeft size={13} /> Back
-          </button>
-
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#1a2938]/90 border border-[#38bdf8]/50 rounded-full min-w-0 max-w-[150px] sm:max-w-none shadow">
-            <Globe size={12} className="text-sky-400 flex-shrink-0" />
-            <span className="text-[10px] font-black uppercase text-sky-100 tracking-wider truncate">
-              {currentServer.name}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1 px-3 py-1 bg-[#2b1d19]/90 border border-amber-400/50 rounded-full text-[10px] font-bold text-amber-300 flex-shrink-0 shadow">
-            <Clock size={11} className="text-amber-400 flex-shrink-0" />
-            <span>{timeRemaining}</span>
-          </div>
-        </div>
-
         {/* Main Encounter Card */}
         <div className="relative z-10 flex flex-col items-center justify-start py-2 text-center max-w-sm mx-auto w-full gap-3 min-w-0 flex-shrink-0 pb-6">
           
           {/* 1. Question / Joining Rule Contract Box & Action Options */}
           <div className="w-full bg-gradient-to-b from-[#2b1d19] via-[#211613] to-[#170e0c] border-2 border-[#b45309] rounded-2xl p-3.5 shadow-2xl text-left min-w-0">
-            <div className="flex items-center gap-2 font-black text-xs sm:text-sm text-[#facc15] font-serif uppercase tracking-wider mb-1.5">
-              <Swords size={16} className="text-[#facc15] flex-shrink-0" /> 
-              <span className="truncate">Join Fleet Raid Battle?</span>
+            <div className="flex flex-col items-center justify-center text-center w-full gap-1.5 mb-2">
+              <div className="flex items-center justify-center gap-2 font-black text-xs sm:text-sm text-[#facc15] font-serif uppercase tracking-wider">
+                <Swords size={16} className="text-[#facc15] flex-shrink-0" /> 
+                <span className="truncate">Join Fleet Raid Battle?</span>
+              </div>
+              <div className="flex items-center gap-1 px-3 py-0.5 bg-[#120a08]/90 border border-amber-400/50 rounded-full text-[10px] font-bold text-amber-300 shadow">
+                <Clock size={10} className="text-amber-400 flex-shrink-0" />
+                <span>{timeRemaining} until monster leaves</span>
+              </div>
             </div>
-            
-            <p className="text-[11px] sm:text-xs text-amber-100/90 leading-relaxed font-sans">
-              Will you join the server armada to conquer <span className="text-[#fde68a] font-bold font-serif">{currentMonster.name}</span>?
-            </p>
             
             <div className="mt-2 p-2 bg-[#120a08]/80 border border-[#8b5a2b]/50 rounded-xl flex items-center gap-2 text-[10px] sm:text-[11px] text-amber-200">
               <Footprints size={15} className="text-emerald-400 flex-shrink-0 animate-bounce" />
@@ -188,20 +231,6 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
 
           {/* 3. Target Boss Information Showcase */}
           <div className="w-full bg-[#1c130e]/90 border-2 border-[#b45309]/80 rounded-2xl p-3 flex flex-col items-center shadow-xl min-w-0">
-            {/* 5-Star Raid Banner */}
-            <div className="flex items-center gap-1 bg-[#2b1d19] px-3 py-1 rounded-full border border-yellow-500/50 shadow mb-1.5 flex-shrink-0">
-              <div className="flex text-yellow-400">
-                <Star size={11} className="fill-yellow-400" />
-                <Star size={11} className="fill-yellow-400" />
-                <Star size={11} className="fill-yellow-400" />
-                <Star size={11} className="fill-yellow-400" />
-                <Star size={11} className="fill-yellow-400" />
-              </div>
-              <span className="text-[9px] sm:text-[10px] font-black text-yellow-300 uppercase tracking-widest ml-1 font-serif">
-                TIER 5 RAID TARGET
-              </span>
-            </div>
-
             {/* Floating Boss Stage with Transparent Cutout Image */}
             <div className="relative my-1 w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center max-w-full overflow-visible">
               {/* Perspective Pedestal */}
@@ -216,12 +245,10 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               />
             </div>
 
-            {/* Monster Name & Subtitle */}
-            <h2 className="text-sm sm:text-base font-black text-amber-200 uppercase tracking-wider flex items-center justify-center gap-1.5 mt-1 truncate max-w-full font-serif">
-              <Sparkles size={14} className="text-amber-400 flex-shrink-0" />
+            {/* Monster Name */}
+            <h2 className="text-sm sm:text-base font-black text-amber-200 uppercase tracking-wider flex items-center justify-center gap-1.5 mt-1 mb-2 truncate max-w-full font-serif">
               <span className="truncate">{currentMonster.name}</span>
             </h2>
-            <p className="text-[9px] sm:text-[10px] text-amber-300/70 italic mb-2 truncate max-w-full">"{currentMonster.subtitle}"</p>
             
             <div className="flex flex-wrap items-center justify-center gap-2 w-full">
               <span className="px-2.5 py-0.5 bg-rose-950/80 border border-rose-500/60 rounded-md text-[9px] font-bold text-rose-300 font-mono">
@@ -252,120 +279,144 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
       <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
 
       {/* Top Header Navigation Bar */}
-      <div className="relative z-30 px-3 py-1.5 flex items-center justify-between bg-[#1c120c]/90 backdrop-blur-md border-b border-[#8b5a2b]/40 flex-shrink-0">
-        <div className="flex items-center gap-1.5">
-          {!embeddedMode && onBackToMenu && (
-            <button
-              id="raid-back-btn"
-              onClick={() => {
-                soundFx.playClick();
-                onBackToMenu();
-              }}
-              className="px-2.5 py-1 bg-[#2b1d19] hover:bg-[#3d291f] border border-[#8b5a2b] rounded-lg text-[10px] font-bold text-[#fde68a] shadow active:scale-95 transition-all flex items-center gap-1"
-            >
-              <ArrowLeft size={11} /> Back
-            </button>
-          )}
-
-          <div className="flex items-center gap-1 px-2.5 py-0.5 bg-[#1a2938]/90 border border-[#38bdf8]/50 rounded-full shadow">
-            <Globe size={10} className="text-sky-400" />
-            <span className="text-[9px] font-black uppercase text-sky-100 tracking-wider truncate max-w-[100px]">
-              {currentServer.name}
-            </span>
-          </div>
+      {openServerModal && (
+        <div className="relative z-30 px-3 py-1.5 flex items-center justify-end bg-[#1c120c]/90 backdrop-blur-md border-b border-[#8b5a2b]/40 flex-shrink-0">
+          <button
+            id="switch-server-btn"
+            onClick={() => {
+              soundFx.playClick();
+              openServerModal();
+            }}
+            className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 border border-sky-400 text-white rounded text-[9px] font-bold active:scale-95 transition-all flex items-center gap-1"
+          >
+            <Globe size={10} /> Switch Server
+          </button>
         </div>
-
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 px-2.5 py-0.5 bg-[#2b1d19]/90 border border-amber-400/50 rounded-full text-[9px] font-bold text-amber-300 shadow">
-            <Clock size={10} className="text-amber-400" />
-            <span>{timeRemaining}</span>
-          </div>
-
-          {openServerModal && (
-            <button
-              id="switch-server-btn"
-              onClick={() => {
-                soundFx.playClick();
-                openServerModal();
-              }}
-              className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 border border-sky-400 text-white rounded text-[9px] font-bold active:scale-95 transition-all"
-            >
-              Switch
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* MAIN RAID STAGE */}
       <div className="flex-1 flex flex-col justify-between overflow-hidden relative z-10 px-2.5 sm:px-3 pt-1.5 pb-2 min-w-0">
         
-        {/* Dramatic Eye-Catching Title */}
-        <div className="w-full flex items-center justify-center gap-2 mb-1 px-1 flex-shrink-0 min-w-0">
-          <div className="h-[1.5px] flex-1 min-w-[8px] bg-gradient-to-r from-transparent via-amber-400 to-amber-600" />
-          <div className="py-0.5 px-2.5 bg-[#2b1d19]/90 rounded-lg border border-amber-400/50 shadow">
-            <span className="text-xs sm:text-sm font-black uppercase tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 font-serif block truncate">
-              ⚔️ FROM THE ABYSS, THERE RISES... ⚔️
-            </span>
-          </div>
-          <div className="h-[1.5px] flex-1 min-w-[8px] bg-gradient-to-l from-transparent via-amber-400 to-amber-600" />
-        </div>
-
         {/* 1. TOP FLOATING BOSS HUD */}
         <div className="w-full bg-gradient-to-b from-[#2b1d19] via-[#211613] to-[#170e0c] border-2 border-[#b45309] rounded-xl p-2 shadow-lg backdrop-blur-md relative overflow-hidden flex-shrink-0">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
 
-          <div className="flex items-center justify-between mb-1">
-            {/* 5-Star Raid Badge */}
-            <div className="flex items-center gap-0.5 bg-[#170e0c] px-2 py-0.5 rounded-full border border-yellow-500/40">
-              <div className="flex text-yellow-400">
-                <Star size={9} className="fill-yellow-400" />
-                <Star size={9} className="fill-yellow-400" />
-                <Star size={9} className="fill-yellow-400" />
-                <Star size={9} className="fill-yellow-400" />
-                <Star size={9} className="fill-yellow-400" />
-              </div>
-              <span className="text-[8px] font-black text-yellow-300 uppercase tracking-widest ml-1 font-serif">
-                TIER 5 RAID
-              </span>
-            </div>
-
-            <span className="text-[9px] font-bold text-amber-300/80 italic font-serif">
-              {currentMonster.subtitle}
-            </span>
-          </div>
-
           {/* Boss Name */}
           <div className="flex items-center justify-between gap-1.5">
-            <h1 className="text-xs sm:text-sm font-black text-[#fde68a] uppercase tracking-wider drop-shadow-md flex items-center gap-1 truncate font-serif">
-              <Sparkles size={12} className="text-amber-400 flex-shrink-0" />
+            <h1 className="text-sm sm:text-base font-black text-[#fde68a] uppercase tracking-wider drop-shadow-md flex items-center gap-1 truncate font-serif">
               <span className="truncate">{currentMonster.name}</span>
             </h1>
           </div>
 
-          {/* Boss HP Gauge */}
-          <div className="mt-1 flex flex-col gap-0.5">
-            <div className="flex justify-between items-center text-[9px] sm:text-[10px] font-black leading-none">
-              <span className="text-rose-400 flex items-center gap-0.5">
-                <Flame size={10} className="text-rose-500" /> Boss HP
+          {/* Boss HP Gauge with 5 Milestone Bounties + Final Bounty */}
+          <div className="mt-1 flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-[11px] sm:text-xs font-black leading-none">
+              <span className="text-rose-400 flex items-center gap-1">
+                <Flame size={13} className="text-rose-500" /> Boss HP
               </span>
-              <span className="text-amber-100 font-mono tracking-tight">
-                {currentRaidState.currentHp.toLocaleString()} / {currentRaidState.maxHp.toLocaleString()} <span className="text-yellow-400">({hpPercent.toFixed(1)}%)</span>
-              </span>
+              <div className="flex items-center gap-2">
+                {availableToClaimCount > 0 && (
+                  <button
+                    onClick={() => {
+                      soundFx.playClick();
+                      setShowBountiesModal(true);
+                    }}
+                    className="px-2 py-0.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-stone-950 font-black text-[9px] uppercase rounded-full animate-bounce shadow-md flex items-center gap-1"
+                  >
+                    <Gift size={11} /> {availableToClaimCount} REWARD READY!
+                  </button>
+                )}
+                <span className="text-amber-100 font-mono tracking-tight font-bold">
+                  {currentRaidState.currentHp.toLocaleString()} / {currentRaidState.maxHp.toLocaleString()} <span className="text-yellow-400 font-black">({hpPercent.toFixed(1)}%)</span>
+                </span>
+              </div>
             </div>
 
-            <div className="w-full h-2.5 bg-[#120a08] rounded-full border border-[#8b5a2b] overflow-hidden relative shadow-inner">
-              <motion.div
-                className={`h-full rounded-full ${
-                  hpPercent <= 25
-                    ? 'bg-gradient-to-r from-rose-600 via-red-500 to-rose-400 animate-pulse'
-                    : hpPercent <= 60
-                    ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300'
-                    : 'bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-300'
-                }`}
-                initial={{ width: '100%' }}
-                animate={{ width: `${hpPercent}%` }}
-                transition={{ duration: 0.35, ease: 'easeOut' }}
-              />
+            {/* Interactive HP Bar with Pinned Bounties */}
+            <div className="relative pt-3 pb-6 px-3 select-none">
+              {/* Background Bar Track */}
+              <div className="w-full h-5 sm:h-6 bg-[#120a08] rounded-full border-2 border-[#8b5a2b] overflow-hidden relative shadow-inner">
+                <motion.div
+                  className={`h-full rounded-full ${
+                    hpPercent <= 25
+                      ? 'bg-gradient-to-r from-rose-600 via-red-500 to-rose-400 animate-pulse'
+                      : hpPercent <= 60
+                      ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300'
+                      : 'bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-300'
+                  }`}
+                  initial={{ width: '100%' }}
+                  animate={{ width: `${hpPercent}%` }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                />
+              </div>
+
+              {/* 5 Milestone Bounties + Final Bounty Pins along the HP Bar */}
+              <div className="absolute inset-0 flex items-center pointer-events-none px-3">
+                <div className="relative w-full h-full flex items-center">
+                  {allBounties.map((bounty) => {
+                    const isPassedBeforeJoin = joinedHpPercent !== undefined && bounty.hpThresholdPercent >= joinedHpPercent;
+                    const isReached = hpPercent <= bounty.hpThresholdPercent;
+                    const isClaimed = bounty.isFinal 
+                      ? currentRaidState.dailyPrizeClaimed 
+                      : claimedMilestones.includes(bounty.hpThresholdPercent);
+                    const isReady = isReached && !isClaimed && userDamage > 0 && !isPassedBeforeJoin;
+                    const posPercent = bounty.hpThresholdPercent; // 80, 60, 40, 20, 10, 0
+
+                    return (
+                      <div
+                        key={bounty.id}
+                        style={{ left: `${posPercent}%` }}
+                        className="absolute -translate-x-1/2 flex flex-col items-center pointer-events-auto cursor-pointer z-10 p-1 -m-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          soundFx.playClick();
+                          setSelectedMilestonePreview(bounty);
+                        }}
+                      >
+                        {/* Marker Pin Icon with touch area */}
+                        <div
+                          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center text-sm sm:text-base shadow-xl transition-transform active:scale-90 ${
+                            isClaimed
+                              ? 'bg-emerald-950 border-emerald-400 text-emerald-300 ring-1 ring-emerald-500/50'
+                              : isReady
+                              ? 'bg-gradient-to-b from-amber-400 via-yellow-300 to-amber-600 border-yellow-200 text-stone-950 ring-2 ring-yellow-400 animate-bounce scale-110 shadow-[0_0_16px_rgba(245,158,11,0.95)]'
+                              : isPassedBeforeJoin
+                              ? 'bg-stone-950/90 border-stone-800 text-stone-600 opacity-60'
+                              : isReached
+                              ? 'bg-[#2b1d19] border-amber-400 text-amber-200 shadow-md'
+                              : 'bg-[#170e0c]/95 border-stone-600 text-stone-400 opacity-85 active:opacity-100'
+                          }`}
+                        >
+                          {isClaimed ? (
+                            <CheckCircle2 size={16} className="text-emerald-300" />
+                          ) : isPassedBeforeJoin ? (
+                            <Lock size={14} className="text-stone-600" />
+                          ) : (
+                            <span className="leading-none">{bounty.icon}</span>
+                          )}
+                        </div>
+
+                        {/* Threshold Tag underneath pin */}
+                        <span
+                          className={`text-[8px] sm:text-[9px] font-black font-mono px-1.5 py-0.5 rounded mt-1 tracking-tight whitespace-nowrap leading-none shadow-md ${
+                            isClaimed
+                              ? 'text-emerald-400 bg-emerald-950/95 border border-emerald-500/50'
+                              : isReady
+                              ? 'text-stone-950 bg-yellow-400 font-bold uppercase animate-pulse font-serif border border-yellow-200'
+                              : isPassedBeforeJoin
+                              ? 'text-stone-500 bg-stone-950/95 border border-stone-800'
+                              : isReached
+                              ? 'text-amber-300 bg-black/90 border border-amber-500/50'
+                              : 'text-stone-400 bg-black/80 border border-stone-700'
+                          }`}
+                        >
+                          {isReady ? 'CLAIM!' : isPassedBeforeJoin ? 'MISSED' : bounty.isFinal ? 'FINAL' : `${bounty.hpThresholdPercent}%`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -447,13 +498,19 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 Your server fleet conquered {currentMonster.shortName}! The sealed mystery bounty is unlocked.
               </p>
               {!currentRaidState.dailyPrizeClaimed ? (
-                <button
-                  id="claim-revealed-bounty-btn"
-                  onClick={handleClaim}
-                  className="mt-2 px-4 py-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-stone-950 font-black text-[10px] sm:text-xs uppercase tracking-wider rounded-xl shadow border border-yellow-200 active:scale-95 transition-all flex items-center gap-1.5 animate-pulse font-serif"
-                >
-                  <Gift size={13} /> Unseal Mystery Bounty
-                </button>
+                userDamage > 0 ? (
+                  <button
+                    id="claim-revealed-bounty-btn"
+                    onClick={handleClaim}
+                    className="mt-2 px-4 py-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-stone-950 font-black text-[10px] sm:text-xs uppercase tracking-wider rounded-xl shadow border border-yellow-200 active:scale-95 transition-all flex items-center gap-1.5 animate-pulse font-serif cursor-pointer"
+                  >
+                    <Gift size={13} /> Unseal Mystery Bounty ({userDamagePercent.toFixed(1)}% Share)
+                  </button>
+                ) : (
+                  <div className="mt-2 px-3 py-1.5 bg-stone-900/90 border border-stone-700 rounded-xl text-stone-400 text-[10px] font-bold">
+                    0% Damage Share • You did not participate in this battle
+                  </div>
+                )
               ) : (
                 <div className="mt-1.5 px-2.5 py-0.5 bg-emerald-950/90 border border-emerald-500 rounded-lg text-emerald-300 text-[10px] font-bold flex items-center gap-1">
                   <CheckCircle2 size={11} /> Bounty Rewards Claimed
@@ -462,16 +519,19 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
             </motion.div>
           )}
 
-          {/* Active Captains Badge */}
+          {/* Monster Leaves Countdown Badge (Left) */}
+          <div className="absolute top-0 left-1 z-20 flex items-center gap-1 px-2.5 py-0.5 bg-[#2b1d19]/90 backdrop-blur-md rounded-full border border-amber-400/50 text-[9px] font-bold text-amber-300 shadow">
+            <Clock size={10} className="text-amber-400 flex-shrink-0" />
+            <span>{timeRemaining} until monster leaves</span>
+          </div>
+
+          {/* Active Captains Badge (Right) */}
           <div className="absolute top-0 right-1 z-20 flex items-center gap-1 px-2.5 py-0.5 bg-[#2b1d19]/90 backdrop-blur-md rounded-full border border-[#8b5a2b] text-[9px] font-bold text-amber-200 shadow">
             <Users size={10} className="text-sky-400" />
             <span>{currentRaidState.participants.length} In Battle</span>
           </div>
 
-          {/* Step Rule Badge */}
-          <div className="absolute bottom-0 left-1 z-20 px-2.5 py-0.5 bg-[#2b1d19]/90 backdrop-blur-md rounded-lg border border-[#8b5a2b] text-[8px] sm:text-[9px] font-bold text-amber-300 flex items-center gap-1 shadow">
-            <Footprints size={10} className="text-emerald-400 animate-bounce" /> 1 Walk Step = 1 HP Damage
-          </div>
+
         </div>
 
         {/* 3. BOTTOM HUD SECTION */}
@@ -480,10 +540,15 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
           {/* THE 3 HERO STAT CARDS */}
           <div className="grid grid-cols-3 gap-1.5 w-full">
             
-            {/* 1. YOUR DEALT DAMAGE */}
-            <div 
+            {/* 1. YOUR DEALT DAMAGE (TAP TO VIEW DETAILS) */}
+            <button 
+              type="button"
               id="stat-your-damage"
-              className="bg-gradient-to-b from-[#3d1808] via-[#2c1206] to-[#1e0a03] border-2 border-amber-500 rounded-xl p-1.5 flex flex-col items-center justify-between shadow-md relative overflow-hidden group min-w-0"
+              onClick={() => {
+                soundFx.playClick();
+                setShowYourDamageModal(true);
+              }}
+              className="bg-gradient-to-b from-[#3d1808] via-[#2c1206] to-[#1e0a03] hover:from-[#4d200b] hover:to-[#280e04] border-2 border-amber-500 hover:border-amber-400 rounded-xl p-1.5 flex flex-col items-center justify-center shadow-md relative overflow-hidden group min-w-0 cursor-pointer active:scale-95 transition-all"
             >
               <div className="flex items-center gap-0.5 mb-0.5">
                 <Footprints size={10} className="text-amber-300 flex-shrink-0" />
@@ -495,16 +560,17 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               <div className="text-xs sm:text-sm font-black font-mono text-white drop-shadow tracking-tight my-0.5 text-center leading-none truncate w-full">
                 {userDamage.toLocaleString()} <span className="text-[8px] sm:text-[9px] text-amber-300 font-serif">HP</span>
               </div>
+            </button>
 
-              <span className="text-[7px] sm:text-[8px] text-amber-300/90 font-bold truncate">
-                {userDamage > 0 ? `${userDamage.toLocaleString()} Steps` : 'Walk to strike'}
-              </span>
-            </div>
-
-            {/* 2. DAMAGE SHARE */}
-            <div 
+            {/* 2. DAMAGE SHARE (TAP TO VIEW UPCOMING MILESTONE REWARD) */}
+            <button 
+              type="button"
               id="stat-damage-share"
-              className="bg-gradient-to-b from-[#064e3b] via-[#047857] to-[#022c22] border-2 border-emerald-400 rounded-xl p-1.5 flex flex-col items-center justify-between shadow-md relative overflow-hidden group min-w-0"
+              onClick={() => {
+                soundFx.playClick();
+                setShowDamageShareModal(true);
+              }}
+              className="bg-gradient-to-b from-[#064e3b] via-[#047857] to-[#022c22] hover:from-[#065f46] hover:to-[#03362a] border-2 border-emerald-400 hover:border-emerald-300 rounded-xl p-1.5 flex flex-col items-center justify-between shadow-md relative overflow-hidden group min-w-0 cursor-pointer active:scale-95 transition-all"
             >
               <div className="flex items-center gap-0.5 mb-0.5">
                 <Flame size={10} className="text-emerald-300 flex-shrink-0" />
@@ -523,15 +589,20 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                   style={{ width: `${Math.min(100, userDamagePercent)}%` }}
                 />
               </div>
-            </div>
+            </button>
 
-            {/* 3. SERVER RANK */}
-            <div 
+            {/* 3. SERVER RANK (TAP TO VIEW RANKINGS) */}
+            <button 
+              type="button"
               id="stat-server-rank"
-              className="bg-gradient-to-b from-[#5c2a07] via-[#451e04] to-[#2e1302] border-2 border-yellow-400 rounded-xl p-1.5 flex flex-col items-center justify-between shadow-md relative overflow-hidden group min-w-0"
+              onClick={() => {
+                soundFx.playClick();
+                setShowLeaderboard(true);
+              }}
+              className="bg-gradient-to-b from-[#5c2a07] via-[#451e04] to-[#2e1302] hover:from-[#6e3309] hover:to-[#381703] border-2 border-yellow-400 hover:border-yellow-300 rounded-xl p-1.5 flex flex-col items-center justify-center shadow-md relative overflow-hidden group min-w-0 cursor-pointer active:scale-95 transition-all text-left"
             >
               <div className="flex items-center gap-0.5 mb-0.5">
-                <Crown size={10} className="text-yellow-300 flex-shrink-0" />
+                <Trophy size={10} className="text-yellow-300 flex-shrink-0" />
                 <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-yellow-200 truncate font-serif">
                   SERVER RANK
                 </span>
@@ -540,65 +611,6 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               <div className="text-xs sm:text-sm font-black font-mono text-yellow-300 drop-shadow tracking-tight my-0.5 text-center leading-none truncate w-full">
                 #{userRankIndex > 0 ? userRankIndex : '-'}
               </div>
-
-              <span className="text-[7px] sm:text-[8px] text-yellow-200/90 font-bold truncate">
-                {userRankIndex === 1 ? '🥇 1st Striker' : userRankIndex === 2 ? '🥈 2nd Striker' : userRankIndex === 3 ? '🥉 3rd Striker' : userRankIndex > 0 ? `Rank #${userRankIndex}` : 'Take Steps'}
-              </span>
-            </div>
-
-          </div>
-
-          {/* LOWER ACTION STRIP: SEALED BOUNTY + RANKINGS BUTTON */}
-          <div className="flex gap-1.5 items-center w-full min-w-0">
-            
-            {/* Sealed Mystery Bounty Card */}
-            <div className="flex-1 bg-gradient-to-r from-[#2b1d19] via-[#211613] to-[#170e0c] border border-[#8b5a2b] rounded-xl px-2.5 py-1.5 flex items-center justify-between shadow min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-5 h-5 rounded-md bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-[10px] flex-shrink-0">
-                  🎁
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[9px] font-black text-amber-200 uppercase tracking-wider flex items-center gap-0.5 truncate font-serif">
-                    SEALED BOUNTY <Lock size={8} className="text-amber-400 flex-shrink-0" />
-                  </div>
-                  <div className="text-[7px] text-amber-300/70 leading-tight truncate">
-                    Unlocks at defeat
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-shrink-0 ml-1">
-                {currentRaidState.isDefeated && !currentRaidState.dailyPrizeClaimed ? (
-                  <button
-                    onClick={handleClaim}
-                    className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-stone-950 font-black text-[8px] uppercase tracking-wider rounded shadow active:scale-95 transition-all animate-pulse font-serif"
-                  >
-                    Unseal
-                  </button>
-                ) : currentRaidState.dailyPrizeClaimed ? (
-                  <span className="px-1.5 py-0.5 bg-emerald-950 border border-emerald-500/60 rounded text-[7px] font-bold text-emerald-300">
-                    Claimed
-                  </span>
-                ) : (
-                  <span className="px-1.5 py-0.5 bg-[#170e0c] border border-[#8b5a2b] rounded text-[7px] font-black text-amber-300 uppercase">
-                    Locked
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* RANKINGS BUTTON */}
-            <button
-              id="open-raid-rankings-btn"
-              onClick={() => {
-                soundFx.playClick();
-                setShowLeaderboard(true);
-              }}
-              className="px-3 py-1.5 bg-[#2b1d19] hover:bg-[#3d291f] border-2 border-amber-500/80 rounded-xl text-[#fde68a] active:scale-95 transition-all flex items-center gap-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-md flex-shrink-0 font-serif"
-            >
-              <Trophy size={13} className="text-amber-400 flex-shrink-0" />
-              <span>Rankings</span>
-              <ChevronRight size={12} className="text-amber-400 flex-shrink-0" />
             </button>
 
           </div>
@@ -746,25 +758,438 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 );
               })}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            {/* Bottom Dismiss Button */}
-            <div className="pt-2 border-t border-[#8b5a2b]/30 flex-shrink-0 mt-1">
+      {/* 1. ALL 6 BOUNTIES (5 MILESTONES + FINAL) OVERVIEW MODAL */}
+      <AnimatePresence>
+        {showBountiesModal && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            data-no-swipe="true"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            className="absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 no-swipe"
+          >
+            <div className="w-full max-w-sm max-h-[90vh] bg-gradient-to-b from-[#2b1d19] via-[#211613] to-[#120a08] border-2 border-amber-500/80 rounded-2xl p-3.5 shadow-2xl flex flex-col relative overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-2 border-b border-[#8b5a2b]/40">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-400/50 flex items-center justify-center">
+                    <Crown size={16} className="text-yellow-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-[#fde68a] uppercase tracking-wider font-serif">
+                      Raid Milestone Rewards
+                    </h3>
+                    <p className="text-[9px] text-amber-200/70">
+                      5 Stage Milestones + Final Victory Reward
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    soundFx.playClick();
+                    setShowBountiesModal(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-stone-800 text-stone-300 hover:text-white flex items-center justify-center border border-stone-600"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+
+              {/* Boss Current Health & User Share Indicator */}
+              <div className="bg-[#170e0c] border border-amber-500/30 rounded-xl p-2 my-2 flex flex-col gap-1">
+                <div className="flex items-center justify-between text-[9px]">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-200">
+                    <Flame size={12} className="text-rose-400" />
+                    <span>Boss HP:</span>
+                    <span className="text-amber-100 font-mono font-black">{hpPercent.toFixed(1)}%</span>
+                  </div>
+                  <div className="text-stone-300 font-mono text-[9px]">
+                    Your Dmg: <span className="text-emerald-400 font-bold">{userDamage.toLocaleString()} HP</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-[9px] pt-1 border-t border-white/5">
+                  <span className="text-amber-200/80 font-bold">Your Reward Share:</span>
+                  <span className="font-mono font-black text-yellow-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40">
+                    {userDamage > 0 ? `${userDamagePercent.toFixed(1)}% of Pools` : '0% (Deal damage to earn share)'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bounties List */}
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar max-h-[50vh]">
+                {allBounties.map((bounty, idx) => {
+                  const isPassedBeforeJoin = joinedHpPercent !== undefined && bounty.hpThresholdPercent >= joinedHpPercent;
+                  const isReached = hpPercent <= bounty.hpThresholdPercent;
+                  const isClaimed = bounty.isFinal 
+                    ? currentRaidState.dailyPrizeClaimed 
+                    : claimedMilestones.includes(bounty.hpThresholdPercent);
+                  const isReady = isReached && !isClaimed && userDamage > 0 && !isPassedBeforeJoin;
+                  const rewardShare = getBountyRewardShare(bounty);
+
+                  return (
+                    <div
+                      key={bounty.id}
+                      className={`p-2.5 rounded-xl border transition-all ${
+                        isClaimed
+                          ? 'bg-emerald-950/40 border-emerald-500/40 opacity-80'
+                          : isReady
+                          ? 'bg-gradient-to-r from-amber-950/70 via-[#2f1f13] to-amber-950/70 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                          : isPassedBeforeJoin
+                          ? 'bg-[#120a08]/80 border-stone-800/80 opacity-60'
+                          : isReached
+                          ? 'bg-[#1a120e] border-amber-500/30'
+                          : 'bg-[#150d0b] border-stone-800 opacity-75'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base border flex-shrink-0 ${
+                            isClaimed
+                              ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                              : isReady
+                              ? 'bg-amber-500/30 border-amber-400 text-yellow-300 animate-pulse'
+                              : isPassedBeforeJoin
+                              ? 'bg-stone-900 border-stone-800 text-stone-600'
+                              : 'bg-stone-900 border-stone-700 text-stone-400'
+                          }`}>
+                            {isClaimed ? <CheckCircle2 size={18} className="text-emerald-400" /> : isPassedBeforeJoin ? <Lock size={16} className="text-stone-600" /> : bounty.icon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-black text-amber-100 font-serif">
+                                {bounty.isFinal ? '🏆 FINAL VICTORY' : `MILESTONE #${idx + 1}`}
+                              </span>
+                              <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                                isPassedBeforeJoin
+                                  ? 'bg-stone-900 text-stone-500 border border-stone-800'
+                                  : isReached 
+                                  ? 'bg-amber-500/20 text-amber-300' 
+                                  : 'bg-stone-800 text-stone-400'
+                              }`}>
+                                {bounty.isFinal ? '0% HP' : `${bounty.hpThresholdPercent}% HP`}
+                              </span>
+                            </div>
+                            <div className="text-[8px] text-stone-400 leading-tight mt-0.5">
+                              {isPassedBeforeJoin ? (
+                                <span className="text-stone-500 font-medium">Reached before you joined (at {joinedHpPercent.toFixed(0)}% HP)</span>
+                              ) : bounty.isFinal ? (
+                                'Boss is defeated (0% HP)'
+                              ) : (
+                                `Boss HP drops to ${bounty.hpThresholdPercent}%`
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Claim / Status Action Button */}
+                        <div className="flex flex-col items-end flex-shrink-0">
+                          {isClaimed ? (
+                            <span className="px-2 py-1 bg-emerald-950 border border-emerald-500/60 rounded-lg text-[8px] font-bold text-emerald-300 flex items-center gap-1">
+                              <CheckCircle2 size={10} /> Claimed
+                            </span>
+                          ) : isReady ? (
+                            <button
+                              onClick={() => {
+                                if (bounty.isFinal) {
+                                  setShowBountiesModal(false);
+                                  handleClaim();
+                                } else {
+                                  handleClaimMilestone(bounty.hpThresholdPercent);
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-stone-950 font-black text-[9px] uppercase tracking-wider rounded-lg shadow-md active:scale-95 transition-all animate-bounce font-serif flex items-center gap-1"
+                            >
+                              <Gift size={10} /> Claim!
+                            </button>
+                          ) : isPassedBeforeJoin ? (
+                            <span className="px-2 py-0.5 bg-stone-900 border border-stone-800 text-[8px] font-bold text-stone-500 rounded flex items-center gap-1">
+                              <Lock size={8} /> Missed
+                            </span>
+                          ) : isReached && userDamage <= 0 ? (
+                            <span className="px-1.5 py-0.5 bg-rose-950/60 border border-rose-600/40 text-[7px] font-bold text-rose-300 rounded text-center">
+                              Deal Dmg First
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-stone-900 border border-stone-700 text-[8px] font-bold text-stone-400 rounded flex items-center gap-1">
+                              <Lock size={9} /> Locked
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* What User Will Get based on damage share % */}
+                      <div className="mt-2 pt-1.5 border-t border-white/5 flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-[8px] text-stone-400">
+                          <span className={`${isPassedBeforeJoin ? 'text-stone-500' : 'text-amber-200/90'} font-bold`}>
+                            {isPassedBeforeJoin 
+                              ? 'Your Share: 0% (Reached before joining)' 
+                              : `Your Share (${rewardShare.hasDamage ? `${rewardShare.percent}%` : '0%'}):`}
+                          </span>
+                          <span className="text-stone-500">
+                            Pool: {bounty.coins.toLocaleString()} 🪙 • {bounty.gems} 💎
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div className={`bg-[#120a08]/80 border ${isPassedBeforeJoin ? 'border-stone-800 text-stone-600' : 'border-amber-500/30'} rounded-lg px-2 py-1 flex items-center justify-between`}>
+                            <div className="flex items-center gap-1">
+                              <span className={`text-xs ${isPassedBeforeJoin ? 'grayscale opacity-40' : ''}`}>🪙</span>
+                              <span className="text-[7px] uppercase font-bold text-stone-400">Coins</span>
+                            </div>
+                            <span className={`text-[10px] font-mono font-black ${isPassedBeforeJoin ? 'text-stone-600' : 'text-amber-300'}`}>
+                              +{rewardShare.coins.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className={`bg-[#120a08]/80 border ${isPassedBeforeJoin ? 'border-stone-800 text-stone-600' : 'border-cyan-500/30'} rounded-lg px-2 py-1 flex items-center justify-between`}>
+                            <div className="flex items-center gap-1">
+                              <span className={`text-xs ${isPassedBeforeJoin ? 'grayscale opacity-40' : ''}`}>💎</span>
+                              <span className="text-[7px] uppercase font-bold text-stone-400">Gems</span>
+                            </div>
+                            <span className={`text-[10px] font-mono font-black ${isPassedBeforeJoin ? 'text-stone-600' : 'text-cyan-300'}`}>
+                              +{rewardShare.gems.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Close Button */}
+              <div className="pt-2 border-t border-[#8b5a2b]/30 mt-2">
+                <button
+                  onClick={() => {
+                    soundFx.playClick();
+                    setShowBountiesModal(false);
+                  }}
+                  className="w-full py-2 bg-[#2b1d19] hover:bg-[#382620] border border-amber-500/50 text-amber-200 font-black text-[11px] uppercase tracking-wider rounded-xl transition-all font-serif"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. MILESTONE CELEBRATORY CLAIM DIALOG */}
+      <AnimatePresence>
+        {milestoneClaimResult && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            data-no-swipe="true"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            className="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 no-swipe"
+          >
+            <div className="w-full max-w-xs bg-gradient-to-b from-[#2b1d19] via-[#211613] to-[#120a08] border-2 border-amber-400 rounded-2xl p-4 shadow-[0_0_40px_rgba(245,158,11,0.5)] flex flex-col items-center text-center relative">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center mb-1.5 shadow-inner">
+                <span className="text-2xl animate-bounce">{milestoneClaimResult.bounty.icon}</span>
+              </div>
+              
+              <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">
+                REWARD CLAIMED!
+              </h3>
+              
+              <p className="text-[10px] text-amber-100/90 font-bold mt-0.5">
+                {milestoneClaimResult.bounty.hpThresholdPercent}% Boss HP Milestone Reached
+              </p>
+
+              <div className="mt-1 px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded-full text-[9px] font-bold text-yellow-300">
+                Earned {milestoneClaimResult.percent}% Share of Pool
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 w-full my-3">
+                <div className="bg-[#120a08] border border-yellow-500/40 rounded-xl p-2 flex flex-col items-center">
+                  <span className="text-lg mb-0.5">🪙</span>
+                  <span className="text-[8px] uppercase font-bold text-amber-200/60">Gold Coins</span>
+                  <span className="text-xs font-black text-amber-300 font-mono">
+                    +{milestoneClaimResult.coinsWon.toLocaleString()}
+                  </span>
+                </div>
+                <div className="bg-[#120a08] border border-cyan-500/40 rounded-xl p-2 flex flex-col items-center">
+                  <span className="text-lg mb-0.5">💎</span>
+                  <span className="text-[8px] uppercase font-bold text-cyan-200/60">Gems</span>
+                  <span className="text-xs font-black text-cyan-300 font-mono">
+                    +{milestoneClaimResult.gemsWon.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
               <button
-                id="return-to-battle-btn"
-                onClick={() => {
-                  soundFx.playClick();
-                  setShowLeaderboard(false);
-                }}
-                className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl shadow active:scale-95 transition-all flex items-center justify-center gap-1.5 font-serif"
+                onClick={() => setMilestoneClaimResult(null)}
+                className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg border border-yellow-200 active:scale-95 transition-all font-serif"
               >
-                <Swords size={13} /> Return To Battle
+                Collect Rewards
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* SEALED BOUNTY UNLOCKED DIALOG */}
+      {/* 3. MOBILE-OPTIMIZED MILESTONE REWARD CARD (TAP ON PIN) */}
+      <AnimatePresence>
+        {selectedMilestonePreview && (() => {
+          const previewShare = getBountyRewardShare(selectedMilestonePreview);
+          const isPassedBeforeJoin = joinedHpPercent !== undefined && selectedMilestonePreview.hpThresholdPercent >= joinedHpPercent;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 30 }}
+              data-no-swipe="true"
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+              className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4 no-swipe"
+            >
+              <div className="w-full max-w-xs bg-gradient-to-b from-[#2b1d19] via-[#211613] to-[#120a08] border-2 border-amber-500/90 rounded-2xl p-4 shadow-[0_0_30px_rgba(0,0,0,0.8)] flex flex-col items-center text-center relative">
+                
+                {/* Close Button top right */}
+                <button
+                  onClick={() => setSelectedMilestonePreview(null)}
+                  className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-stone-800 text-stone-300 hover:text-white flex items-center justify-center border border-stone-600"
+                >
+                  <X size={13} />
+                </button>
+
+                <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center mb-1 text-2xl shadow-inner ${
+                  isPassedBeforeJoin 
+                    ? 'bg-stone-900 border-stone-800 text-stone-600' 
+                    : 'bg-amber-500/20 border-amber-400/60'
+                }`}>
+                  {isPassedBeforeJoin ? <Lock size={20} className="text-stone-500" /> : selectedMilestonePreview.icon}
+                </div>
+
+                <h4 className="text-xs font-black text-amber-200 uppercase tracking-wider font-serif mt-1">
+                  {selectedMilestonePreview.isFinal ? '🏆 Final Victory Reward' : `🎯 ${selectedMilestonePreview.hpThresholdPercent}% Boss HP Milestone`}
+                </h4>
+
+                <p className="text-[9px] text-amber-100/70 mt-0.5 mb-2">
+                  {isPassedBeforeJoin ? (
+                    <span className="text-stone-400 font-medium">Reached before you joined this battle (at {joinedHpPercent.toFixed(0)}% HP)</span>
+                  ) : selectedMilestonePreview.isFinal ? (
+                    'Shared proportional to total damage dealt'
+                  ) : (
+                    `Unlocked when Boss HP drops to ${selectedMilestonePreview.hpThresholdPercent}%`
+                  )}
+                </p>
+
+                {/* User Share Info */}
+                <div className="w-full bg-[#170e0c] border border-amber-500/30 rounded-xl px-2.5 py-1.5 mb-2 flex items-center justify-between text-[9px]">
+                  <span className="text-amber-200/80 font-bold">Your Damage Share:</span>
+                  <span className="font-mono font-black text-yellow-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40">
+                    {isPassedBeforeJoin 
+                      ? '0% (Reached before joining)' 
+                      : previewShare.hasDamage 
+                      ? `${previewShare.percent}% of Pool` 
+                      : '0% (No damage dealt)'}
+                  </span>
+                </div>
+
+                {/* What user will get based on damage share % */}
+                <div className="grid grid-cols-2 gap-2 w-full my-1">
+                  <div className={`bg-[#120a08] border ${isPassedBeforeJoin ? 'border-stone-800 text-stone-600' : 'border-amber-500/40'} rounded-xl p-2 flex flex-col items-center`}>
+                    <span className={`text-base mb-0.5 ${isPassedBeforeJoin ? 'grayscale opacity-40' : ''}`}>🪙</span>
+                    <span className="text-[8px] uppercase font-bold text-stone-400">Your Coins</span>
+                    <span className={`text-xs font-mono font-black ${isPassedBeforeJoin ? 'text-stone-600' : 'text-amber-300'}`}>
+                      +{previewShare.coins.toLocaleString()}
+                    </span>
+                    <span className="text-[7px] text-stone-500 mt-0.5">
+                      Pool: {selectedMilestonePreview.coins.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className={`bg-[#120a08] border ${isPassedBeforeJoin ? 'border-stone-800 text-stone-600' : 'border-cyan-500/40'} rounded-xl p-2 flex flex-col items-center`}>
+                    <span className={`text-base mb-0.5 ${isPassedBeforeJoin ? 'grayscale opacity-40' : ''}`}>💎</span>
+                    <span className="text-[8px] uppercase font-bold text-stone-400">Your Gems</span>
+                    <span className={`text-xs font-mono font-black ${isPassedBeforeJoin ? 'text-stone-600' : 'text-cyan-300'}`}>
+                      +{previewShare.gems}
+                    </span>
+                    <span className="text-[7px] text-stone-500 mt-0.5">
+                      Pool: {selectedMilestonePreview.gems}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status Note */}
+                <div className="text-[9px] text-stone-300 my-2">
+                  {isPassedBeforeJoin ? (
+                    <span className="text-stone-400 font-medium">
+                      ⚠️ Reached by the armada before you joined (at {joinedHpPercent.toFixed(0)}% HP). Deal damage to claim upcoming milestones!
+                    </span>
+                  ) : hpPercent <= selectedMilestonePreview.hpThresholdPercent ? (
+                    (selectedMilestonePreview.isFinal ? currentRaidState.dailyPrizeClaimed : claimedMilestones.includes(selectedMilestonePreview.hpThresholdPercent)) ? (
+                      <span className="text-emerald-400 font-bold flex items-center justify-center gap-1">
+                        <CheckCircle2 size={12} /> Reward already claimed!
+                      </span>
+                    ) : userDamage > 0 ? (
+                      <span className="text-yellow-300 font-bold animate-pulse">
+                        ✨ Milestone reached! Ready to collect your {previewShare.percent}% share.
+                      </span>
+                    ) : (
+                      <span className="text-rose-400 font-bold">
+                        Deal at least 1 HP damage in battle to claim!
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-stone-400">
+                      Boss HP: <strong className="text-amber-200">{hpPercent.toFixed(1)}%</strong> (Need <strong className="text-yellow-300">{selectedMilestonePreview.hpThresholdPercent}%</strong>)
+                    </span>
+                  )}
+                </div>
+
+                {/* Action Button */}
+                <div className="w-full mt-1">
+                  {(() => {
+                    const isReached = hpPercent <= selectedMilestonePreview.hpThresholdPercent;
+                    const isClaimed = selectedMilestonePreview.isFinal 
+                      ? currentRaidState.dailyPrizeClaimed 
+                      : claimedMilestones.includes(selectedMilestonePreview.hpThresholdPercent);
+                    const isClaimable = isReached && !isClaimed && userDamage > 0 && !isPassedBeforeJoin;
+
+                    if (isClaimable) {
+                      return (
+                        <button
+                          onClick={() => {
+                            const bounty = selectedMilestonePreview;
+                            setSelectedMilestonePreview(null);
+                            if (bounty.isFinal) {
+                              handleClaim();
+                            } else {
+                              handleClaimMilestone(bounty.hpThresholdPercent);
+                            }
+                          }}
+                          className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl font-serif shadow-lg active:scale-95 animate-bounce cursor-pointer flex items-center justify-center gap-1.5 border border-yellow-200"
+                        >
+                          <Gift size={14} /> Claim
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        disabled
+                        className="w-full py-2.5 bg-[#25201e] border border-stone-700/60 text-stone-500 font-black text-xs uppercase tracking-wider rounded-xl font-serif cursor-not-allowed flex items-center justify-center gap-1.5 opacity-70"
+                      >
+                        <Lock size={12} /> {isPassedBeforeJoin ? `Missed (Joined at ${joinedHpPercent.toFixed(0)}% HP)` : isClaimed ? 'Claimed' : 'Claim'}
+                      </button>
+                    );
+                  })()}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* 4. FINAL GRAND BOUNTY UNLOCKED DIALOG */}
       <AnimatePresence>
         {claimResult && (
           <motion.div
@@ -782,7 +1207,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               </div>
               
               <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">
-                MYSTERY BOUNTY UNSEALED!
+                FINAL BOSS REWARD CLAIMED!
               </h3>
               
               <p className="text-[10px] text-amber-100/80 mt-0.5">
@@ -806,17 +1231,137 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 </div>
               </div>
 
-              <div className="w-full p-2 bg-[#1a120e] border border-amber-500/50 rounded-xl flex items-center justify-center gap-1.5 mb-3">
-                <span className="text-sm">🎁</span>
-                <span className="text-[10px] font-black text-[#fde68a] font-serif">{claimResult.chestName}</span>
-              </div>
-
               <button
                 onClick={() => setClaimResult(null)}
                 className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg border border-yellow-200 active:scale-95 transition-all font-serif"
               >
-                Collect Bounty
+                Collect Final Reward
               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 5. YOUR DAMAGE MODAL (1 WALK STEP = 1 HP) */}
+      <AnimatePresence>
+        {showYourDamageModal && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            data-no-swipe="true"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            className="absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 no-swipe"
+          >
+            <div className="w-full max-w-xs bg-gradient-to-b from-[#2b1d19] via-[#211613] to-[#120a08] border-2 border-amber-500 rounded-2xl p-4 shadow-[0_0_35px_rgba(245,158,11,0.4)] flex flex-col items-center text-center relative">
+              <button
+                onClick={() => setShowYourDamageModal(false)}
+                className="absolute top-3 right-3 w-6 h-6 rounded-full bg-black/60 border border-amber-500/40 text-stone-400 hover:text-white flex items-center justify-center text-xs"
+              >
+                <X size={13} />
+              </button>
+
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center mb-2 shadow-inner">
+                <Footprints size={24} className="text-amber-300" />
+              </div>
+
+              <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">
+                YOUR RAID DAMAGE
+              </h3>
+
+              <div className="my-2.5 w-full bg-[#120a08]/90 border border-amber-500/40 rounded-xl p-2.5 flex flex-col items-center justify-center">
+                <div className="text-xl sm:text-2xl font-black font-mono text-white tracking-tight leading-none">
+                  {userDamage.toLocaleString()} <span className="text-amber-400 text-sm font-serif font-black">HP</span>
+                </div>
+              </div>
+
+              {/* Core Mechanics Badge */}
+              <div className="w-full bg-gradient-to-r from-amber-950/80 via-[#331c0e] to-amber-950/80 border border-amber-400/60 rounded-xl px-3 py-2.5 mt-1.5 flex items-center justify-center">
+                <div className="text-[11px] font-black text-yellow-300 uppercase tracking-wide flex items-center gap-1.5 font-serif">
+                  <Footprints size={13} className="text-emerald-400" /> 1 Walk Step = 1 HP
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 6. DAMAGE SHARE MODAL (UPCOMING MILESTONE REWARDS) */}
+      <AnimatePresence>
+        {showDamageShareModal && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            data-no-swipe="true"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            className="absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 no-swipe"
+          >
+            <div className="w-full max-w-xs bg-gradient-to-b from-[#063a2f] via-[#0b2922] to-[#041713] border-2 border-emerald-400 rounded-2xl p-4 shadow-[0_0_35px_rgba(16,185,129,0.4)] flex flex-col items-center text-center relative">
+              <button
+                onClick={() => setShowDamageShareModal(false)}
+                className="absolute top-3 right-3 w-6 h-6 rounded-full bg-black/60 border border-emerald-500/40 text-stone-400 hover:text-white flex items-center justify-center text-xs"
+              >
+                <X size={13} />
+              </button>
+
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center mb-2 shadow-inner">
+                <Flame size={24} className="text-emerald-300" />
+              </div>
+
+              <h3 className="text-xs sm:text-sm font-black text-emerald-200 uppercase tracking-widest font-serif">
+                YOUR DAMAGE SHARE
+              </h3>
+
+              <div className="my-2 w-full bg-[#021c17]/90 border border-emerald-500/40 rounded-xl p-2 flex flex-col items-center gap-0.5">
+                <div className="text-xl sm:text-2xl font-black font-mono text-emerald-300 tracking-tight leading-none">
+                  {userDamagePercent.toFixed(1)}%
+                </div>
+                <div className="text-[9px] text-stone-300">
+                  {userDamage.toLocaleString()} HP of {totalDamageDealt.toLocaleString()} HP Total
+                </div>
+              </div>
+
+              {/* Nearest Upcoming Milestone Section */}
+              {nearestUpcomingMilestone && (
+                <div className="w-full bg-[#02211b]/90 border border-emerald-400/50 rounded-xl p-2.5 my-1 flex flex-col items-center text-left">
+                  <div className="w-full flex items-center justify-between pb-1 border-b border-emerald-500/30 text-[9px] font-bold">
+                    <span className="text-emerald-200 uppercase flex items-center gap-1 font-serif">
+                      <span>{nearestUpcomingMilestone.icon}</span>
+                      <span>{nearestUpcomingMilestone.isFinal ? 'Final Victory' : `Milestone (${nearestUpcomingMilestone.hpThresholdPercent}% HP)`}</span>
+                    </span>
+                    <span className="text-yellow-400 font-mono">
+                      {nearestUpcomingMilestone.isFinal ? '0% HP' : `${nearestUpcomingMilestone.hpThresholdPercent}% HP`}
+                    </span>
+                  </div>
+
+                  {/* Coins & Gems Grid */}
+                  <div className="grid grid-cols-2 gap-1.5 w-full mt-1.5">
+                    <div className="bg-[#021310] border border-amber-500/40 rounded-lg p-1.5 flex flex-col items-center">
+                      <span className="text-sm">🪙</span>
+                      <span className="text-[7px] uppercase font-bold text-amber-200/70">Coins</span>
+                      <span className="text-xs font-mono font-black text-amber-300">
+                        +{nearestMilestoneReward?.coins.toLocaleString() || 0}
+                      </span>
+                    </div>
+                    <div className="bg-[#021310] border border-cyan-500/40 rounded-lg p-1.5 flex flex-col items-center">
+                      <span className="text-sm">💎</span>
+                      <span className="text-[7px] uppercase font-bold text-cyan-200/70">Gems</span>
+                      <span className="text-xs font-mono font-black text-cyan-300">
+                        +{nearestMilestoneReward?.gems.toLocaleString() || 0}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isNearestPassedBeforeJoin && (
+                    <div className="text-[8px] text-stone-400 mt-1.5 text-center w-full">
+                      ⚠️ Reached before you joined (Joined at {joinedHpPercent.toFixed(0)}% HP).
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

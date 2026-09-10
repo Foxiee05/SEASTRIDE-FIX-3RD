@@ -1,4 +1,4 @@
-import { SeaMonsterConfig, SeaMonsterId } from '../types';
+import { SeaMonsterConfig, SeaMonsterId, RaidMilestoneBounty } from '../types';
 import { ASSETS } from '../assets';
 
 export const SEA_MONSTERS: Record<SeaMonsterId, SeaMonsterConfig> = {
@@ -9,7 +9,7 @@ export const SEA_MONSTERS: Record<SeaMonsterId, SeaMonsterConfig> = {
     subtitle: 'Tidal colossus',
     maxHp: 200000,
     totalPrizeCoins: 50000,
-    totalPrizeGems: 250,
+    totalPrizeGems: 125,
     chestName: 'Ancient Megalodon Skull Chest',
     element: 'Tidal Fury',
     lore: 'A colossal apex predator from the primordial oceans, clad in razor bone armor and magma fissures.',
@@ -28,7 +28,7 @@ export const SEA_MONSTERS: Record<SeaMonsterId, SeaMonsterConfig> = {
     subtitle: 'Voices of the depth',
     maxHp: 300000,
     totalPrizeCoins: 80000,
-    totalPrizeGems: 400,
+    totalPrizeGems: 200,
     chestName: 'Sirens Pearlescent Reliquary',
     element: 'Abyssal Melody',
     lore: 'An enchanting empress of the deep ocean whose hypnotic songs summon whirlpools to drown careless fleets.',
@@ -47,7 +47,7 @@ export const SEA_MONSTERS: Record<SeaMonsterId, SeaMonsterConfig> = {
     subtitle: 'Abyssal monster',
     maxHp: 400000,
     totalPrizeCoins: 120000,
-    totalPrizeGems: 600,
+    totalPrizeGems: 300,
     chestName: 'Abyssal Hydra Fang Coffer',
     element: 'Draconic Maelstrom',
     lore: 'A monstrous six-headed abyssal hydra that devours entire flagships in a single snap of its jaws.',
@@ -66,7 +66,7 @@ export const SEA_MONSTERS: Record<SeaMonsterId, SeaMonsterConfig> = {
     subtitle: 'Leviathan’s Wrath',
     maxHp: 500000,
     totalPrizeCoins: 180000,
-    totalPrizeGems: 1000,
+    totalPrizeGems: 500,
     chestName: 'Crowned Leviathan Vault',
     element: 'Eldritch Void',
     lore: 'The legendary sovereign of the deepest trenches, whose crowned tentacles crush armada hulls to splinters.',
@@ -82,4 +82,69 @@ export const SEA_MONSTERS: Record<SeaMonsterId, SeaMonsterConfig> = {
 
 export function getMonsterImage(id: SeaMonsterId): string {
   return ASSETS.monsters[id] || ASSETS.monsters.kraken;
+}
+
+export function getMonsterMilestones(monster: SeaMonsterConfig): RaidMilestoneBounty[] {
+  return [
+    {
+      id: `${monster.id}_m1_80`,
+      hpThresholdPercent: 80,
+      name: '80% HP Reward',
+      coins: Math.round(monster.totalPrizeCoins * 0.08),
+      gems: Math.max(3, Math.round(monster.totalPrizeGems * 0.08)),
+      icon: '🪙',
+      description: 'Reward unlocked when Boss HP drops to 80%',
+      isFinal: false,
+    },
+    {
+      id: `${monster.id}_m2_60`,
+      hpThresholdPercent: 60,
+      name: '60% HP Reward',
+      coins: Math.round(monster.totalPrizeCoins * 0.12),
+      gems: Math.max(5, Math.round(monster.totalPrizeGems * 0.12)),
+      icon: '📦',
+      description: 'Reward unlocked when Boss HP drops to 60%',
+      isFinal: false,
+    },
+    {
+      id: `${monster.id}_m3_40`,
+      hpThresholdPercent: 40,
+      name: '40% HP Reward',
+      coins: Math.round(monster.totalPrizeCoins * 0.16),
+      gems: Math.max(8, Math.round(monster.totalPrizeGems * 0.16)),
+      icon: '💎',
+      description: 'Reward unlocked when Boss HP drops to 40%',
+      isFinal: false,
+    },
+    {
+      id: `${monster.id}_m4_20`,
+      hpThresholdPercent: 20,
+      name: '20% HP Reward',
+      coins: Math.round(monster.totalPrizeCoins * 0.22),
+      gems: Math.max(12, Math.round(monster.totalPrizeGems * 0.20)),
+      icon: '⚡',
+      description: 'Reward unlocked when Boss HP drops to 20%',
+      isFinal: false,
+    },
+    {
+      id: `${monster.id}_m5_10`,
+      hpThresholdPercent: 10,
+      name: '10% HP Reward',
+      coins: Math.round(monster.totalPrizeCoins * 0.28),
+      gems: Math.max(18, Math.round(monster.totalPrizeGems * 0.24)),
+      icon: '🔥',
+      description: 'Reward unlocked when Boss HP drops to 10%',
+      isFinal: false,
+    },
+    {
+      id: `${monster.id}_final_0`,
+      hpThresholdPercent: 0,
+      name: 'Final Victory Reward',
+      coins: monster.totalPrizeCoins,
+      gems: monster.totalPrizeGems,
+      icon: '👑',
+      description: 'Reward unlocked upon total Boss defeat (0% HP)',
+      isFinal: true,
+    },
+  ];
 }

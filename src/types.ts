@@ -56,6 +56,9 @@ export interface ServerInfo {
 export interface BattleResult {
   targetPlayer: Player;
   damageDealt: number;
+  rawDamage?: number;
+  shieldReducedDamage?: number;
+  shieldReductionPercent?: number;
   enemyRemainingHpPercent: number;
   coinsEarned: number;
   gemsEarned: number;
@@ -143,6 +146,17 @@ export type SeaGameMode = "bombing" | "raid" | "treasure";
 
 export type SeaMonsterId = 'megalodon' | 'siren' | 'scylla' | 'kraken';
 
+export interface RaidMilestoneBounty {
+  id: string;
+  hpThresholdPercent: number; // e.g. 80, 60, 40, 20, 10, 0
+  name: string;
+  coins: number;
+  gems: number;
+  icon: string;
+  description: string;
+  isFinal?: boolean;
+}
+
 export interface SeaMonsterConfig {
   id: SeaMonsterId;
   name: string;
@@ -161,6 +175,7 @@ export interface SeaMonsterConfig {
     badge: string;
     glow: string;
   };
+  milestoneBounties?: RaidMilestoneBounty[];
 }
 
 export interface RaidParticipant {
@@ -181,6 +196,9 @@ export interface ServerRaidState {
   participants: RaidParticipant[];
   isDefeated: boolean;
   dailyPrizeClaimed: boolean;
+  claimedMilestones?: number[];
   expiresAt: number; // timestamp
   hasJoined?: boolean;
+  joinedHpPercent?: number;
+  joinedAtHp?: number;
 }

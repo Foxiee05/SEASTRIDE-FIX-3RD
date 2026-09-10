@@ -5,8 +5,6 @@ import {
   VolumeX,
   Shield,
   Zap,
-  Globe,
-  Lock,
   HelpCircle,
 } from "lucide-react";
 import { CurrencyDisplay } from "./CurrencyDisplay";
@@ -79,15 +77,10 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               onClick={() => openModal("server")}
-              className="flex items-center justify-center gap-1 bg-[#34aab2] border-b-[3px] border-[#1e7880] text-white rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-bold active:scale-95 transition-transform h-8 sm:h-9"
+              className="flex items-center justify-center bg-[#34aab2] border-b-[3px] border-[#1e7880] text-white rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-bold active:scale-95 transition-transform h-8 sm:h-9"
             >
-              {currentServer.type === "global" ? (
-                <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-200" />
-              ) : (
-                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-              )}
-              <span className="truncate max-w-[50px] sm:max-w-[80px]">
-                {currentServer.code}
+              <span className="truncate uppercase tracking-wider">
+                SERVER
               </span>
             </button>
             <button

@@ -81,6 +81,11 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
                   <div className="text-xl font-mono font-black text-red-400">
                     -{battleResult.damageDealt.toLocaleString()} HP
                   </div>
+                  {battleResult.shieldBlocked && (
+                    <div className="text-[10px] text-sky-400 font-bold mt-0.5">
+                      🛡️ Shield Absorbed -{battleResult.shieldReductionPercent}%
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="text-[10px] text-[#fde68a]/80 font-bold uppercase">
@@ -88,6 +93,10 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
                   </div>
                   <div className="text-xl font-mono font-black text-[#fbbf24]">
                     {battleResult.enemyRemainingHpPercent}%
+                  </div>
+                  <div className="text-[10px] text-[#fde68a]/70 font-mono">
+                    {battleResult.targetPlayer.currentHp.toLocaleString()} /{" "}
+                    {battleResult.targetPlayer.maxHp.toLocaleString()} HP
                   </div>
                 </div>
               </div>
@@ -113,11 +122,16 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
 
                 {/* Cannon Loot Drop Alert */}
                 {battleResult.cannonLooted && (
-                  <div className="bg-[#93bb44] border-b-4 border-[#658627] text-white shadow-sm border-2 border-[#064e3b] p-2.5 rounded-xl flex items-center justify-center gap-2 animate-bounce text-white">
-                    <Sparkles className="w-5 h-5 text-[#facc15]" />
-                    <span className="text-xs font-black uppercase tracking-wide">
-                      LOOTED CANNON! You stole an enemy Lv
-                      {battleResult.lootedCannonLevel} Cannon!
+                  <div className="bg-[#93bb44] border-b-4 border-[#658627] text-white shadow-sm border-2 border-[#064e3b] p-2.5 rounded-xl flex flex-col items-center justify-center gap-0.5 animate-bounce text-white">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-5 h-5 text-[#facc15]" />
+                      <span className="text-xs font-black uppercase tracking-wide">
+                        LOOTED CANNON! Stole enemy Lv.
+                        {battleResult.lootedCannonLevel} Cannon!
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-amber-100 font-sans">
+                      ✓ Added to your Armory Inventory (Equip in Upgrades)!
                     </span>
                   </div>
                 )}
@@ -230,8 +244,10 @@ const PlayerTargetItem: React.FC<{
           </div>
           <div className="text-[10px] text-[#fde68a]/80">{p.title}</div>
           <div className="text-[10px] text-[#fbbf24] font-mono">
-            Ship Lv.{p.shipLevel} • {p.currentHp.toLocaleString()} HP (
-            {p.shipCondition}%)
+            Ship Lv.{p.shipLevel} • {p.currentHp.toLocaleString()} / {p.maxHp.toLocaleString()} HP ({p.shipCondition}%)
+            {p.shieldLevel > 0 && (
+              <span className="text-sky-300 ml-1">🛡️ Lv.{p.shieldLevel}</span>
+            )}
           </div>
         </div>
       </div>

@@ -157,10 +157,6 @@ function MainAppContent() {
           </div>
         )}
 
-        {/* Theme Footer - Compact */}
-        <footer className="w-full h-6 sm:h-8 bg-black/50 backdrop-blur-sm flex items-center justify-center text-white/70 text-[9px] sm:text-[10px] tracking-widest uppercase font-bold border-t border-[#4a2c17] flex-shrink-0">
-          Voyage Phase: The Serpent Seas • SeaStride Expedition
-        </footer>
 
         {/* Interactive Modals */}
         {activeModal === "upgrades" && <UpgradesModal onClose={closeModal} />}
