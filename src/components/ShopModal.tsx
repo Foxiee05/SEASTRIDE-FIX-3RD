@@ -48,7 +48,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
           <div className="flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-sky-400" />
             <h2 className="text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-              Pirate Bazaar & Ad Haven
+              SHOP
             </h2>
           </div>
 

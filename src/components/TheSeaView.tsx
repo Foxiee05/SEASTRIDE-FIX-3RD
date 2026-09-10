@@ -77,6 +77,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
   // Direct battle state inside Sea view for immediate action feedback
   const [isFiringSalvo, setIsFiringSalvo] = useState<boolean>(false);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
+  const bombCutout = useCutoutImage(ASSETS.bombBtn);
 
   // Initialize sailing ships array
   const [ships, setShips] = useState<SailingShip[]>([]);
@@ -279,10 +280,6 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none group">
-      {/* Cartoon Wave Motion Overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(10,30,60,0.3)_100%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-sky-400/10 mix-blend-overlay animate-pulse pointer-events-none" />
-
       {/* Action Controls: Random Bomb & Ship List */}
       {!selectedShip && !isFiringSalvo && !battleResult && (
         <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 z-30 px-4 flex justify-center pointer-events-none">
@@ -325,7 +322,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
       {isFiringSalvo && (
         <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center space-y-4 animate-fade-in p-4 text-center">
           <img
-            src={ASSETS.bombBtn}
+            src={bombCutout}
             alt="Firing"
             referrerPolicy="no-referrer"
             className="w-24 h-24 object-contain animate-bounce filter drop-shadow-[0_0_20px_rgba(230,57,70,1)]"
@@ -475,12 +472,12 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               className="w-full bg-red-700 hover:bg-red-600 border-b-4 border-red-950 text-white py-2.5 rounded-xl font-black text-xs uppercase italic flex items-center justify-center gap-2 shadow-xl active:translate-y-1"
             >
               <img
-                src={ASSETS.bombBtn}
+                src={bombCutout}
                 alt="Bomb"
                 referrerPolicy="no-referrer"
                 className="w-5 h-5 object-contain animate-bounce"
               />
-              <span>💣 FIRE BOMBS AT THIS SHIP! (1 Energy)</span>
+              <span>FIRE BOMBS AT THIS SHIP! (1 Energy)</span>
             </button>
           )}
         </div>

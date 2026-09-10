@@ -6,7 +6,7 @@ import {
   getShieldImageForLevel,
 } from "../assets";
 import { useCutoutImage } from "../utils/imageUtils";
-import { X, Shield, Plus, ArrowUp } from "lucide-react";
+import { X, Shield, Plus, ArrowUp, CircleDollarSign } from "lucide-react";
 import { CurrencyDisplay } from "./CurrencyDisplay";
 
 interface UpgradesModalProps {
@@ -75,7 +75,7 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
           <div className="flex items-center gap-2">
             <Shield className="w-6 h-6 text-[#facc15]" />
             <h2 className="text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-              Armory & Ship Upgrades
+              UPGRADES
             </h2>
           </div>
 
@@ -152,10 +152,6 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
 
               {/* Upgrade Info */}
               <div className="bg-[#2b1d19] border-2 border-[#b45309] rounded-xl p-3 text-left space-y-1.5 text-xs">
-                <div className="flex justify-between font-bold text-[#fde68a]">
-                  <span>Current Level HP:</span>
-                  <span>{shipMaxHp.toLocaleString()} HP</span>
-                </div>
                 <div className="flex justify-between font-bold text-[#16a34a]">
                   <span>
                     Next Level ({shipLevel < 10 ? shipLevel + 1 : "MAX"}):
@@ -164,10 +160,6 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                     +5,000 HP (Total {(shipMaxHp + 5000).toLocaleString()} HP)
                   </span>
                 </div>
-                <p className="text-[10px] text-[#fde68a]/70 font-mono pt-1">
-                  *Permanent Purchase. Level 1→2 costs 1,000 coins (+500 per
-                  level afterwards).
-                </p>
               </div>
 
               <button
@@ -182,11 +174,14 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                 }`}
               >
                 <ArrowUp className="w-4 h-4" />
-                <span>
-                  {shipLevel >= 10
-                    ? "MAX LEVEL REACHED"
-                    : `Upgrade Ship (${shipUpgradeCost.toLocaleString()} Coins)`}
-                </span>
+                {shipLevel >= 10 ? (
+                  <span>MAX LEVEL REACHED</span>
+                ) : (
+                  <span className="flex items-center gap-1.5">
+                    Upgrade Ship ({shipUpgradeCost.toLocaleString()}{" "}
+                    <CircleDollarSign className="w-4 h-4 text-[#f0c242] inline-block" />)
+                  </span>
+                )}
               </button>
             </div>
           )}
@@ -208,7 +203,9 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                   }`}
                 >
                   <Plus className="w-3 h-3 text-[#facc15]" />
-                  <span>Buy New (100 Coins)</span>
+                  <span className="flex items-center gap-1">
+                    Buy New (100 <CircleDollarSign className="w-3 h-3 text-[#f0c242]" />)
+                  </span>
                 </button>
               </div>
 
@@ -274,7 +271,9 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                           }`}
                         >
                           <ArrowUp className="w-3 h-3" />
-                          <span>UPG 100</span>
+                          <span className="flex items-center gap-0.5">
+                            UPG 100 <CircleDollarSign className="w-2.5 h-2.5 text-[#f0c242]" />
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -306,7 +305,9 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                   }`}
                 >
                   <Plus className="w-3 h-3 text-[#facc15]" />
-                  <span>Buy Shield (100 Coins)</span>
+                  <span className="flex items-center gap-1">
+                    Buy Shield (100 <CircleDollarSign className="w-3 h-3 text-[#f0c242]" />)
+                  </span>
                 </button>
               </div>
 
@@ -371,7 +372,9 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                           }`}
                         >
                           <ArrowUp className="w-3 h-3" />
-                          <span>UPG 100</span>
+                          <span className="flex items-center gap-0.5">
+                            UPG 100 <CircleDollarSign className="w-2.5 h-2.5 text-[#f0c242]" />
+                          </span>
                         </button>
                       </div>
                     </div>

@@ -19,7 +19,7 @@ import pirateShieldLv3 from "./assets/images/shield_v2_lv3_green_1786549233279.j
 import pirateShieldLv4 from "./assets/images/shield_v2_lv4_green_1786549247559.jpg";
 import pirateShieldLv5 from "./assets/images/shield_v2_lv5_green_1786549262955.jpg";
 import pirateShieldLv6 from "./assets/images/shield_v2_lv6_green_1786549501570.jpg";
-import pirateBombBtn from "./assets/images/pirate_bomb_btn_1786362650907.jpg";
+import pirateBombBtn from "./assets/images/cartoon_bold_bomb_1789051039144.jpg";
 
 import pirateAvatarCaptain from "./assets/images/pirate_avatar_captain_1786369408051.jpg";
 import pirateAvatarParrot from "./assets/images/pirate_avatar_parrot_1786369428313.jpg";
