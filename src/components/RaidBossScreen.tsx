@@ -47,6 +47,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
     joinRaid,
     claimRaidPrize, 
     claimMilestoneBounty,
+    t,
   } = useGame();
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -178,7 +179,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
             <div className="flex flex-col items-center justify-center text-center w-full gap-1.5 mb-2">
               <div className="flex items-center justify-center gap-2 font-black text-xs sm:text-sm text-[#facc15] font-serif uppercase tracking-wider">
                 <Swords size={16} className="text-[#facc15] flex-shrink-0" /> 
-                <span className="truncate">Join Fleet Raid Battle?</span>
+                <span className="truncate">{t("join_fleet_raid")}</span>
               </div>
               <div className="flex items-center gap-1 px-3 py-0.5 bg-[#120a08]/90 border border-amber-400/50 rounded-full text-[10px] font-bold text-amber-300 shadow">
                 <Clock size={10} className="text-amber-400 flex-shrink-0" />
@@ -189,7 +190,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
             <div className="mt-2 p-2 bg-[#120a08]/80 border border-[#8b5a2b]/50 rounded-xl flex items-center gap-2 text-[10px] sm:text-[11px] text-amber-200">
               <Footprints size={15} className="text-emerald-400 flex-shrink-0 animate-bounce" />
               <span>
-                Every footstep deals <span className="text-emerald-300 font-black">1 HP damage</span> to the leviathan and earns you a share of the sealed bounty!
+                {t("every_footstep_deals")} <span className="text-emerald-300 font-black">{t("hp_damage")}</span> {t("to_the_leviathan")}
               </span>
             </div>
 
@@ -202,7 +203,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 }}
                 className="flex-1 py-2.5 sm:py-3 px-3 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-[0_4px_16px_rgba(245,158,11,0.4)] border-2 border-yellow-200 active:scale-95 transition-all flex items-center justify-center gap-1.5 truncate font-serif"
               >
-                <Swords size={15} className="flex-shrink-0" /> Yes, Join Raid
+                <Swords size={15} className="flex-shrink-0" /> {t("yes_join_raid")}
               </button>
 
               <button
@@ -213,7 +214,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 }}
                 className="py-2.5 px-3 bg-[#2b1d19] hover:bg-[#3d291f] text-stone-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl border border-[#8b5a2b] active:scale-95 transition-all flex-shrink-0"
               >
-                No, Return
+                {t("no_return")}
               </button>
             </div>
           </div>
@@ -223,7 +224,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
             <div className="h-[2px] flex-1 min-w-[12px] bg-gradient-to-r from-transparent via-amber-400 to-amber-600" />
             <div className="py-1 px-3 bg-[#2b1d19]/90 rounded-xl border border-amber-400/60 shadow-[0_0_15px_rgba(245,158,11,0.25)] flex-shrink min-w-0 text-center">
               <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-[0.16em] text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 font-serif block leading-tight">
-                ⚔️ FROM THE ABYSS, THERE RISES... ⚔️
+                {t("from_the_abyss")}
               </span>
             </div>
             <div className="h-[2px] flex-1 min-w-[12px] bg-gradient-to-l from-transparent via-amber-400 to-amber-600" />
@@ -289,7 +290,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
             }}
             className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 border border-sky-400 text-white rounded text-[9px] font-bold active:scale-95 transition-all flex items-center gap-1"
           >
-            <Globe size={10} /> Switch Server
+            <Globe size={10} /> {t("switch_server")}
           </button>
         </div>
       )}
@@ -308,11 +309,11 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
             </h1>
           </div>
 
-          {/* Boss HP Gauge with 5 Milestone Bounties + Final Bounty */}
+          {/* {t("boss_hp")} Gauge with 5 Milestone Bounties + Final Bounty */}
           <div className="mt-1 flex flex-col gap-1.5">
             <div className="flex justify-between items-center text-[11px] sm:text-xs font-black leading-none">
               <span className="text-rose-400 flex items-center gap-1">
-                <Flame size={13} className="text-rose-500" /> Boss HP
+                <Flame size={13} className="text-rose-500" /> {t("boss_hp")}
               </span>
               <div className="flex items-center gap-2">
                 {availableToClaimCount > 0 && (
@@ -492,7 +493,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
             >
               <Crown size={32} className="text-yellow-400 animate-bounce mb-0.5" />
               <span className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">
-                RAID BOSS DEFEATED!
+                {t("raid_boss_defeated")}
               </span>
               <p className="text-[10px] text-white/80 max-w-xs mt-0.5">
                 Your server fleet conquered {currentMonster.shortName}! The sealed mystery bounty is unlocked.
@@ -508,12 +509,12 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                   </button>
                 ) : (
                   <div className="mt-2 px-3 py-1.5 bg-stone-900/90 border border-stone-700 rounded-xl text-stone-400 text-[10px] font-bold">
-                    0% Damage Share • You did not participate in this battle
+                    {t("no_participation")}
                   </div>
                 )
               ) : (
                 <div className="mt-1.5 px-2.5 py-0.5 bg-emerald-950/90 border border-emerald-500 rounded-lg text-emerald-300 text-[10px] font-bold flex items-center gap-1">
-                  <CheckCircle2 size={11} /> Bounty Rewards Claimed
+                  <CheckCircle2 size={11} /> {t("bounty_claimed")}
                 </div>
               )}
             </motion.div>
@@ -553,16 +554,16 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               <div className="flex items-center gap-0.5 mb-0.5">
                 <Footprints size={10} className="text-amber-300 flex-shrink-0" />
                 <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-amber-200 truncate font-serif">
-                  YOUR DAMAGE
+                  {t("your_damage")}
                 </span>
               </div>
 
               <div className="text-xs sm:text-sm font-black font-mono text-white drop-shadow tracking-tight my-0.5 text-center leading-none truncate w-full">
-                {userDamage.toLocaleString()} <span className="text-[8px] sm:text-[9px] text-amber-300 font-serif">HP</span>
+                {userDamage.toLocaleString()} <span className="text-[8px] sm:text-[9px] text-amber-300 font-serif">{t("hp")}</span>
               </div>
             </button>
 
-            {/* 2. DAMAGE SHARE (TAP TO VIEW UPCOMING MILESTONE REWARD) */}
+            {/* 2. {t("damage_share")} (TAP TO VIEW UPCOMING MILESTONE REWARD) */}
             <button 
               type="button"
               id="stat-damage-share"
@@ -575,7 +576,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               <div className="flex items-center gap-0.5 mb-0.5">
                 <Flame size={10} className="text-emerald-300 flex-shrink-0" />
                 <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-emerald-200 truncate font-serif">
-                  DAMAGE SHARE
+                  {t("damage_share")}
                 </span>
               </div>
 
@@ -591,7 +592,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               </div>
             </button>
 
-            {/* 3. SERVER RANK (TAP TO VIEW RANKINGS) */}
+            {/* 3. {t("server_rank")} (TAP TO VIEW RANKINGS) */}
             <button 
               type="button"
               id="stat-server-rank"
@@ -604,7 +605,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               <div className="flex items-center gap-0.5 mb-0.5">
                 <Trophy size={10} className="text-yellow-300 flex-shrink-0" />
                 <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-yellow-200 truncate font-serif">
-                  SERVER RANK
+                  {t("server_rank")}
                 </span>
               </div>
 
@@ -642,7 +643,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-xs sm:text-sm font-black text-[#fde68a] uppercase tracking-wider truncate font-serif">
-                    Fleet Damage Rankings
+                    {t("fleet_damage_rankings")}
                   </h3>
                   <p className="text-[9px] text-amber-300/80 truncate">
                     {currentServer.name} • {sortedParticipants.length} Captains
@@ -670,10 +671,8 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 </div>
                 <div className="min-w-0">
                   <div className="text-[10px] font-black text-amber-200 uppercase tracking-wide flex items-center gap-1 font-serif">
-                    <span>YOUR PERFORMANCE</span>
-                    <span className="px-1 py-0.2 bg-amber-400 text-stone-950 text-[7px] font-black uppercase rounded">
-                      YOU
-                    </span>
+                    <span>{t("your_performance")}</span>
+                    <span className="px-1 py-0.2 bg-amber-400 text-stone-950 text-[7px] font-black uppercase rounded">{t("you").toUpperCase()}</span>
                   </div>
                   <div className="text-[8px] text-amber-300/80 font-sans">
                     {userDamage.toLocaleString()} Steps • {userDamagePercent.toFixed(1)}% Share
@@ -736,9 +735,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                             {p.name}
                           </span>
                           {p.isUser && (
-                            <span className="px-1 py-0.2 bg-amber-400 text-stone-950 text-[7px] font-black uppercase rounded flex-shrink-0">
-                              YOU
-                            </span>
+                            <span className="px-1 py-0.2 bg-amber-400 text-stone-950 text-[7px] font-black uppercase rounded flex-shrink-0">{t("you").toUpperCase()}</span>
                           )}
                         </div>
                         <div className="text-[8px] text-stone-400 truncate">{p.title}</div>
@@ -783,10 +780,10 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-[#fde68a] uppercase tracking-wider font-serif">
-                      Raid Milestone Rewards
+                      {t("raid_milestone_rewards")}
                     </h3>
                     <p className="text-[9px] text-amber-200/70">
-                      5 Stage Milestones + Final Victory Reward
+                      {t("stage_milestones")}
                     </p>
                   </div>
                 </div>
@@ -806,15 +803,15 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 <div className="flex items-center justify-between text-[9px]">
                   <div className="flex items-center gap-1.5 font-bold text-amber-200">
                     <Flame size={12} className="text-rose-400" />
-                    <span>Boss HP:</span>
+                    <span>{t("boss_hp_label")}</span>
                     <span className="text-amber-100 font-mono font-black">{hpPercent.toFixed(1)}%</span>
                   </div>
                   <div className="text-stone-300 font-mono text-[9px]">
-                    Your Dmg: <span className="text-emerald-400 font-bold">{userDamage.toLocaleString()} HP</span>
+                    {t("your_dmg")} <span className="text-emerald-400 font-bold">{userDamage.toLocaleString()} HP</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-[9px] pt-1 border-t border-white/5">
-                  <span className="text-amber-200/80 font-bold">Your Reward Share:</span>
+                  <span className="text-amber-200/80 font-bold">{t("your_reward_share")}</span>
                   <span className="font-mono font-black text-yellow-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40">
                     {userDamage > 0 ? `${userDamagePercent.toFixed(1)}% of Pools` : '0% (Deal damage to earn share)'}
                   </span>
@@ -877,11 +874,11 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                             </div>
                             <div className="text-[8px] text-stone-400 leading-tight mt-0.5">
                               {isPassedBeforeJoin ? (
-                                <span className="text-stone-500 font-medium">Reached before you joined (at {joinedHpPercent.toFixed(0)}% HP)</span>
+                                <span className="text-stone-500 font-medium">{t("reached_before_joined").replace("{percent}", joinedHpPercent.toFixed(0))}</span>
                               ) : bounty.isFinal ? (
                                 'Boss is defeated (0% HP)'
                               ) : (
-                                `Boss HP drops to ${bounty.hpThresholdPercent}%`
+                                `{t("boss_hp")} drops to ${bounty.hpThresholdPercent}%`
                               )}
                             </div>
                           </div>
@@ -891,8 +888,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                         <div className="flex flex-col items-end flex-shrink-0">
                           {isClaimed ? (
                             <span className="px-2 py-1 bg-emerald-950 border border-emerald-500/60 rounded-lg text-[8px] font-bold text-emerald-300 flex items-center gap-1">
-                              <CheckCircle2 size={10} /> Claimed
-                            </span>
+                              <CheckCircle2 size={10} />{t("claimed")}</span>
                           ) : isReady ? (
                             <button
                               onClick={() => {
@@ -905,20 +901,15 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                               }}
                               className="px-2.5 py-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-stone-950 font-black text-[9px] uppercase tracking-wider rounded-lg shadow-md active:scale-95 transition-all animate-bounce font-serif flex items-center gap-1"
                             >
-                              <Gift size={10} /> Claim!
-                            </button>
+                              <Gift size={10} />{t("claim_excl")}</button>
                           ) : isPassedBeforeJoin ? (
                             <span className="px-2 py-0.5 bg-stone-900 border border-stone-800 text-[8px] font-bold text-stone-500 rounded flex items-center gap-1">
-                              <Lock size={8} /> Missed
-                            </span>
+                              <Lock size={8} />{t("missed")}</span>
                           ) : isReached && userDamage <= 0 ? (
-                            <span className="px-1.5 py-0.5 bg-rose-950/60 border border-rose-600/40 text-[7px] font-bold text-rose-300 rounded text-center">
-                              Deal Dmg First
-                            </span>
+                            <span className="px-1.5 py-0.5 bg-rose-950/60 border border-rose-600/40 text-[7px] font-bold text-rose-300 rounded text-center">{t("deal_dmg_first")}</span>
                           ) : (
                             <span className="px-2 py-0.5 bg-stone-900 border border-stone-700 text-[8px] font-bold text-stone-400 rounded flex items-center gap-1">
-                              <Lock size={9} /> Locked
-                            </span>
+                              <Lock size={9} />{t("locked")}</span>
                           )}
                         </div>
                       </div>
@@ -939,7 +930,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                           <div className={`bg-[#120a08]/80 border ${isPassedBeforeJoin ? 'border-stone-800 text-stone-600' : 'border-amber-500/30'} rounded-lg px-2 py-1 flex items-center justify-between`}>
                             <div className="flex items-center gap-1">
                               <span className={`text-xs ${isPassedBeforeJoin ? 'grayscale opacity-40' : ''}`}>🪙</span>
-                              <span className="text-[7px] uppercase font-bold text-stone-400">Coins</span>
+                              <span className="text-[7px] uppercase font-bold text-stone-400">{t("coins")}</span>
                             </div>
                             <span className={`text-[10px] font-mono font-black ${isPassedBeforeJoin ? 'text-stone-600' : 'text-amber-300'}`}>
                               +{rewardShare.coins.toLocaleString()}
@@ -948,7 +939,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                           <div className={`bg-[#120a08]/80 border ${isPassedBeforeJoin ? 'border-stone-800 text-stone-600' : 'border-cyan-500/30'} rounded-lg px-2 py-1 flex items-center justify-between`}>
                             <div className="flex items-center gap-1">
                               <span className={`text-xs ${isPassedBeforeJoin ? 'grayscale opacity-40' : ''}`}>💎</span>
-                              <span className="text-[7px] uppercase font-bold text-stone-400">Gems</span>
+                              <span className="text-[7px] uppercase font-bold text-stone-400">{t("gems")}</span>
                             </div>
                             <span className={`text-[10px] font-mono font-black ${isPassedBeforeJoin ? 'text-stone-600' : 'text-cyan-300'}`}>
                               +{rewardShare.gems.toLocaleString()}
@@ -969,9 +960,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                     setShowBountiesModal(false);
                   }}
                   className="w-full py-2 bg-[#2b1d19] hover:bg-[#382620] border border-amber-500/50 text-amber-200 font-black text-[11px] uppercase tracking-wider rounded-xl transition-all font-serif"
-                >
-                  Close
-                </button>
+                >{t("close")}</button>
               </div>
             </div>
           </motion.div>
@@ -995,12 +984,10 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 <span className="text-2xl animate-bounce">{milestoneClaimResult.bounty.icon}</span>
               </div>
               
-              <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">
-                REWARD CLAIMED!
-              </h3>
+              <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">{t("reward_claimed_excl")}</h3>
               
               <p className="text-[10px] text-amber-100/90 font-bold mt-0.5">
-                {milestoneClaimResult.bounty.hpThresholdPercent}% Boss HP Milestone Reached
+                {milestoneClaimResult.bounty.hpThresholdPercent}% {t("boss_hp")} Milestone Reached
               </p>
 
               <div className="mt-1 px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded-full text-[9px] font-bold text-yellow-300">
@@ -1010,14 +997,14 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               <div className="grid grid-cols-2 gap-1.5 w-full my-3">
                 <div className="bg-[#120a08] border border-yellow-500/40 rounded-xl p-2 flex flex-col items-center">
                   <span className="text-lg mb-0.5">🪙</span>
-                  <span className="text-[8px] uppercase font-bold text-amber-200/60">Gold Coins</span>
+                  <span className="text-[8px] uppercase font-bold text-amber-200/60">{t("gold_coins")}</span>
                   <span className="text-xs font-black text-amber-300 font-mono">
                     +{milestoneClaimResult.coinsWon.toLocaleString()}
                   </span>
                 </div>
                 <div className="bg-[#120a08] border border-cyan-500/40 rounded-xl p-2 flex flex-col items-center">
                   <span className="text-lg mb-0.5">💎</span>
-                  <span className="text-[8px] uppercase font-bold text-cyan-200/60">Gems</span>
+                  <span className="text-[8px] uppercase font-bold text-cyan-200/60">{t("gems")}</span>
                   <span className="text-xs font-black text-cyan-300 font-mono">
                     +{milestoneClaimResult.gemsWon.toLocaleString()}
                   </span>
@@ -1027,9 +1014,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               <button
                 onClick={() => setMilestoneClaimResult(null)}
                 className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg border border-yellow-200 active:scale-95 transition-all font-serif"
-              >
-                Collect Rewards
-              </button>
+              >{t("collect_rewards")}</button>
             </div>
           </motion.div>
         )}
@@ -1069,22 +1054,22 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 </div>
 
                 <h4 className="text-xs font-black text-amber-200 uppercase tracking-wider font-serif mt-1">
-                  {selectedMilestonePreview.isFinal ? '🏆 Final Victory Reward' : `🎯 ${selectedMilestonePreview.hpThresholdPercent}% Boss HP Milestone`}
+                  {selectedMilestonePreview.isFinal ? '🏆 Final Victory Reward' : `🎯 ${selectedMilestonePreview.hpThresholdPercent}% {t("boss_hp")} Milestone`}
                 </h4>
 
                 <p className="text-[9px] text-amber-100/70 mt-0.5 mb-2">
                   {isPassedBeforeJoin ? (
-                    <span className="text-stone-400 font-medium">Reached before you joined this battle (at {joinedHpPercent.toFixed(0)}% HP)</span>
+                    <span className="text-stone-400 font-medium">{t("reached_before_joined_battle").replace("{percent}", joinedHpPercent.toFixed(0))}</span>
                   ) : selectedMilestonePreview.isFinal ? (
                     'Shared proportional to total damage dealt'
                   ) : (
-                    `Unlocked when Boss HP drops to ${selectedMilestonePreview.hpThresholdPercent}%`
+                    `Unlocked when {t("boss_hp")} drops to ${selectedMilestonePreview.hpThresholdPercent}%`
                   )}
                 </p>
 
                 {/* User Share Info */}
                 <div className="w-full bg-[#170e0c] border border-amber-500/30 rounded-xl px-2.5 py-1.5 mb-2 flex items-center justify-between text-[9px]">
-                  <span className="text-amber-200/80 font-bold">Your Damage Share:</span>
+                  <span className="text-amber-200/80 font-bold">{t("your_damage_share")}</span>
                   <span className="font-mono font-black text-yellow-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40">
                     {isPassedBeforeJoin 
                       ? '0% (Reached before joining)' 
@@ -1098,7 +1083,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 <div className="grid grid-cols-2 gap-2 w-full my-1">
                   <div className={`bg-[#120a08] border ${isPassedBeforeJoin ? 'border-stone-800 text-stone-600' : 'border-amber-500/40'} rounded-xl p-2 flex flex-col items-center`}>
                     <span className={`text-base mb-0.5 ${isPassedBeforeJoin ? 'grayscale opacity-40' : ''}`}>🪙</span>
-                    <span className="text-[8px] uppercase font-bold text-stone-400">Your Coins</span>
+                    <span className="text-[8px] uppercase font-bold text-stone-400">{t("your_coins")}</span>
                     <span className={`text-xs font-mono font-black ${isPassedBeforeJoin ? 'text-stone-600' : 'text-amber-300'}`}>
                       +{previewShare.coins.toLocaleString()}
                     </span>
@@ -1108,7 +1093,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                   </div>
                   <div className={`bg-[#120a08] border ${isPassedBeforeJoin ? 'border-stone-800 text-stone-600' : 'border-cyan-500/40'} rounded-xl p-2 flex flex-col items-center`}>
                     <span className={`text-base mb-0.5 ${isPassedBeforeJoin ? 'grayscale opacity-40' : ''}`}>💎</span>
-                    <span className="text-[8px] uppercase font-bold text-stone-400">Your Gems</span>
+                    <span className="text-[8px] uppercase font-bold text-stone-400">{t("your_gems")}</span>
                     <span className={`text-xs font-mono font-black ${isPassedBeforeJoin ? 'text-stone-600' : 'text-cyan-300'}`}>
                       +{previewShare.gems}
                     </span>
@@ -1127,20 +1112,19 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                   ) : hpPercent <= selectedMilestonePreview.hpThresholdPercent ? (
                     (selectedMilestonePreview.isFinal ? currentRaidState.dailyPrizeClaimed : claimedMilestones.includes(selectedMilestonePreview.hpThresholdPercent)) ? (
                       <span className="text-emerald-400 font-bold flex items-center justify-center gap-1">
-                        <CheckCircle2 size={12} /> Reward already claimed!
-                      </span>
+                        <CheckCircle2 size={12} />{t("reward_already_claimed")}</span>
                     ) : userDamage > 0 ? (
                       <span className="text-yellow-300 font-bold animate-pulse">
                         ✨ Milestone reached! Ready to collect your {previewShare.percent}% share.
                       </span>
                     ) : (
                       <span className="text-rose-400 font-bold">
-                        Deal at least 1 HP damage in battle to claim!
+                        Deal at least {t("hp_damage")} in battle to claim!
                       </span>
                     )
                   ) : (
                     <span className="text-stone-400">
-                      Boss HP: <strong className="text-amber-200">{hpPercent.toFixed(1)}%</strong> (Need <strong className="text-yellow-300">{selectedMilestonePreview.hpThresholdPercent}%</strong>)
+                      {t("boss_hp")}: <strong className="text-amber-200">{hpPercent.toFixed(1)}%</strong> {t("need_paren")} <strong className="text-yellow-300">{selectedMilestonePreview.hpThresholdPercent}%</strong>)
                     </span>
                   )}
                 </div>
@@ -1168,8 +1152,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                           }}
                           className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl font-serif shadow-lg active:scale-95 animate-bounce cursor-pointer flex items-center justify-center gap-1.5 border border-yellow-200"
                         >
-                          <Gift size={14} /> Claim
-                        </button>
+                          <Gift size={14} />{t("claim")}</button>
                       );
                     }
 
@@ -1206,25 +1189,22 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 <Crown size={24} className="text-yellow-400 animate-bounce" />
               </div>
               
-              <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">
-                FINAL BOSS REWARD CLAIMED!
-              </h3>
+              <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">{t("final_boss_reward_claimed")}</h3>
               
-              <p className="text-[10px] text-amber-100/80 mt-0.5">
-                You contributed <span className="text-emerald-400 font-bold">{claimResult.percent}%</span> of server damage against {currentMonster.shortName}!
+              <p className="text-[10px] text-amber-100/80 mt-0.5">{t("you_contributed")}<span className="text-emerald-400 font-bold">{claimResult.percent}%</span> of server damage against {currentMonster.shortName}!
               </p>
 
               <div className="grid grid-cols-2 gap-1.5 w-full my-2.5">
                 <div className="bg-[#120a08] border border-yellow-500/40 rounded-xl p-1.5 flex flex-col items-center">
                   <span className="text-base mb-0.5">🪙</span>
-                  <span className="text-[8px] uppercase font-bold text-amber-200/60">Gold Coins</span>
+                  <span className="text-[8px] uppercase font-bold text-amber-200/60">{t("gold_coins")}</span>
                   <span className="text-xs font-black text-amber-300 font-mono">
                     +{claimResult.coinsWon.toLocaleString()}
                   </span>
                 </div>
                 <div className="bg-[#120a08] border border-cyan-500/40 rounded-xl p-1.5 flex flex-col items-center">
                   <span className="text-base mb-0.5">💎</span>
-                  <span className="text-[8px] uppercase font-bold text-cyan-200/60">Gems</span>
+                  <span className="text-[8px] uppercase font-bold text-cyan-200/60">{t("gems")}</span>
                   <span className="text-xs font-black text-cyan-300 font-mono">
                     +{claimResult.gemsWon.toLocaleString()}
                   </span>
@@ -1234,15 +1214,13 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               <button
                 onClick={() => setClaimResult(null)}
                 className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-stone-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg border border-yellow-200 active:scale-95 transition-all font-serif"
-              >
-                Collect Final Reward
-              </button>
+              >{t("collect_final_reward")}</button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 5. YOUR DAMAGE MODAL (1 WALK STEP = 1 HP) */}
+      {/* 5. {t("your_damage")} MODAL (1 WALK STEP = 1 HP) */}
       <AnimatePresence>
         {showYourDamageModal && (
           <motion.div
@@ -1266,28 +1244,25 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 <Footprints size={24} className="text-amber-300" />
               </div>
 
-              <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">
-                YOUR RAID DAMAGE
-              </h3>
+              <h3 className="text-xs sm:text-sm font-black text-amber-200 uppercase tracking-widest font-serif">{t("your_raid_damage")}</h3>
 
               <div className="my-2.5 w-full bg-[#120a08]/90 border border-amber-500/40 rounded-xl p-2.5 flex flex-col items-center justify-center">
                 <div className="text-xl sm:text-2xl font-black font-mono text-white tracking-tight leading-none">
-                  {userDamage.toLocaleString()} <span className="text-amber-400 text-sm font-serif font-black">HP</span>
+                  {userDamage.toLocaleString()} <span className="text-amber-400 text-sm font-serif font-black">{t("hp")}</span>
                 </div>
               </div>
 
               {/* Core Mechanics Badge */}
               <div className="w-full bg-gradient-to-r from-amber-950/80 via-[#331c0e] to-amber-950/80 border border-amber-400/60 rounded-xl px-3 py-2.5 mt-1.5 flex items-center justify-center">
                 <div className="text-[11px] font-black text-yellow-300 uppercase tracking-wide flex items-center gap-1.5 font-serif">
-                  <Footprints size={13} className="text-emerald-400" /> 1 Walk Step = 1 HP
-                </div>
+                  <Footprints size={13} className="text-emerald-400" />{t("walk_step")}</div>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 6. DAMAGE SHARE MODAL (UPCOMING MILESTONE REWARDS) */}
+      {/* 6. {t("damage_share")} MODAL (UPCOMING MILESTONE REWARDS) */}
       <AnimatePresence>
         {showDamageShareModal && (
           <motion.div
@@ -1312,7 +1287,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               </div>
 
               <h3 className="text-xs sm:text-sm font-black text-emerald-200 uppercase tracking-widest font-serif">
-                YOUR DAMAGE SHARE
+                {t("your_damage")} SHARE
               </h3>
 
               <div className="my-2 w-full bg-[#021c17]/90 border border-emerald-500/40 rounded-xl p-2 flex flex-col items-center gap-0.5">
@@ -1341,14 +1316,14 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                   <div className="grid grid-cols-2 gap-1.5 w-full mt-1.5">
                     <div className="bg-[#021310] border border-amber-500/40 rounded-lg p-1.5 flex flex-col items-center">
                       <span className="text-sm">🪙</span>
-                      <span className="text-[7px] uppercase font-bold text-amber-200/70">Coins</span>
+                      <span className="text-[7px] uppercase font-bold text-amber-200/70">{t("coins")}</span>
                       <span className="text-xs font-mono font-black text-amber-300">
                         +{nearestMilestoneReward?.coins.toLocaleString() || 0}
                       </span>
                     </div>
                     <div className="bg-[#021310] border border-cyan-500/40 rounded-lg p-1.5 flex flex-col items-center">
                       <span className="text-sm">💎</span>
-                      <span className="text-[7px] uppercase font-bold text-cyan-200/70">Gems</span>
+                      <span className="text-[7px] uppercase font-bold text-cyan-200/70">{t("gems")}</span>
                       <span className="text-xs font-mono font-black text-cyan-300">
                         +{nearestMilestoneReward?.gems.toLocaleString() || 0}
                       </span>

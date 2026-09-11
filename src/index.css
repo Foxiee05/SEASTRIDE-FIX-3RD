@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Montserrat", Arial, sans-serif;
+  --font-serif: "Merriweather", Georgia, "Times New Roman", serif;
+}
+
+:root {
+  --font-serif: "Merriweather", Georgia, "Times New Roman", serif;
+  --font-sans: "Montserrat", Arial, sans-serif;
+  font-family: var(--font-sans);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* Use the loaded fonts for Vietnamese, including its stacked tone marks. */
+html:lang(vi) {
+  --font-serif: "Merriweather", Georgia, "Times New Roman", serif;
+  --font-sans: "Montserrat", Arial, sans-serif;
+}
+
+html:lang(vi) body {
+  font-family: var(--font-sans);
+}
+
 html,
 body,
 #root {

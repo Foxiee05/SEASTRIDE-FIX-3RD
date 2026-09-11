@@ -431,13 +431,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [language, setLanguage] = useState<Language>(() => {
     try {
       const saved = localStorage.getItem('pirate_app_language');
-      if (saved === 'en' || saved === 'vi') return saved;
+      if (saved === 'en' || saved === 'vi') {
+        if (typeof document !== 'undefined') {
+          document.documentElement.lang = saved;
+        }
+        return saved;
+      }
     } catch (e) {}
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = 'en';
+    }
     return 'en';
   });
 
   const changeLanguage = (lang: Language) => {
     setLanguage(lang);
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang;
+    }
     try {
       localStorage.setItem('pirate_app_language', lang);
     } catch (e) {}

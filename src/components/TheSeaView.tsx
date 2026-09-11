@@ -291,7 +291,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               className="flex-1 bg-[#d75448] hover:brightness-110 active:scale-95 transition-transform border-b-[3px] border-[#9b3026] text-white h-[clamp(44px,10vh,48px)] rounded-xl text-xs sm:text-sm font-black uppercase italic tracking-wider shadow-sm flex items-center justify-center gap-1 sm:gap-1.5 px-2"
             >
               <List className="w-4 h-4 sm:w-5 sm:h-5 text-red-200" />
-              <span>Ship List</span>
+              <span>{t("ship_list")}</span>
             </button>
             {/* Bomb Random Ship Button */}
             <button
@@ -300,7 +300,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               title="Randomly target an opponent ship"
             >
               <Dices className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              <span>Bomb Random</span>
+              <span>{t("bomb_random")}</span>
             </button>
           </div>
         </div>
@@ -570,7 +570,7 @@ const ShipOnSeaItem = React.memo(
               }}
               className="bg-red-600 hover:bg-red-500 text-white font-black text-[9px] sm:text-[11px] px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl border-2 border-[#facc15] shadow-[0_0_15px_rgba(220,38,38,0.9)] uppercase italic whitespace-nowrap flex items-center gap-1 active:scale-95"
             >
-              <span>💣 BOMB!</span>
+              <span>{t("bomb")}</span>
             </button>
             <div className="w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-6 border-t-[#facc15]" />
           </div>

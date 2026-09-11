@@ -1,5 +1,6 @@
 import React from 'react';
 import { Info } from 'lucide-react';
+import { useGame } from '../context/GameContext';
 
 interface InfoModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface InfoModalProps {
 }
 
 export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, title, message }) => {
+  const { t } = useGame();
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
@@ -19,7 +21,7 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, title, me
         </div>
         <p className="text-xs text-amber-100/90 leading-relaxed mb-4">{message}</p>
         <button onClick={onClose} className="w-full bg-[#b45309] hover:bg-[#d97706] text-white py-2 rounded-lg font-black uppercase text-xs border-b-2 border-[#facc15] active:scale-95 transition-all">
-          Got it
+          {t("got_it")}
         </button>
       </div>
     </div>

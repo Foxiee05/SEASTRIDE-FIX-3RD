@@ -76,7 +76,7 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
   );
 };
 
-const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
+const getGlobalSteps = (t: (key: string) => string): (Step & { _tab: string; [key: string]: any })[] => [
   // Home
   {
     target: ".tutorial-steps-bar",
@@ -85,10 +85,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Daily Steps
+          {t("tutorial_daily_steps_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          This is your Home tab. Use it to track your real-world progress.
+          {t("tutorial_daily_steps_desc")}
         </p>
       </div>
     ),
@@ -100,10 +100,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Level & XP
+          {t("tutorial_level_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Complete quests and walk to earn XP. Leveling up unlocks stronger ships!
+          {t("tutorial_level_desc")}
         </p>
       </div>
     ),
@@ -115,10 +115,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Energy Charged
+          {t("tutorial_energy_charged_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Turn your real-world steps into ship Energy! Hit your daily goal to earn 1 Energy point and power your voyages.
+          {t("tutorial_energy_charged_desc")}
         </p>
       </div>
     ),
@@ -130,10 +130,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Daily Quests
+          {t("tutorial_quests_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Hit your step targets to claim XP and rewards here every day.
+          {t("tutorial_quests_desc")}
         </p>
       </div>
     ),
@@ -146,10 +146,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Ship Build
+          {t("tutorial_ship_build_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Welcome to your shipyard. This is where you modify your flagship!
+          {t("tutorial_ship_build_desc")}
         </p>
       </div>
     ),
@@ -161,10 +161,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Energy
+          {t("tutorial_energy_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Energy resets everyday, use it to bomb other ships.
+          {t("tutorial_energy_desc")}
         </p>
       </div>
     ),
@@ -177,10 +177,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          HUB
+          {t("tutorial_hub_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Shop for supplies and gems, upgrade your ship and defenses, repair battle damage, and review your history of fights and loot.
+          {t("tutorial_hub_desc")}
         </p>
       </div>
     ),
@@ -193,10 +193,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          The Sea
+          {t("tutorial_the_sea_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Welcome to the open ocean! Explore and battle here.
+          {t("tutorial_the_sea_desc")}
         </p>
       </div>
     ),
@@ -208,10 +208,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Game Modes
+          {t("tutorial_game_modes_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Tap to explore other game modes.
+          {t("tutorial_game_modes_desc")}
         </p>
       </div>
     ),
@@ -224,10 +224,10 @@ const GLOBAL_STEPS: (Step & { _tab: string; [key: string]: any })[] = [
     content: (
       <div className="font-serif">
         <h3 className="text-[clamp(0.95rem,3.2vw,1.15rem)] font-black text-[#4a2c17] mb-1">
-          Fleet
+          {t("tutorial_fleet_title")}
         </h3>
         <p className="text-[clamp(0.75rem,2.5vw,0.85rem)] text-[#8b5a33] font-bold leading-relaxed">
-          Check out the global rankings and your weekly performance.
+          {t("tutorial_fleet_desc")}
         </p>
       </div>
     ),
@@ -240,6 +240,8 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
   tutorialTrigger,
   onTutorialEnd,
 }) => {
+  const { t } = useGame();
+  const globalSteps = React.useMemo(() => getGlobalSteps(t), [t]);
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const hasAutoStartedRef = useRef(false);
@@ -277,13 +279,13 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     if (tutorialTrigger.step !== undefined && tutorialTrigger.step !== null) {
       targetIndex = tutorialTrigger.step;
     } else {
-      const tabStepIndex = GLOBAL_STEPS.findIndex((s) => s._tab === currentTab);
+      const tabStepIndex = globalSteps.findIndex((s) => s._tab === currentTab);
       if (tabStepIndex !== -1) {
         targetIndex = tabStepIndex;
       }
     }
 
-    const step = GLOBAL_STEPS[targetIndex];
+    const step = globalSteps[targetIndex];
     if (!step) return;
 
     // Stop current run first to cleanly reset Floating UI calculations
@@ -312,12 +314,12 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [tutorialTrigger]);
+  }, [tutorialTrigger, globalSteps]);
 
   // Instant scroll alignment to current tutorial target whenever step or tab changes
   useEffect(() => {
     if (!run) return;
-    const currentStep = GLOBAL_STEPS[stepIndex];
+    const currentStep = globalSteps[stepIndex];
     if (!currentStep || currentStep.target === "body") return;
 
     const el = document.querySelector(currentStep.target as string);
@@ -328,7 +330,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         inline: "nearest",
       });
     }
-  }, [stepIndex, run, activeTab]);
+  }, [stepIndex, run, activeTab, globalSteps]);
 
   const handleJoyrideCallback = (data: any) => {
     const { action, index, status, type, step } = data;
@@ -375,8 +377,8 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     if (type === EVENTS.STEP_AFTER) {
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
 
-      if (nextIndex >= 0 && nextIndex < GLOBAL_STEPS.length) {
-        const nextStep = GLOBAL_STEPS[nextIndex];
+      if (nextIndex >= 0 && nextIndex < globalSteps.length) {
+        const nextStep = globalSteps[nextIndex];
         // If the next step is on a different tab, switch tab first
         if (nextStep._tab !== activeTab) {
           setActiveTab(nextStep._tab as any);
@@ -414,8 +416,8 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     } else if (type === EVENTS.TARGET_NOT_FOUND) {
       // Advance to next valid step safely
       const nextIndex = index + 1;
-      if (nextIndex < GLOBAL_STEPS.length) {
-        const nextStep = GLOBAL_STEPS[nextIndex];
+      if (nextIndex < globalSteps.length) {
+        const nextStep = globalSteps[nextIndex];
         if (nextStep._tab !== activeTab) {
           setActiveTab(nextStep._tab as any);
           setTimeout(() => setStepIndex(nextIndex), 80);
@@ -432,7 +434,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
 
   return (
     <Joyride
-      steps={GLOBAL_STEPS}
+      steps={globalSteps}
       run={run}
       stepIndex={stepIndex}
       continuous={true}

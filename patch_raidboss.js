@@ -1,0 +1,45 @@
+import fs from 'fs';
+
+let content = fs.readFileSync('src/components/RaidBossScreen.tsx', 'utf8');
+
+content = content
+  .replace(/>Every footstep deals</g, '>{t("every_footstep_deals")}<')
+  .replace(/>1 HP damage</g, '>{t("hp_damage")}<')
+  .replace(/>to the leviathan and earns you a share of the sealed bounty!</g, '>{t("to_the_leviathan")}<')
+  .replace(/>Yes, Join Raid</g, '>{t("yes_join_raid")}<')
+  .replace(/>No, Return</g, '>{t("no_return")}<')
+  .replace(/>⚔️ FROM THE ABYSS, THERE RISES\.\.\. ⚔️</g, '>{t("from_the_abyss")}<')
+  .replace(/>Switch Server</g, '>{t("switch_server")}<')
+  .replace(/>Boss HP</g, '>{t("boss_hp")}<')
+  .replace(/>RAID BOSS DEFEATED!</g, '>{t("raid_boss_defeated")}<')
+  .replace(/>0% Damage Share • You did not participate in this battle</g, '>{t("no_participation")}<')
+  .replace(/>Bounty Rewards Claimed</g, '>{t("bounty_claimed")}<')
+  .replace(/>YOUR DAMAGE</g, '>{t("your_damage")}<')
+  .replace(/>DAMAGE SHARE</g, '>{t("damage_share")}<')
+  .replace(/>SERVER RANK</g, '>{t("server_rank")}<')
+  .replace(/>Fleet Damage Rankings</g, '>{t("fleet_damage_rankings")}<')
+  .replace(/>YOU</g, '>{t("you").toUpperCase()}<')
+  .replace(/>Raid Milestone Rewards</g, '>{t("raid_milestone_rewards")}<')
+  .replace(/>5 Stage Milestones \+ Final Victory Rewards</g, '>{t("stage_milestones")}<')
+  .replace(/>Your Dmg:</g, '>{t("your_dmg")}<')
+  .replace(/>Claimed</g, '>{t("claimed")}<')
+  .replace(/>Claim!</g, '>{t("claim_excl")}<')
+  .replace(/>Missed</g, '>{t("missed")}<')
+  .replace(/>Deal Dmg First</g, '>{t("deal_dmg_first")}<')
+  .replace(/>Locked</g, '>{t("locked")}<')
+  .replace(/>Close</g, '>{t("close")}<')
+  .replace(/>REWARD CLAIMED!</g, '>{t("reward_claimed_excl")}<')
+  .replace(/>Collect Rewards</g, '>{t("collect_rewards")}<')
+  .replace(/>Reward already claimed!</g, '>{t("reward_already_claimed")}<')
+  .replace(/>Deal at least 1 HP damage in battle to claim!</g, '>{t("deal_at_least_1_hp")}<')
+  .replace(/>Boss HP:</g, '>{t("boss_hp_label")}<')
+  .replace(/\(Need/g, '{t("need_paren")}')
+  .replace(/>Claim</g, '>{t("claim")}<')
+  .replace(/>FINAL BOSS REWARD CLAIMED!</g, '>{t("final_boss_reward_claimed")}<')
+  .replace(/>You contributed</g, '>{t("you_contributed")}<')
+  .replace(/>Collect Final Reward</g, '>{t("collect_final_reward")}<')
+  .replace(/>YOUR RAID DAMAGE</g, '>{t("your_raid_damage")}<')
+  .replace(/>1 Walk Step = 1 HP</g, '>{t("walk_step")}<')
+  .replace(/>YOUR DAMAGE SHARE</g, '>{t("your_damage_share")}<');
+
+fs.writeFileSync('src/components/RaidBossScreen.tsx', content);

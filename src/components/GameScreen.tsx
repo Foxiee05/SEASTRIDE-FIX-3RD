@@ -35,7 +35,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   openModal,
   onSelectTargetForAttack,
 }) => {
-  const { energy, currentServer, shipCondition, raidLogs } = useGame();
+  const { energy, currentServer, shipCondition, raidLogs, t } = useGame();
 
   const [activeTab, setActiveTab] = useState<"build" | "sea">("build");
 
@@ -65,7 +65,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             }`}
           >
             <Anchor className="w-4 h-4 text-[#facc15]" />
-            <span>Ship Build</span>
+            <span>{t("ship_build_tab")}</span>
           </button>
 
           <button
@@ -77,7 +77,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
             }`}
           >
             <Waves className="w-4 h-4 text-sky-300" />
-            <span>The Sea</span>
+            <span>{t("the_sea_tab")}</span>
           </button>
         </div>
 

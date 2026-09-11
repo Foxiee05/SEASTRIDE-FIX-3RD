@@ -71,6 +71,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
     dailyAdWatches,
     maxDailyAds,
     buyGemsIAP,
+    t,
   } = useGame();
 
   const [isWatchingAd, setIsWatchingAd] = useState<boolean>(false);
@@ -144,7 +145,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
               <h2 className="text-sm sm:text-base font-serif font-black uppercase text-[#e0f2fe] tracking-wider">
                 GEMS VAULT
               </h2>
-              <p className="text-[10px] text-sky-300/80 font-bold uppercase">In-App Purchases & Free Rewards</p>
+              <p className="text-[10px] text-sky-300/80 font-bold uppercase">{t("iap_rewards")}</p>
             </div>
           </div>
 
@@ -210,7 +211,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
             ) : dailyAdWatches >= maxDailyAds ? (
               <div className="bg-[#071927] border border-red-900/50 rounded-xl p-2.5 text-center flex items-center justify-center gap-1.5 text-xs text-red-300 font-bold">
                 <Lock className="w-3.5 h-3.5" />
-                <span>You reached the daily maximum of 3 ad rewards today. Resets tomorrow!</span>
+                <span>{t("ad_limit_reached")}</span>
               </div>
             ) : (
               <button
@@ -219,7 +220,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
                 className="w-full bg-gradient-to-r from-[#0284c7] via-[#0ea5e9] to-[#0284c7] active:scale-95 border-b-4 border-[#0369a1] text-white font-black py-2.5 px-4 rounded-xl text-xs uppercase italic tracking-wider shadow-lg flex items-center justify-center gap-2"
               >
                 <Play className="w-3.5 h-3.5 fill-white" />
-                <span>Watch Short Ad (+5 Gems 💎)</span>
+                <span>{t("watch_short_ad")}</span>
               </button>
             )}
           </div>
@@ -240,7 +241,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-serif font-black text-sm text-white">
-                          {pkg.name}
+                          {t(pkg.name)}
                         </span>
                         <span className="bg-[#0284c7] text-white text-[11px] font-black px-2 py-0.5 rounded-md border border-[#38bdf8]/40 shadow-sm">
                           +{pkg.gems} 💎
@@ -256,7 +257,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
                     className="bg-gradient-to-b from-[#38bdf8] to-[#0284c7] active:scale-95 border-b-4 border-[#075985] text-white px-4 py-2 rounded-xl font-black text-xs uppercase shadow-md flex-shrink-0 transition-all flex items-center gap-1"
                   >
                     {isPurchasingThis ? (
-                      <span className="animate-pulse">Loading...</span>
+                      <span className="animate-pulse">{t("loading")}</span>
                     ) : (
                       <span>{pkg.price}</span>
                     )}

@@ -102,7 +102,7 @@ function createCaptainMarkerIcon(heading: number) {
 
 export const StepMapView: React.FC<StepMapViewProps> = () => {
   const [infoState, setInfoState] = useState<{title: string; message: string} | null>(null);
-  const { addSteps, totalStepsToday } = useGame();
+  const { addSteps, totalStepsToday, t } = useGame();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const footprintLayerGroupRef = useRef<L.LayerGroup | null>(null);
@@ -398,7 +398,7 @@ export const StepMapView: React.FC<StepMapViewProps> = () => {
           className="bg-[#d97706] hover:bg-[#f59e0b] active:scale-95 text-white font-serif font-black text-xs px-3 py-2 rounded-xl border-b-3 border-[#4a2c17] shadow-2xl flex items-center gap-1.5 uppercase italic"
         >
           <Footprints className="w-4 h-4 text-[#fef3c7]" />
-          <span>Stamp Step</span>
+          <span>{t("stamp_step")}</span>
         </button>
       </div>
 

@@ -28,9 +28,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               <h2 className="text-base sm:text-lg font-serif font-black tracking-wider text-[#fde68a] uppercase leading-none">
                 {t("settings")}
               </h2>
-              <p className="text-[10px] text-amber-200/70 font-mono mt-0.5">
-                {t("settings_subtitle")}
-              </p>
             </div>
           </div>
 
@@ -142,15 +139,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               <button
                 type="button"
                 onClick={() => changeLanguage("vi")}
-                className={`py-2 px-3 rounded-xl border text-xs font-black flex items-center justify-between transition-all ${
+                className={`py-2 px-3 rounded-xl border text-xs font-sans font-black flex items-center justify-between transition-all ${
                   language === "vi"
                     ? "bg-[#b45309] text-white border-[#facc15] shadow-md scale-[1.02]"
                     : "bg-[#4a2c17] text-amber-100/80 border-[#b45309]/60 hover:bg-[#5c371d]"
                 }`}
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 font-sans">
                   <span className="text-base">🇻🇳</span>
-                  <span className="uppercase text-[11px]">Tiếng Việt</span>
+                  <span className="uppercase text-[11px] font-sans font-black">Tiếng Việt</span>
                 </div>
                 {language === "vi" && <Check className="w-3.5 h-3.5 text-[#facc15]" />}
               </button>

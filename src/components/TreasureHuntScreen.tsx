@@ -99,7 +99,7 @@ const RewardModal: React.FC<RewardModalProps> = ({
         <div className="bg-[#201109] border-b-2 border-amber-500/40 p-2.5 sm:p-3.5 flex items-center justify-between flex-shrink-0">
           <span className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5 mx-auto font-serif">
             <Crown className="w-4 h-4 text-amber-400" />
-            <span>TREASURE CHEST OPENED!</span>
+            <span>{t("treasure_opened").toUpperCase()}</span>
           </span>
         </div>
 
@@ -120,7 +120,7 @@ const RewardModal: React.FC<RewardModalProps> = ({
             <div className="bg-[#261309] border-2 border-amber-500/60 rounded-2xl p-3 sm:p-4 space-y-2">
               <div className="text-[11px] font-black text-amber-400 uppercase tracking-wide flex items-center justify-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>⭐ LEGENDARY SECRET RELIC ⭐</span>
+                <span>{t("legendary_relic_discovered")}</span>
               </div>
 
               <SecretItemCutout item={reward.secretItem} />
@@ -132,7 +132,7 @@ const RewardModal: React.FC<RewardModalProps> = ({
                 {reward.secretItem.description}
               </p>
               <div className="pt-1.5 border-t border-amber-500/30 text-[10px] text-[#93bb44] font-black uppercase">
-                ✨ Added directly to your Shop inventory!
+                {t("added_to_shop_inventory")}
               </div>
             </div>
           ) : (
@@ -142,11 +142,11 @@ const RewardModal: React.FC<RewardModalProps> = ({
               </div>
               <div>
                 <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
-                  Loot Discovered
+                  {t("loot_discovered")}
                 </div>
                 <div className="text-xl sm:text-2xl font-serif font-black text-white drop-shadow">
                   +{reward.amount.toLocaleString()}{" "}
-                  {reward.type === "coins" ? "Coins" : "Gems"}
+                  {reward.type === "coins" ? t("coins") : t("gems")}
                 </div>
               </div>
             </div>
@@ -155,9 +155,7 @@ const RewardModal: React.FC<RewardModalProps> = ({
           <button
             onClick={onClose}
             className="w-full bg-[#93bb44] hover:bg-[#a6d14f] border-b-4 border-[#658627] text-white font-black py-2.5 sm:py-3 px-4 rounded-xl sm:rounded-2xl text-xs sm:text-sm uppercase italic tracking-wider shadow-lg active:translate-y-1 transition-all"
-          >
-            Claim & Continue Hunting
-          </button>
+          >{t("claim_and_continue")}</button>
         </div>
       </motion.div>
     </div>
@@ -262,6 +260,7 @@ export const TreasureHuntScreen: React.FC = () => {
     treasureResetTime,
     currentServer,
     profile,
+    t,
   } = useGame();
 
   const { currentLocation } = useGpsTracker();
@@ -507,7 +506,7 @@ export const TreasureHuntScreen: React.FC = () => {
             <div className="flex items-center justify-between border-b border-amber-500/30 pb-2.5 flex-shrink-0">
               <div className="flex items-center gap-2 font-serif font-black text-amber-300">
                 <Compass className="w-4 h-4 text-amber-400" />
-                <span className="uppercase text-xs sm:text-sm tracking-wider">Treasure Hunt</span>
+                <span className="uppercase text-xs sm:text-sm tracking-wider">{t("treasure_hunt_title")}</span>
               </div>
               <button
                 onClick={() => {
@@ -523,13 +522,13 @@ export const TreasureHuntScreen: React.FC = () => {
             {/* Modal Body */}
             <div className="py-3.5 text-xs text-amber-100/90 leading-relaxed font-sans space-y-2">
               <p>
-                Each day, between <strong>5 to 15 random treasures</strong> spawn exclusively within a <strong>2 km radius</strong> of your coordinates and remain anchored in place for 24 hours.
+                {t("treasure_hunt_desc")}
+              </p>
+              <p className="whitespace-pre-wrap">
+                {t("server_isolation_desc")}
               </p>
               <p>
-                <strong>Server-Wide Isolation:</strong> Each server has its own unique daily treasures and feed. Pirates on other servers cannot see or claim your server's treasures!
-              </p>
-              <p>
-                Track markers with your live radar and touch chests (&le;45m) to plunder them before fellow captains on your server claim them!
+                {t("treasure_hunt_radar_desc")}
               </p>
             </div>
 
@@ -541,9 +540,7 @@ export const TreasureHuntScreen: React.FC = () => {
                   setShowDescription(false);
                 }}
                 className="w-full bg-[#93bb44] hover:bg-[#a6d14f] border-b-2 border-[#658627] text-white font-black py-2 rounded-xl text-xs uppercase italic tracking-wide active:translate-y-0.5 shadow-md"
-              >
-                Got It!
-              </button>
+              >{t("got_it")}</button>
             </div>
           </motion.div>
         </div>
@@ -557,7 +554,7 @@ export const TreasureHuntScreen: React.FC = () => {
             <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 flex-shrink-0">
               <div className="flex items-center gap-1.5 font-serif font-black text-amber-300">
                 <Crown className="w-4 h-4 text-amber-400" />
-                <span className="uppercase text-xs tracking-wider">Treasure Drop Rates</span>
+                <span className="uppercase text-xs tracking-wider">{t("treasure_drop_rates")}</span>
               </div>
               <button
                 onClick={() => {
@@ -601,7 +598,7 @@ export const TreasureHuntScreen: React.FC = () => {
               ))}
 
               <div className="mt-2.5 p-2 rounded-xl bg-[#201007] border border-amber-500/30 text-[10px] text-amber-200/70 leading-relaxed">
-                * Secret item drops are unlisted from the shop catalog until plundered from a legendary chest. Once found, they immediately unlock in your decoration inventory.
+                {t("treasure_drop_note")}
               </div>
             </div>
 
@@ -613,9 +610,7 @@ export const TreasureHuntScreen: React.FC = () => {
                   setShowDropRates(false);
                 }}
                 className="w-full bg-[#93bb44] hover:bg-[#a6d14f] border-b-2 border-[#658627] text-white font-black py-2 rounded-xl text-xs uppercase italic tracking-wide active:translate-y-0.5 shadow-md"
-              >
-                Close
-              </button>
+              >{t("close")}</button>
             </div>
           </div>
         </div>
@@ -644,13 +639,11 @@ export const TreasureHuntScreen: React.FC = () => {
           </div>
           <div>
             <div className="text-xs font-serif font-black uppercase text-amber-300 flex items-center gap-1.5 flex-wrap">
-              <span>TREASURE HUNT</span>
-              <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/30">
-                2 KM RADAR
-              </span>
+              <span>{t("treasure_hunt_title").toUpperCase()}</span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/30">{t("2_km_radar")}</span>
             </div>
             <div className="text-[10px] text-amber-200/60 font-mono">
-              Server: <span className="text-white font-bold">{currentServer.name}</span> | Active: <span className="text-emerald-300 font-bold">{detectedTreasures.length} Chests</span>
+              {t("server")}: <span className="text-white font-bold">{currentServer.name}</span> | {t("active")}: <span className="text-emerald-300 font-bold">{detectedTreasures.length} Chests</span>
             </div>
           </div>
         </div>
@@ -659,7 +652,7 @@ export const TreasureHuntScreen: React.FC = () => {
           {/* 24-Hour Reset Countdown Badge */}
           <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#1e0f08] border border-amber-500/40 text-amber-300 text-[10.5px] font-mono shadow-sm">
             <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse flex-shrink-0" />
-            <span className="text-amber-200/70">Reset in:</span>
+            <span className="text-amber-200/70">{t("reset_in")}</span>
             <span className="text-amber-300 font-bold font-mono">{countdownStr || "24:00:00"}</span>
           </div>
 
@@ -684,7 +677,7 @@ export const TreasureHuntScreen: React.FC = () => {
             className="px-2.5 py-1.5 rounded-xl bg-[#25130a] hover:bg-[#432313] border border-amber-500/40 text-[11px] font-black text-amber-300 uppercase inline-flex items-center gap-1 shadow-sm active:scale-95 transition-all"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Drop Rates</span>
+            <span>{t("drop_rates")}</span>
           </button>
         </div>
       </div>
@@ -700,15 +693,13 @@ export const TreasureHuntScreen: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-serif font-black uppercase text-amber-300 tracking-wider flex items-center gap-1.5">
-                <span>TREASURE RADAR MAP</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-300 font-mono">
-                  LIVE GPS
-                </span>
+                <span>{t("treasure_radar_map")}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-300 font-mono">{t("live_gps")}</span>
               </h2>
               <p className="text-[11px] text-amber-200/70">
                 {detectedTreasures.length > 0
-                  ? `⚡ ${detectedTreasures.length} Treasure${detectedTreasures.length > 1 ? "s" : ""} located within 2km radar. Walk to touch & collect!`
-                  : "📡 Radar scanning 2km radius around captain coordinates..."}
+                  ? t("radar_located_msg").replace("{count}", detectedTreasures.length.toString())
+                  : t("radar_scanning_msg")}
               </p>
             </div>
           </div>
@@ -716,7 +707,7 @@ export const TreasureHuntScreen: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1a0c06] border border-amber-500/25 text-[10.5px] font-mono text-amber-200/80">
               <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span>Reset in {countdownStr}</span>
+              <span>{t("reset_in_time").replace("{time}", countdownStr)}</span>
             </div>
           </div>
         </div>
@@ -757,7 +748,7 @@ export const TreasureHuntScreen: React.FC = () => {
           {/* Proximity Warning / Touch Status */}
           {nearestTreasure && (
             <div className="absolute top-2 right-2 z-20 bg-[#1a0f0a]/90 border border-amber-500/40 rounded-xl px-2.5 py-1 text-[10px] font-mono text-emerald-300 backdrop-blur-sm shadow flex items-center gap-1">
-              <span>Nearest:</span>
+              <span>{t("nearest")}</span>
               <strong className="text-amber-300">{nearestTreasure.distanceMeters}m</strong>
             </div>
           )}
@@ -801,11 +792,11 @@ export const TreasureHuntScreen: React.FC = () => {
               <div className="text-right">
                 {selectedTreasure.distanceMeters! <= 45 ? (
                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500 text-black font-black text-[10px] animate-pulse shadow">
-                    ✨ TOUCHING CHEST!
+                    {t("touching_chest")}
                   </span>
                 ) : (
                   <span className="text-[10px] text-amber-200/70 font-mono">
-                    Walk within 45m to claim
+                    {t("walk_within_45m")}
                   </span>
                 )}
               </div>
@@ -825,10 +816,10 @@ export const TreasureHuntScreen: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-xs font-serif font-black uppercase text-amber-300 tracking-wide flex items-center gap-1.5">
-                  <span>NEAREST AVAILABLE TREASURE</span>
+                  <span>{t("nearest_available_treasure")}</span>
                 </h3>
                 <p className="text-[10px] text-emerald-400/80 font-mono">
-                  Closest target on your 2 km radar
+                  {t("closest_target_desc")}
                 </p>
               </div>
             </div>
@@ -891,7 +882,7 @@ export const TreasureHuntScreen: React.FC = () => {
                   }}
                   className="px-3 py-1.5 rounded-xl bg-[#93bb44] hover:bg-[#a6d14f] border-b-2 border-[#658627] text-white font-black text-[11px] uppercase italic tracking-wider shadow-lg active:translate-y-0.5"
                 >
-                  Plunder Chest!
+                  {t("plunder_chest")}
                 </button>
               ) : (
                 <button
@@ -901,7 +892,7 @@ export const TreasureHuntScreen: React.FC = () => {
                   }}
                   className="px-2.5 py-1 rounded-xl bg-[#2f180c] hover:bg-[#432313] border border-amber-500/40 text-amber-200 text-[10px] font-bold flex items-center gap-1"
                 >
-                  <span>Focus Target</span>
+                  <span>{t("focus_target")}</span>
                   <ArrowUpRight className="w-3 h-3 text-amber-400" />
                 </button>
               )}
@@ -911,7 +902,7 @@ export const TreasureHuntScreen: React.FC = () => {
           {/* Proximity Progress Bar towards 45m Touch Zone */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[10px] font-mono text-amber-200/70">
-              <span>Proximity to Touch Zone (&le;45m)</span>
+              <span>{t("proximity_to_touch_zone")}</span>
               <span className="text-emerald-300 font-bold">
                 {Math.max(0, 2000 - (nearestTreasure.distanceMeters ?? 2000))} / 2000m
               </span>
@@ -940,7 +931,7 @@ export const TreasureHuntScreen: React.FC = () => {
             </div>
             <div>
               <h3 className="text-xs font-serif font-black uppercase text-amber-300 tracking-wide">
-                TODAY'S PLUNDERED LOOT
+                {t("todays_plundered_loot")}
               </h3>
               <p className="text-[10px] text-amber-200/60 font-mono">
                 {todayLoot.totalChestsOpened} Chest{todayLoot.totalChestsOpened !== 1 ? "s" : ""} Collected Today
@@ -948,9 +939,7 @@ export const TreasureHuntScreen: React.FC = () => {
             </div>
           </div>
 
-          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-            Daily Stash
-          </span>
+          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">{t("daily_stash")}</span>
         </div>
 
         {/* 3-Pillar Loot Summary Counters */}
@@ -958,7 +947,7 @@ export const TreasureHuntScreen: React.FC = () => {
           {/* Coins Looted */}
           <div className="p-2.5 rounded-xl bg-[#1a0c06] border border-amber-500/20 flex flex-col items-center justify-center text-center">
             <div className="text-xl mb-0.5">🪙</div>
-            <span className="text-[10px] uppercase font-bold text-amber-200/60">Coins Looted</span>
+            <span className="text-[10px] uppercase font-bold text-amber-200/60">{t("coins_looted")}</span>
             <span className="text-sm font-black font-serif text-amber-300">
               +{todayLoot.totalCoins.toLocaleString()}
             </span>
@@ -967,7 +956,7 @@ export const TreasureHuntScreen: React.FC = () => {
           {/* Gems Looted */}
           <div className="p-2.5 rounded-xl bg-[#1a0c06] border border-amber-500/20 flex flex-col items-center justify-center text-center">
             <div className="text-xl mb-0.5">💎</div>
-            <span className="text-[10px] uppercase font-bold text-amber-200/60">Gems Looted</span>
+            <span className="text-[10px] uppercase font-bold text-amber-200/60">{t("gems_looted")}</span>
             <span className="text-sm font-black font-serif text-sky-300">
               +{todayLoot.totalGems.toLocaleString()}
             </span>
@@ -976,7 +965,7 @@ export const TreasureHuntScreen: React.FC = () => {
           {/* Secret Relics */}
           <div className="p-2.5 rounded-xl bg-[#1a0c06] border border-amber-500/20 flex flex-col items-center justify-center text-center">
             <div className="text-xl mb-0.5">👑</div>
-            <span className="text-[10px] uppercase font-bold text-amber-200/60">Secret Relics</span>
+            <span className="text-[10px] uppercase font-bold text-amber-200/60">{t("secret_relics_looted")}</span>
             <span className="text-sm font-black font-serif text-amber-400">
               {todayLoot.secretRelics.length} Found
             </span>
@@ -988,7 +977,7 @@ export const TreasureHuntScreen: React.FC = () => {
           <div className="space-y-1.5 pt-1">
             <div className="text-[11px] font-serif font-black uppercase text-amber-300 flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Legendary Relics Unlocked Today</span>
+              <span>{t("legendary_relics_unlocked")}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -1003,7 +992,7 @@ export const TreasureHuntScreen: React.FC = () => {
                       {relic.name}
                     </div>
                     <div className="text-[9px] text-[#93bb44] font-bold uppercase">
-                      ✓ In Shop Inventory
+                      {t("in_shop_inventory")}
                     </div>
                   </div>
                 </div>
@@ -1037,7 +1026,7 @@ export const TreasureHuntScreen: React.FC = () => {
             </div>
           ) : (
             <div className="text-center p-3 rounded-xl bg-[#180c06]/60 border border-dashed border-amber-500/20 text-xs text-amber-200/60">
-              No treasures claimed yet today. Walk towards the map icons to touch and collect!
+              {t("no_treasures_claimed_today")}
             </div>
           )}
         </div>
@@ -1048,12 +1037,12 @@ export const TreasureHuntScreen: React.FC = () => {
         <div className="flex items-center justify-between border-b border-amber-500/20 pb-2 flex-wrap gap-2">
           <div className="flex items-center gap-1.5 text-xs font-serif font-black uppercase text-amber-300">
             <Flame className="w-4 h-4 text-orange-400" />
-            <span>SERVER HUNTING FEED</span>
+            <span>{t("server_hunting_feed")}</span>
             <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30">
               {currentServer.name}
             </span>
           </div>
-          <span className="text-[10px] text-amber-200/60 font-mono">Server-wide Live Feed</span>
+          <span className="text-[10px] text-amber-200/60 font-mono">{t("server_wide_live_feed")}</span>
         </div>
 
         <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -1081,13 +1070,11 @@ export const TreasureHuntScreen: React.FC = () => {
                     <span className="font-bold text-white mr-1.5">
                       {log.playerName}
                       {log.isUser && (
-                        <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-mono font-bold">
-                          You
-                        </span>
+                        <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-mono font-bold">{t("you")}</span>
                       )}
                     </span>
                     <span className="text-amber-100/90">
-                      claimed <strong className="text-amber-300 font-bold">{log.rewardLabel}</strong>
+                      {t("claimed")} <strong className="text-amber-300 font-bold">{log.rewardLabel}</strong>
                     </span>
                     {log.locationName && (
                       <span className="text-[10px] text-amber-200/50 block sm:inline sm:ml-1.5">
@@ -1109,7 +1096,7 @@ export const TreasureHuntScreen: React.FC = () => {
             ))
           ) : (
             <div className="text-center p-3 rounded-xl bg-[#180c06]/60 border border-dashed border-amber-500/20 text-xs text-amber-200/60">
-              No treasure activity on {currentServer.name} yet today. Be the first to claim a chest!
+              {t("no_treasure_activity_today").replace("{server}", currentServer.name)}
             </div>
           )}
         </div>

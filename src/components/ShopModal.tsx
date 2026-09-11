@@ -35,10 +35,9 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
               <ShoppingBag className="w-5 h-5 text-[#fde047]" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
+              <h2 className="text-sm sm:text-base font-serif font-black uppercase text-[#fde68a] tracking-wider leading-none">
                 {t("shop")}
               </h2>
-              <p className="text-[10px] text-amber-300/80 font-bold uppercase">{t("shop_subtitle")}</p>
             </div>
           </div>
 
@@ -55,13 +54,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
         </div>
 
         {/* Filter Navigation */}
-        <div className="bg-[#1a0f0d] p-1.5 border-b-2 border-[#4a2c17] flex items-center justify-between gap-2 px-3">
-          <div className="text-xs font-serif font-black uppercase text-[#fde68a] flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-[#facc15]" />
-            <span>{t("decorations_catalog")}</span>
-          </div>
-
-          <div className="flex items-center gap-1 bg-[#2b1d19] p-1 rounded-xl border border-[#4a2c17]">
+        <div className="bg-[#1a0f0d] p-1.5 border-b-2 border-[#4a2c17] flex items-center justify-center gap-2 px-3">
+          <div className="flex items-center justify-center gap-1 bg-[#2b1d19] p-1 rounded-xl border border-[#4a2c17]">
             <button
               type="button"
               onClick={() => setViewFilter("all")}
@@ -148,7 +142,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1 flex-wrap">
                             <span className="text-xs font-black text-white font-serif">
-                              {dec.name}
+                              {t(dec.name)}
                             </span>
                             {dec.isSecret && (
                               <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 border border-amber-400/50">
@@ -157,7 +151,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                             )}
                           </div>
                           <div className="text-[10px] text-[#fde68a]/80 leading-tight mt-0.5">
-                            {dec.description}
+                            {t(dec.description)}
                           </div>
                         </div>
                       </div>

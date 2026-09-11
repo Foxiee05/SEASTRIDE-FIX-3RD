@@ -157,7 +157,7 @@ export const ShipDisplay: React.FC<ShipDisplayProps> = ({
         <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.6)] backdrop-blur-md flex flex-col gap-1.5">
           <div className="flex justify-between items-center px-1">
             <span className="text-[10px] sm:text-xs text-sky-200 font-bold uppercase tracking-wider flex items-center gap-1">
-              {t("your_flagship")} <span className="text-sky-400 font-black">Lv.{shipLevel}</span>
+              {t("your_flagship")} <span className="text-sky-400 font-black">{t("lvl")}.{shipLevel}</span>
             </span>
             <span className={`text-[10px] sm:text-xs font-black drop-shadow-md ${isCritical ? "text-rose-400 animate-pulse" : isLow ? "text-amber-400" : "text-emerald-400"}`}>
               {t("condition")}: {shipCondition}%
