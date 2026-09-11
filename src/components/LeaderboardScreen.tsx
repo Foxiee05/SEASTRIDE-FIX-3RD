@@ -55,7 +55,7 @@ const baseLeaderboard = [
 export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
   onBack,
 }) => {
-  const { profile, shipLevel, coins, playerLevel, dailyCoinsHistory } =
+  const { profile, shipLevel, coins, playerLevel, dailyCoinsHistory, t } =
     useGame();
   const [activeTab, setActiveTab] = useState<"level" | "coins">("level");
 
@@ -99,7 +99,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                 : "text-[#f0dec1]/80 hover:text-white hover:bg-[#4a2c17] border-4 border-transparent"
             }`}
           >
-            Player Level
+            {t("player_level")}
           </button>
           <button
             onClick={() => setActiveTab("coins")}
@@ -109,7 +109,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                 : "text-[#f0dec1]/80 hover:text-white hover:bg-[#4a2c17] border-4 border-transparent"
             }`}
           >
-            Coins Earned
+            {t("coins_earned")}
           </button>
         </div>
 
@@ -121,8 +121,8 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
             </div>
 
             <h2 className="text-sm sm:text-base font-black text-[#facc15] uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#facc15]" /> My
-              Weekly Voyage
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#facc15]" />{" "}
+              {t("my_weekly_voyage")}
             </h2>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4 relative z-10">
@@ -132,7 +132,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                   <Footprints className="w-10 h-10 text-white" />
                 </div>
                 <span className="text-[10px] sm:text-xs font-black text-[#8b5a33] uppercase tracking-wider mb-1 z-10">
-                  Distance This Week
+                  {t("distance_this_week")}
                 </span>
                 <span className="text-xl sm:text-2xl font-black text-[#f0dec1] z-10">
                   18.6 <span className="text-xs text-[#8b5a33]">km</span>
@@ -145,7 +145,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                   <CircleDollarSign className="w-10 h-10 text-[#facc15]" />
                 </div>
                 <span className="text-[10px] sm:text-xs font-black text-[#facc15]/90 uppercase tracking-wider mb-1 z-10">
-                  Coins Earned This Week
+                  {t("coins_earned_this_week")}
                 </span>
                 <div className="flex items-center gap-1.5 z-10">
                   <CircleDollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-[#facc15] drop-shadow-md" />
@@ -159,7 +159,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
             {/* Daily Coins Chart */}
             <div className="mt-5 pt-5 border-t-2 border-dashed border-[#4a2c17] relative z-10">
               <h3 className="text-[10px] sm:text-xs font-black text-[#d1b794] tracking-widest uppercase mb-4 text-center">
-                Daily Coins Earned
+                {t("daily_coins_earned")}
               </h3>
               <div className="flex items-end justify-between h-32 gap-1 sm:gap-2">
                 {dailyCoinsHistory.map((data, index) => {
@@ -215,10 +215,10 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
 
         {/* Table Headers */}
         <div className="grid grid-cols-[2.5rem_1fr_3.5rem_4.5rem] sm:grid-cols-[4rem_1fr_4.5rem_6.5rem] items-center px-2 sm:px-4 mb-2 text-[clamp(0.65rem,2.5vw,0.85rem)] font-black text-[#8b5a33] uppercase tracking-widest opacity-80 gap-2 sm:gap-4">
-          <div className="text-center">Rank</div>
-          <div className="px-1">Pirate</div>
-          <div className="text-center">Level</div>
-          <div className="text-right">Gold</div>
+          <div className="text-center">{t("rank")}</div>
+          <div className="px-1">{t("pirate")}</div>
+          <div className="text-center">{t("level")}</div>
+          <div className="text-right">{t("gold")}</div>
         </div>
 
         {/* Leaderboard List */}
@@ -277,7 +277,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                     }`}
                   >
                     {player.isCurrentUser && profile?.username
-                      ? `${profile.username} (You)`
+                      ? `${profile.username} (${t("you")})`
                       : player.name}
                   </span>
                 </div>
@@ -286,7 +286,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
               {/* Player Level */}
               <div className="text-center">
                 <span className={`font-extrabold text-[clamp(0.7rem,2.5vw,0.9rem)] sm:text-[clamp(0.85rem,3vw,1rem)] ${player.isCurrentUser ? "text-stone-800" : "text-sky-300"}`}>
-                  Lvl {player.level}
+                  {t("lvl")} {player.level}
                 </span>
               </div>
 

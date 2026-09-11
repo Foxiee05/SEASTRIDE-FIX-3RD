@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useGame } from "../context/GameContext";
 import {
   getShipImageForLevel,
@@ -6,7 +6,8 @@ import {
   getShieldImageForLevel,
 } from "../assets";
 import { useCutoutImage } from "../utils/imageUtils";
-import { X, Shield, Wrench, Heart } from "lucide-react";
+import { InfoModal } from "./InfoModal";
+import { X, Shield, Wrench, Heart, Info } from "lucide-react";
 
 interface ShipInspectModalProps {
   onClose: () => void;
@@ -19,6 +20,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
   onOpenRepair,
   onOpenUpgrades,
 }) => {
+  const [infoState, setInfoState] = useState<{title: string; message: string} | null>(null);
   const {
     shipLevel,
     shipCondition,
@@ -27,6 +29,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
     cannonLevel,
     cannonCount,
     shieldLevel,
+    t,
   } = useGame();
 
   const shipImg = useCutoutImage(getShipImageForLevel(shipLevel), {
@@ -44,7 +47,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-xl">⛵</span>
             <h2 className="text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-              Flagship Condition & Diagnostics
+              {t("ship_stats")}
             </h2>
           </div>
 
@@ -68,11 +71,11 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
             />
 
             <div className="text-lg font-serif font-black text-[#fbbf24] mt-2">
-              Level {shipLevel} Pirate Flagship
+              Lv.{shipLevel} {t("your_flagship")}
             </div>
 
             <div className="text-xs text-[#fde68a] font-mono mt-0.5">
-              Hull HP: {shipCurrentHp.toLocaleString()} /{" "}
+              HP: {shipCurrentHp.toLocaleString()} /{" "}
               {shipMaxHp.toLocaleString()} HP
             </div>
           </div>
@@ -82,7 +85,17 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
             <div className="flex justify-between items-center text-xs font-serif font-black">
               <span className="text-[#fde68a] flex items-center gap-1">
                 <Heart className="w-3.5 h-3.5 text-red-400 fill-red-400" />
-                <span>Ship Hull Condition</span>
+                <span>{t("condition")}</span>
+                <Info 
+                  className="w-4 h-4 text-sky-400 ml-0.5 hover:text-sky-300 active:scale-95 cursor-pointer" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInfoState({
+                      title: t("condition"),
+                      message: "Represents the health of your flagship. If it drops to 50% or below, you cannot participate in boss raids until repaired!"
+                    });
+                  }} 
+                />
               </span>
               <span
                 className={`font-mono text-xs px-2.5 py-0.5 rounded-lg font-black ${
@@ -93,7 +106,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
                       : "bg-[#064e3b] text-emerald-200 border border-[#16a34a]"
                 }`}
               >
-                {shipCondition}% Condition
+                {shipCondition}% {t("condition")}
               </span>
             </div>
 
@@ -121,11 +134,21 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
                 className="w-8 h-8 object-contain"
               />
               <div>
-                <div className="text-[10px] text-[#fde68a]/80 uppercase font-bold">
-                  Cannons
+                <div className="flex items-center gap-1 text-[10px] text-[#fde68a]/80 uppercase font-bold">
+                  <span>{t("cannons")}</span>
+                  <Info 
+                    className="w-3 h-3 text-sky-400 hover:text-sky-300 active:scale-95 cursor-pointer" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInfoState({
+                        title: t("cannons"),
+                        message: "Higher level cannons deal more damage to raid bosses. Upgrade them in the Upgrades menu to increase your attack power."
+                      });
+                    }} 
+                  />
                 </div>
                 <div className="text-xs font-black text-white">
-                  Lv.{cannonLevel} x{cannonCount} Mounted
+                  Lv.{cannonLevel} x{cannonCount}
                 </div>
               </div>
             </div>
@@ -138,13 +161,23 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
                 className="w-8 h-8 object-contain"
               />
               <div>
-                <div className="text-[10px] text-[#fde68a]/80 uppercase font-bold">
-                  Shield Aura
+                <div className="flex items-center gap-1 text-[10px] text-[#fde68a]/80 uppercase font-bold">
+                  <span>{t("shield")}</span>
+                  <Info 
+                    className="w-3 h-3 text-sky-400 hover:text-sky-300 active:scale-95 cursor-pointer" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInfoState({
+                        title: t("shield"),
+                        message: "Aura shields protect your ship's hull from taking damage during raids. Upgrade shields to reduce damage taken from boss attacks."
+                      });
+                    }} 
+                  />
                 </div>
                 <div className="text-xs font-black text-white">
                   {shieldLevel > 0
-                    ? `Lv.${shieldLevel} Shield Active`
-                    : "No Shield"}
+                    ? `Lv.${shieldLevel}`
+                    : t("no_shield")}
                 </div>
               </div>
             </div>
@@ -160,7 +193,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
               className="bg-[#1d4ed8] hover:bg-[#2563eb] border-b-4 border-r-2 border-[#1e3a8a] text-white font-black py-2.5 rounded-xl text-xs uppercase italic shadow-md active:translate-y-0.5 flex items-center justify-center gap-1.5"
             >
               <Wrench className="w-4 h-4 text-white" />
-              <span>Repair Ship</span>
+              <span>{t("repair_ship")}</span>
             </button>
 
             <button
@@ -171,11 +204,12 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
               className="bg-[#b45309] hover:bg-[#d97706] border-b-4 border-r-2 border-[#2b1d19] text-white font-black py-2.5 rounded-xl text-xs uppercase italic shadow-md active:translate-y-0.5 flex items-center justify-center gap-1.5"
             >
               <Shield className="w-4 h-4" />
-              <span>Upgrade Ship</span>
+              <span>{t("upgrade_ship")}</span>
             </button>
           </div>
         </div>
       </div>
+      <InfoModal isOpen={!!infoState} onClose={() => setInfoState(null)} title={infoState?.title || ""} message={infoState?.message || ""} />
     </div>
   );
 };

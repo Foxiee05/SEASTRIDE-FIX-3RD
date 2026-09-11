@@ -7,7 +7,7 @@ interface ServerModalProps {
 }
 
 export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
-  const { currentServer, servers, switchServer, createPrivateServer, gems } =
+  const { currentServer, servers, switchServer, createPrivateServer, gems, t } =
     useGame();
   const [newIslandName, setNewIslandName] = useState<string>("");
   const [customCodeInput, setCustomCodeInput] = useState<string>("");
@@ -34,7 +34,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
           <div className="flex items-center gap-2">
             <Globe className="w-5 h-5 text-sky-400" />
             <h2 className="text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-              Server & Private Beach Realm
+              {t("servers")}
             </h2>
           </div>
 
@@ -51,7 +51,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
           {/* Current Active Server Badge */}
           <div className="bg-[#2b1d19] border-4 border-[#b45309] rounded-2xl p-3 text-center space-y-1">
             <span className="text-[10px] font-serif font-black uppercase text-[#fde68a]">
-              Current Server Realm
+              {t("current_server")}
             </span>
             <div className="text-base font-black text-[#fbbf24] font-serif flex items-center justify-center gap-1.5">
               {currentServer.type === "global" ? (
@@ -62,18 +62,18 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
               <span>{currentServer.name}</span>
             </div>
             <div className="text-xs text-[#fde68a] font-mono">
-              Unique Code:{" "}
+              {t("server_code")}:{" "}
               <span className="font-extrabold text-white">
                 {currentServer.code}
               </span>{" "}
-              ({currentServer.playerCount}/{currentServer.maxPlayers} Ships)
+              ({currentServer.playerCount}/{currentServer.maxPlayers} {t("ships")})
             </div>
           </div>
 
           {/* List of Available Servers */}
           <div className="space-y-2">
             <span className="text-xs font-serif font-black uppercase text-[#fde68a]">
-              Available Fleet Servers
+              {t("available_servers")}
             </span>
 
             <div className="space-y-2">
@@ -106,7 +106,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
                           {s.name}
                         </div>
                         <div className="text-[10px] text-[#fde68a]/80 font-mono">
-                          Code: {s.code} • {s.playerCount}/{s.maxPlayers} Ships
+                          {t("server_code")}: {s.code} • {s.playerCount}/{s.maxPlayers} {t("ships")}
                         </div>
                       </div>
                     </div>
@@ -114,11 +114,11 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
                     <div>
                       {isCurrent ? (
                         <span className="text-xs font-black text-white flex items-center gap-1 bg-[#93bb44] border-b-4 border-[#658627] text-white shadow-sm px-2.5 py-1 rounded-lg border border-[#064e3b]">
-                          <Check className="w-3.5 h-3.5 text-white" /> Active
+                          <Check className="w-3.5 h-3.5 text-white" /> {t("active")}
                         </span>
                       ) : (
                         <span className="text-xs font-bold text-[#fde68a] bg-[#4a2c17] px-2.5 py-1 rounded-lg border border-[#b45309]">
-                          Switch
+                          {t("switch")}
                         </span>
                       )}
                     </div>
@@ -134,7 +134,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
             className="bg-[#2b1d19] border-2 border-[#b45309] p-3.5 rounded-2xl space-y-2"
           >
             <span className="text-xs font-serif font-black uppercase text-[#fde68a]">
-              Enter Server Code
+              {t("enter_server_code")}
             </span>
             <div className="flex gap-2">
               <input
@@ -148,7 +148,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
                 type="submit"
                 className="bg-[#1d4ed8] hover:bg-[#2563eb] border-b-4 border-r-2 border-[#1e3a8a] px-3.5 py-1.5 rounded-xl text-xs font-black text-white italic active:translate-y-0.5"
               >
-                Join
+                {t("join")}
               </button>
             </div>
           </form>
@@ -160,8 +160,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
           >
             <div className="flex justify-between items-center text-xs font-serif font-black uppercase text-[#fde68a]">
               <span className="flex items-center gap-1">
-                <Plus className="w-3.5 h-3.5 text-[#facc15]" /> Create Private
-                Beach (20 Ships)
+                <Plus className="w-3.5 h-3.5 text-[#facc15]" /> {t("create_private_server")} (20 {t("ships")})
               </span>
               <span className="text-sky-300 font-bold">10 💎</span>
             </div>
@@ -183,7 +182,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
                   : "bg-[#b45309] hover:bg-[#d97706] border-[#2b1d19] text-white"
               }`}
             >
-              Build Private Beach (10 Gems)
+              {t("create_server_btn")} (10 {t("gems")})
             </button>
           </form>
         </div>

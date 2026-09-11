@@ -10,7 +10,7 @@ interface AttackModalProps {
 }
 
 export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
-  const { currentServer, attackPlayer, energy } = useGame();
+  const { currentServer, attackPlayer, energy, t } = useGame();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isAttacking, setIsAttacking] = useState<boolean>(false);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
@@ -44,7 +44,7 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
               className="w-7 h-7 object-contain"
             />
             <h2 className="text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-              Launch Raid • {currentServer.name}
+              {t("launch_raid")} • {currentServer.name}
             </h2>
           </div>
 
@@ -62,11 +62,11 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
           {battleResult ? (
             <div className="bg-[#2b1d19] border-4 border-[#b45309] rounded-2xl p-5 text-center space-y-4 animate-fade-in shadow-2xl">
               <div className="text-3xl font-black text-[#fbbf24] font-serif tracking-wide uppercase drop-shadow">
-                ⚔️ RAID VICTORY! ⚔️
+                {t("raid_victory")}
               </div>
 
               <div className="text-xs text-[#fde68a] font-serif">
-                You attacked{" "}
+                {t("you_attacked")}{" "}
                 <span className="font-extrabold text-[#fbbf24]">
                   {battleResult.targetPlayer.name}
                 </span>
@@ -77,20 +77,20 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
               <div className="bg-[#1a0f0d] border-2 border-[#4a2c17] rounded-xl p-3 grid grid-cols-2 gap-2 text-center">
                 <div>
                   <div className="text-[10px] text-[#fde68a]/80 font-bold uppercase">
-                    Damage Dealt
+                    {t("damage_dealt")}
                   </div>
                   <div className="text-xl font-mono font-black text-red-400">
                     -{battleResult.damageDealt.toLocaleString()} HP
                   </div>
                   {battleResult.shieldBlocked && (
                     <div className="text-[10px] text-sky-400 font-bold mt-0.5">
-                      🛡️ Shield Absorbed -{battleResult.shieldReductionPercent}%
+                      🛡️ {t("shield_absorbed")} -{battleResult.shieldReductionPercent}%
                     </div>
                   )}
                 </div>
                 <div>
                   <div className="text-[10px] text-[#fde68a]/80 font-bold uppercase">
-                    Enemy Remaining HP
+                    {t("enemy_remaining_hp")}
                   </div>
                   <div className="text-xl font-mono font-black text-[#fbbf24]">
                     {battleResult.enemyRemainingHpPercent}%
@@ -105,18 +105,18 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
               {/* Loot Rewards */}
               <div className="bg-[#1a0f0d] border-2 border-[#b45309] rounded-xl p-3 space-y-2">
                 <div className="text-xs font-black uppercase text-[#fde68a] font-serif">
-                  Plundered Loot:
+                  {t("plundered_loot")}
                 </div>
                 <div className="flex items-center justify-center gap-4">
                   <div className="flex items-center gap-1.5 bg-[#4a2c17] border-2 border-[#b45309] px-3.5 py-1.5 rounded-xl text-[#fbbf24] font-extrabold">
                     <span className="text-lg">🪙</span>
-                    <span>+{battleResult.coinsEarned} Gold</span>
+                    <span>+{battleResult.coinsEarned} {t("coins")}</span>
                   </div>
 
                   {battleResult.gemsEarned > 0 && (
                     <div className="flex items-center gap-1.5 bg-[#1e1b4b] border-2 border-[#4338ca] px-3.5 py-1.5 rounded-xl text-sky-200 font-extrabold">
                       <span className="text-lg">💎</span>
-                      <span>+{battleResult.gemsEarned} Gem!</span>
+                      <span>+{battleResult.gemsEarned} {t("gems")}!</span>
                     </div>
                   )}
                 </div>
@@ -127,12 +127,11 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
                     <div className="flex items-center gap-1.5">
                       <Sparkles className="w-5 h-5 text-[#facc15]" />
                       <span className="text-xs font-black uppercase tracking-wide">
-                        LOOTED CANNON! Stole enemy Lv.
-                        {battleResult.lootedCannonLevel} Cannon!
+                        {t("looted_cannon")} Lv.{battleResult.lootedCannonLevel}!
                       </span>
                     </div>
                     <span className="text-[10px] text-amber-100 font-sans">
-                      ✓ Added to your Armory Inventory (Equip in Upgrades)!
+                      {t("added_to_armory")}
                     </span>
                   </div>
                 )}
@@ -142,7 +141,7 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
                 onClick={() => setBattleResult(null)}
                 className="w-full bg-[#b45309] hover:bg-[#d97706] border-b-4 border-r-2 border-[#2b1d19] text-white font-black py-3 rounded-xl uppercase italic tracking-wider text-sm shadow-xl active:translate-y-1"
               >
-                Raid Again
+                {t("raid_again")}
               </button>
             </div>
           ) : isAttacking ? (
@@ -157,10 +156,10 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
                 />
               </div>
               <div className="text-xl font-black text-[#fbbf24] font-serif tracking-widest uppercase animate-pulse">
-                💣 FIRING CANNONSALVO... 💣
+                {t("firing_cannons")}
               </div>
               <p className="text-xs text-[#fde68a]">
-                Calculating impact damage & looting pirate treasure...
+                {t("calculating_impact")}
               </p>
             </div>
           ) : (
@@ -168,7 +167,7 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
             <div className="space-y-3">
               <div className="flex items-center justify-center">
                 <span className="text-xs font-serif font-black uppercase text-[#fde68a]">
-                  Select Target Ship ({players.length} Ships In Server)
+                  {t("select_target")} ({players.length} {t("ships")})
                 </span>
               </div>
 
@@ -188,8 +187,8 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
               {selectedPlayer && (
                 <div className="bg-[#2b1d19] border-4 border-[#b45309] rounded-2xl p-3.5 space-y-2">
                   <div className="flex justify-between items-center text-xs font-serif font-black text-[#fde68a]">
-                    <span>Target Locked: {selectedPlayer.name}</span>
-                    <span className="text-[#fbbf24]">Cost: 1 Energy</span>
+                    <span>{t("target_locked")}: {selectedPlayer.name}</span>
+                    <span className="text-[#fbbf24]">{t("cost")}: 1 {t("energy")}</span>
                   </div>
 
                   <button
@@ -197,7 +196,7 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
                     disabled={energy < 1}
                     className="w-full bg-red-700 hover:bg-red-600 border-b-4 border-r-2 border-red-950 text-white font-black py-3 rounded-xl uppercase italic tracking-wider text-base shadow-2xl active:translate-y-1 flex items-center justify-center gap-2"
                   >
-                    <span>💣 FIRE BOMB SALVO!</span>
+                    <span>💣 {t("fire_bomb_salvo")}</span>
                   </button>
                 </div>
               )}
@@ -214,6 +213,7 @@ const PlayerTargetItem: React.FC<{
   isSelected: boolean;
   onSelect: () => void;
 }> = ({ player: p, isSelected, onSelect }) => {
+  const { t } = useGame();
   const rawShipImg = getShipImageForLevel(p.shipLevel);
   const shipImg = useCutoutImage(rawShipImg, {
     mode: "edge",
@@ -245,7 +245,7 @@ const PlayerTargetItem: React.FC<{
           </div>
           <div className="text-[10px] text-[#fde68a]/80">{p.title}</div>
           <div className="text-[10px] text-[#fbbf24] font-mono">
-            Ship Lv.{p.shipLevel} • {p.currentHp.toLocaleString()} / {p.maxHp.toLocaleString()} HP ({p.shipCondition}%)
+            {t("ship")} Lv.{p.shipLevel} • {p.currentHp.toLocaleString()} / {p.maxHp.toLocaleString()} HP ({p.shipCondition}%)
             {p.shieldLevel > 0 && (
               <span className="text-sky-300 ml-1">🛡️ Lv.{p.shieldLevel}</span>
             )}
@@ -256,11 +256,11 @@ const PlayerTargetItem: React.FC<{
       <div className="text-right">
         {p.shipCondition < 30 && (
           <span className="text-[9px] bg-red-950 border border-red-600 text-red-300 font-black px-1.5 py-0.5 rounded uppercase block mb-1">
-            Lootable Cannons!
+            {t("lootable_cannons")}
           </span>
         )}
         <span className="text-xs font-extrabold text-[#fde68a]">
-          {isSelected ? "🎯 Target" : "Select"}
+          {isSelected ? `🎯 ${t("target_locked")}` : t("select")}
         </span>
       </div>
     </div>

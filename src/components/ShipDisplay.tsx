@@ -26,6 +26,7 @@ export const ShipDisplay: React.FC<ShipDisplayProps> = ({
     cannonCount,
     shieldLevel,
     equippedDecorations,
+    t,
   } = useGame();
 
   const rawShipImg = getShipImageForLevel(shipLevel);
@@ -60,7 +61,7 @@ export const ShipDisplay: React.FC<ShipDisplayProps> = ({
         {shieldLevel > 0 && (
           <div className="absolute -inset-6 rounded-full border-4 border-cyan-400/80 bg-cyan-400/10 shadow-[0_0_30px_rgba(0,210,255,0.6)] animate-pulse pointer-events-none z-10 flex items-center justify-center">
             <span className="absolute -top-3 bg-[#1e1b4b] border-2 border-[#4338ca] text-cyan-200 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-lg uppercase italic">
-              ✨ Shield Aura Lv{shieldLevel} Active
+              ✨ {t("shield")} Lv{shieldLevel}
             </span>
           </div>
         )}
@@ -140,7 +141,7 @@ export const ShipDisplay: React.FC<ShipDisplayProps> = ({
               />
               <div className="flex flex-col">
                 <span className="text-[8px] sm:text-[10px] text-[#fde68a] font-bold uppercase leading-none">
-                  Deck Cannons
+                  {t("cannons")}
                 </span>
                 <span className="text-[10px] sm:text-xs font-black text-[#fbbf24] font-mono leading-tight">
                   Lv.{cannonLevel} x{cannonCount}
@@ -156,10 +157,10 @@ export const ShipDisplay: React.FC<ShipDisplayProps> = ({
         <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.6)] backdrop-blur-md flex flex-col gap-1.5">
           <div className="flex justify-between items-center px-1">
             <span className="text-[10px] sm:text-xs text-sky-200 font-bold uppercase tracking-wider flex items-center gap-1">
-              Flagship <span className="text-sky-400 font-black">Lv.{shipLevel}</span>
+              {t("your_flagship")} <span className="text-sky-400 font-black">Lv.{shipLevel}</span>
             </span>
             <span className={`text-[10px] sm:text-xs font-black drop-shadow-md ${isCritical ? "text-rose-400 animate-pulse" : isLow ? "text-amber-400" : "text-emerald-400"}`}>
-              Condition: {shipCondition}%
+              {t("condition")}: {shipCondition}%
             </span>
           </div>
           

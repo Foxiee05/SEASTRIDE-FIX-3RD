@@ -70,6 +70,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
     energy,
     seaGameMode,
     setSeaGameMode,
+    t,
   } = useGame();
 
   const [selectedShip, setSelectedShip] = useState<SailingShip | null>(null);
@@ -96,7 +97,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
     // 1. Add Player's own flagship
     list.push({
       id: "player_flagship",
-      name: "Your Flagship",
+      name: t("your_flagship"),
       title: "Captain",
       isPlayer: true,
       x: 45 + (Math.random() * 10 - 5),
@@ -328,10 +329,10 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
             className="w-24 h-24 object-contain animate-bounce filter drop-shadow-[0_0_20px_rgba(230,57,70,1)]"
           />
           <div className="text-2xl font-black text-[#fbbf24] font-serif uppercase tracking-wider animate-pulse">
-            💣 FIRING CANNON SALVO! 💣
+            {t("firing_cannons")}
           </div>
           <p className="text-xs text-[#fde68a]">
-            Bombarding target ship on the high seas...
+            {t("calculating_impact")}
           </p>
         </div>
       )}
@@ -341,11 +342,11 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
         <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#2b1d19] border-4 border-[#b45309] rounded-2xl p-5 text-center space-y-4 animate-fade-in shadow-2xl max-w-sm w-full text-amber-100">
             <div className="text-2xl font-black text-[#fbbf24] font-serif tracking-wide uppercase drop-shadow">
-              ⚔️ RAID VICTORY! ⚔️
+              {t("raid_victory")}
             </div>
 
             <div className="text-xs text-[#fde68a] font-serif">
-              You attacked{" "}
+              {t("you_attacked")}{" "}
               <span className="font-extrabold text-[#fbbf24]">
                 {battleResult.targetPlayer.name}
               </span>
@@ -355,7 +356,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
             <div className="bg-[#1a0f0d] border-2 border-[#4a2c17] rounded-xl p-3 grid grid-cols-2 gap-2 text-center">
               <div>
                 <div className="text-[10px] text-[#fde68a]/80 font-bold uppercase">
-                  Damage Dealt
+                  {t("damage_dealt")}
                 </div>
                 <div className="text-lg font-mono font-black text-red-400">
                   -{battleResult.damageDealt.toLocaleString()} HP
@@ -363,7 +364,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               </div>
               <div>
                 <div className="text-[10px] text-[#fde68a]/80 font-bold uppercase">
-                  Enemy Remaining
+                  {t("enemy_remaining_hp")}
                 </div>
                 <div className="text-lg font-mono font-black text-[#fbbf24]">
                   {battleResult.enemyRemainingHpPercent}% HP
@@ -373,18 +374,18 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
 
             <div className="bg-[#1a0f0d] border-2 border-[#b45309] rounded-xl p-3 space-y-2">
               <div className="text-xs font-black uppercase text-[#fde68a] font-serif">
-                Plundered Loot:
+                {t("plundered_loot")}
               </div>
               <div className="flex items-center justify-center gap-3">
                 <div className="flex items-center gap-1 bg-[#4a2c17] border-2 border-[#b45309] px-3 py-1 rounded-xl text-[#fbbf24] font-black text-xs">
                   <span>🪙</span>
-                  <span>+{battleResult.coinsEarned} Gold</span>
+                  <span>+{battleResult.coinsEarned} {t("coins")}</span>
                 </div>
 
                 {battleResult.gemsEarned > 0 && (
                   <div className="flex items-center gap-1 bg-[#1e1b4b] border-2 border-[#4338ca] px-3 py-1 rounded-xl text-sky-200 font-black text-xs">
                     <span>💎</span>
-                    <span>+{battleResult.gemsEarned} Gem!</span>
+                    <span>+{battleResult.gemsEarned} {t("gems")}!</span>
                   </div>
                 )}
               </div>
@@ -393,7 +394,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
                 <div className="bg-[#93bb44] border-b-4 border-[#658627] text-white shadow-sm border-2 border-[#064e3b] p-2 rounded-xl flex items-center justify-center gap-1.5 text-white text-[10px] font-black uppercase">
                   <Sparkles className="w-4 h-4 text-[#facc15]" />
                   <span>
-                    Stole enemy Lv{battleResult.lootedCannonLevel} Cannon!
+                    {t("looted_cannon")} Lv{battleResult.lootedCannonLevel}!
                   </span>
                 </div>
               )}
@@ -406,7 +407,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               }}
               className="w-full bg-[#b45309] hover:bg-[#d97706] border-b-4 border-r-2 border-[#2b1d19] text-white font-black py-2.5 rounded-xl uppercase italic tracking-wider text-xs shadow-xl active:translate-y-1"
             >
-              Continue Ocean Patrol
+              {t("continue_patrol")}
             </button>
           </div>
         </div>
@@ -423,10 +424,10 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               <div>
                 <div className="text-xs font-serif font-black text-white">
                   {selectedShip.name}{" "}
-                  {selectedShip.isPlayer && "(Your Flagship)"}
+                  {selectedShip.isPlayer && `(${t("your_flagship")})`}
                 </div>
                 <div className="text-[10px] text-[#fde68a]/80 font-mono">
-                  {selectedShip.title} • Lv.{selectedShip.shipLevel} Vessel
+                  {selectedShip.title} • Lv.{selectedShip.shipLevel} {t("ship")}
                 </div>
               </div>
             </div>
@@ -442,7 +443,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
           <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-2">
             <div className="bg-[#1a0f0d] p-1.5 rounded-xl border border-[#4a2c17]">
               <div className="text-[9px] text-[#fde68a]/80 font-bold uppercase">
-                Condition
+                {t("condition")}
               </div>
               <div className="text-xs font-black text-[#fbbf24]">
                 {selectedShip.shipCondition}% HP
@@ -450,7 +451,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
             </div>
             <div className="bg-[#1a0f0d] p-1.5 rounded-xl border border-[#4a2c17]">
               <div className="text-[9px] text-[#fde68a]/80 font-bold uppercase">
-                Mounted Cannons
+                {t("cannons")}
               </div>
               <div className="text-xs font-black text-amber-200">
                 Lv.{selectedShip.cannonLevel} x{selectedShip.cannonCount}
@@ -464,7 +465,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               className="w-full bg-[#1d4ed8] hover:bg-[#2563eb] border-b-4 border-[#1e3a8a] text-white py-2 rounded-xl font-black text-xs uppercase italic flex items-center justify-center gap-1.5"
             >
               <Eye className="w-4 h-4" />
-              <span>Modify In Ship Build Yard</span>
+              <span>{t("upgrade_ship")}</span>
             </button>
           ) : (
             <button
@@ -477,7 +478,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
                 referrerPolicy="no-referrer"
                 className="w-5 h-5 object-contain animate-bounce"
               />
-              <span>FIRE BOMBS AT THIS SHIP! (1 Energy)</span>
+              <span>{t("fire_bomb_salvo")} (1 {t("energy")})</span>
             </button>
           )}
         </div>

@@ -14,9 +14,11 @@ import {
   Shield,
   Map as MapIcon,
   BarChart3,
+  Info,
 } from "lucide-react";
 import { usePedometer } from "../hooks/usePedometer";
 import { StepMapView } from "./StepMapView";
+import { InfoModal } from "./InfoModal";
 import { soundFx } from "../utils/audio";
 
 const DAILY_QUESTS = [
@@ -51,6 +53,7 @@ const DAILY_QUESTS = [
 ];
 
 export const HomeScreen: React.FC = () => {
+  const [infoState, setInfoState] = useState<{title: string; message: string} | null>(null);
   const {
     totalStepsToday,
     addSteps,
@@ -64,6 +67,7 @@ export const HomeScreen: React.FC = () => {
     claimQuest,
     playerLevel,
     playerXp,
+    t,
   } = useGame();
 
   const [activeTab, setActiveTab] = useState<"map" | "chart">("map");
@@ -156,9 +160,9 @@ export const HomeScreen: React.FC = () => {
       {/* Header section */}
       <div className="flex justify-between items-start mb-6">
         <div>
-          <p className="text-amber-100/70 text-sm font-medium">Welcome back</p>
+          <p className="text-amber-100/70 text-sm font-medium">{t("welcome_back")}</p>
           <h1 className="text-2xl sm:text-3xl font-bold text-amber-100 mt-0.5">
-            {profile?.username || "Wanderer"}
+            {profile?.username || t("wanderer")}
           </h1>
         </div>
         <div className="flex items-center gap-1.5 bg-[#2b1d19] border-2 border-[#b45309] rounded-full px-3 py-1.5 shadow-md">
@@ -173,7 +177,7 @@ export const HomeScreen: React.FC = () => {
       <div className="tutorial-level bg-[#f0dec1] text-[#4a2c17] border-4 border-[#8b5a33] rounded-2xl p-4 sm:p-5 mb-8 shadow-[0_6px_0_#4a2c17] relative">
         <div className="flex justify-between items-center mb-3">
           <span className="font-extrabold text-[#4a2c17] tracking-wider text-sm sm:text-base uppercase drop-shadow-sm">
-            LEVEL {playerLevel}
+            {t("level")} {playerLevel}
           </span>
           <span className="text-sm font-black text-[#8b5a33]">
             {currentXp} / {maxXp} XP
@@ -222,7 +226,7 @@ export const HomeScreen: React.FC = () => {
               {totalStepsToday.toLocaleString()}
             </span>
             <span className="text-sm sm:text-base font-bold text-[#fde68a] mt-2 uppercase tracking-widest opacity-80">
-              Goal: 10,000
+              {t("goal")}: 10,000
             </span>
           </div>
         </div>
@@ -236,7 +240,7 @@ export const HomeScreen: React.FC = () => {
             <Route className="w-5 h-5 sm:w-6 sm:h-6 text-[#2b1d19]" />
           </div>
           <div className="text-[10px] sm:text-[11px] text-[#8b5a33] mb-1 font-black uppercase tracking-widest relative z-10 opacity-90">
-            Distance
+            {t("distance")}
           </div>
           <div className="font-black text-[#4a2c17] text-xl sm:text-3xl drop-shadow-md flex items-baseline gap-1 relative z-10">
             {distanceKm}
@@ -251,7 +255,7 @@ export const HomeScreen: React.FC = () => {
             <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-[#2b1d19]" />
           </div>
           <div className="text-[10px] sm:text-[11px] text-[#8b5a33] mb-1 font-black uppercase tracking-widest relative z-10 opacity-90">
-            Calories
+            {t("calories")}
           </div>
           <div className="font-black text-[#4a2c17] text-xl sm:text-3xl drop-shadow-md flex items-baseline gap-1 relative z-10">
             {caloriesBurned}
@@ -266,7 +270,7 @@ export const HomeScreen: React.FC = () => {
             <Timer className="w-5 h-5 sm:w-6 sm:h-6 text-[#2b1d19]" />
           </div>
           <div className="text-[10px] sm:text-[11px] text-[#8b5a33] mb-1 font-black uppercase tracking-widest relative z-10 opacity-90">
-            Active Time
+            {t("active_time")}
           </div>
           <div className="font-black text-[#4a2c17] text-xl sm:text-3xl drop-shadow-md flex items-baseline gap-1 relative z-10">
             {activeTimeMin}
@@ -279,17 +283,34 @@ export const HomeScreen: React.FC = () => {
 
       {/* ENERGY CHARGED Card */}
       <div className="tutorial-booty-safety bg-[#4a2c17] border-2 border-[#2b1d19] rounded-2xl p-5 mb-8 shadow-xl">
-        <h2 className="text-sm sm:text-base font-black text-amber-100 uppercase tracking-widest mb-4">
-          ENERGY CHARGED
-        </h2>
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-sm sm:text-base font-black text-amber-100 uppercase tracking-widest">
+            {t("energy_charged")}
+          </h2>
+          <button
+            type="button"
+            onClick={() =>
+              setInfoState({
+                title: t("gold"),
+                message:
+                  "100 steps = 10 coins. Walk to charge your energy and earn gold for your voyage! (100 bước = 10 vàng)",
+              })
+            }
+            className="p-1 rounded-full bg-[#2b1d19] border border-[#b45309] hover:bg-[#3d2417] text-sky-400 hover:text-sky-300 transition-colors shadow-sm active:scale-95"
+            title="Gold Earning Info"
+            aria-label="Gold Earning Information"
+          >
+            <Info className="w-3.5 h-3.5 text-sky-400" />
+          </button>
+        </div>
 
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2 text-amber-100/90 font-bold text-xs sm:text-sm tracking-wide">
             <CircleDollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-[#facc15]" />
-            Gold Earned Today
+            {t("gold_earned_today")}
           </div>
           <div className="font-black text-[#facc15] text-sm sm:text-base">
-            +{goldEarnedToday} Gold
+            +{goldEarnedToday} {t("gold")}
           </div>
         </div>
 
@@ -297,10 +318,10 @@ export const HomeScreen: React.FC = () => {
 
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs sm:text-sm font-bold text-amber-100/90 tracking-wide">
-            Energy Goal
+            {t("energy_goal")}
           </span>
           <span className="text-xs sm:text-sm font-bold text-[#fde68a]">
-            {totalStepsToday.toLocaleString()} / 10,000 Steps
+            {totalStepsToday.toLocaleString()} / 10,000 {t("steps")}
           </span>
         </div>
         <div className="w-full bg-[#1a0f0d] h-3 sm:h-4 rounded-full overflow-hidden border border-[#2b1d19] shadow-inner">
@@ -320,7 +341,7 @@ export const HomeScreen: React.FC = () => {
             className="flex items-center justify-center gap-2 text-2xl sm:text-3xl font-black text-amber-100 uppercase tracking-wider drop-shadow-md"
           >
             <Swords className="w-6 h-6 sm:w-7 sm:h-7 text-[#eebb3f]" style={{ filter: "drop-shadow(0 2px 0 #4a2c17)" }} />
-            DAILY QUEST
+            {t("daily_quests")}
             <Swords className="w-6 h-6 sm:w-7 sm:h-7 text-[#eebb3f] scale-x-[-1]" style={{ filter: "drop-shadow(0 2px 0 #4a2c17)" }} />
           </h2>
           <div className="h-1 w-24 bg-[#4a2c17] rounded-full mt-2 opacity-50 shadow-sm"></div>
@@ -355,18 +376,18 @@ export const HomeScreen: React.FC = () => {
             </div>
             <div>
               <h3 className="font-black text-[#4a2c17] text-base sm:text-lg tracking-wide">
-                {isAllQuestsDone ? "All Quests Completed!" : currentQuest.title}
+                {isAllQuestsDone ? t("all_quests_completed") : t(currentQuest.title)}
               </h3>
               <p className="text-xs sm:text-sm text-[#8b5a33] mt-0.5 font-bold">
                 {isAllQuestsDone
-                  ? "Come back tomorrow for more quests."
-                  : currentQuest.desc}
+                  ? t("quests_come_back_tomorrow")
+                  : t(currentQuest.desc)}
               </p>
 
               {!isAllQuestsDone && (
                 <div className="inline-flex items-center gap-1.5 bg-[#eebb3f] border-2 border-[#b58c27] px-2.5 py-1 rounded-md mt-2 shadow-sm">
                   <span className="text-[10px] sm:text-xs font-black text-[#4a2c17] uppercase tracking-wider">
-                    Reward:
+                    {t("reward")}:
                   </span>
                   <span className="text-[10px] sm:text-xs font-black text-[#4a2c17]">
                     +{currentQuest.xp} XP
@@ -391,7 +412,7 @@ export const HomeScreen: React.FC = () => {
             >
               {isClaimable ? (
                 <span className="text-[10px] sm:text-xs font-black text-white px-1 sm:px-2 drop-shadow-md">
-                  CLAIM
+                  {t("claim")}
                 </span>
               ) : (
                 <span className="text-[10px] sm:text-xs font-black text-gray-300 whitespace-nowrap tracking-wide">
@@ -415,7 +436,7 @@ export const HomeScreen: React.FC = () => {
           }`}
         >
           <MapIcon className="w-3.5 h-3.5 text-[#facc15]" />
-          <span>Footprint Voyage Map</span>
+          <span>{t("footprint_voyage_map")}</span>
         </button>
         <button
           onClick={() => setActiveTab("chart")}
@@ -426,7 +447,7 @@ export const HomeScreen: React.FC = () => {
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5 text-sky-300" />
-          <span>Step Activity</span>
+          <span>{t("step_activity")}</span>
         </button>
       </div>
 
@@ -440,7 +461,7 @@ export const HomeScreen: React.FC = () => {
         <div className="bg-[#4a2c17] border-2 sm:border-4 border-[#2b1d19] rounded-xl sm:rounded-2xl p-2.5 sm:p-3 shadow-xl space-y-2 mt-4">
           <div className="flex items-center justify-between flex-wrap gap-1.5">
             <h2 className="text-[11px] sm:text-sm font-serif font-black uppercase text-[#fde68a] tracking-wider flex items-center gap-1">
-              <span>📊</span> Step Activity History
+              <span>📊</span> {t("step_activity_history")}
             </h2>
             <div className="flex bg-[#2b1d19] border border-[#b45309] rounded-md p-0.5">
               {(["day", "week", "month"] as const).map((mode) => (
@@ -453,7 +474,7 @@ export const HomeScreen: React.FC = () => {
                       : "text-[#fde68a]/70 hover:text-white"
                   }`}
                 >
-                  {mode}
+                  {t(mode)}
                 </button>
               ))}
             </div>
@@ -491,6 +512,7 @@ export const HomeScreen: React.FC = () => {
           </div>
         </div>
       )}
+      <InfoModal isOpen={!!infoState} onClose={() => setInfoState(null)} title={infoState?.title || ""} message={infoState?.message || ""} />
     </div>
   );
 };

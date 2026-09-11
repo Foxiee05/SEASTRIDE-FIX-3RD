@@ -15,8 +15,10 @@ import {
   Sparkles,
   Shield,
   Award,
+  Info,
 } from "lucide-react";
 import { useGame } from "../context/GameContext";
+import { InfoModal } from "./InfoModal";
 
 interface StepMapViewProps {
   onStepLogged?: (steps: number) => void;
@@ -99,6 +101,7 @@ function createCaptainMarkerIcon(heading: number) {
 }
 
 export const StepMapView: React.FC<StepMapViewProps> = () => {
+  const [infoState, setInfoState] = useState<{title: string; message: string} | null>(null);
   const { addSteps, totalStepsToday } = useGame();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -276,24 +279,40 @@ export const StepMapView: React.FC<StepMapViewProps> = () => {
   return (
     <div className="relative w-full h-[62dvh] sm:h-[480px] min-h-[360px] rounded-xl sm:rounded-2xl overflow-hidden border-2 sm:border-4 border-[#2b1d19] shadow-2xl flex flex-col select-none group bg-[#1a0f0d]">
       {/* Top Map Header & Live Telemetry HUD */}
-      <div className="absolute top-2 left-2 right-2 z-30 flex items-center justify-between gap-1.5 pointer-events-none">
-        {/* Left Telemetry Card */}
-        <div className="bg-[#2b1d19]/95 border border-[#b45309] backdrop-blur-md px-2.5 py-1 rounded-xl text-amber-100 shadow-xl flex items-center gap-2 pointer-events-auto">
-          <div className="w-6 h-6 bg-[#4a2c17] rounded-lg flex items-center justify-center text-amber-300 border border-[#ca8a04]">
-            <Footprints className="w-3.5 h-3.5 text-[#facc15]" />
-          </div>
-          <div>
-            <div className="text-[8px] sm:text-[9px] font-mono uppercase text-[#fde68a] leading-none flex items-center gap-1">
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${isGpsActive ? "bg-emerald-400 animate-ping" : "bg-amber-400"}`}
-              />
-              <span>{isGpsActive ? "GPS Trace Live" : "Pedometer Map"}</span>
+      <div className="absolute top-2 left-2 right-2 z-30 flex items-start justify-between gap-1.5 pointer-events-none">
+        {/* Left Section */}
+        <div className="flex flex-col gap-1.5 pointer-events-auto">
+          {/* Left Telemetry Card */}
+          <div className="bg-[#2b1d19]/95 border border-[#b45309] backdrop-blur-md px-2.5 py-1 rounded-xl text-amber-100 shadow-xl flex items-center gap-2">
+            <div className="w-6 h-6 bg-[#4a2c17] rounded-lg flex items-center justify-center text-amber-300 border border-[#ca8a04]">
+              <Footprints className="w-3.5 h-3.5 text-[#facc15]" />
             </div>
-            <div className="text-[10px] sm:text-xs font-black text-white font-mono leading-tight">
-              {footprints.length} Footprints •{" "}
-              {(totalDistanceTraveledMeters / 1000).toFixed(2)} km
+            <div>
+              <div className="text-[8px] sm:text-[9px] font-mono uppercase text-[#fde68a] leading-none flex items-center gap-1">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${isGpsActive ? "bg-emerald-400 animate-ping" : "bg-amber-400"}`}
+                />
+                <span>{isGpsActive ? "GPS Trace Live" : "Pedometer Map"}</span>
+              </div>
+              <div className="text-[10px] sm:text-xs font-black text-white font-mono leading-tight">
+                {footprints.length} Footprints •{" "}
+                {(totalDistanceTraveledMeters / 1000).toFixed(2)} km
+              </div>
             </div>
           </div>
+          
+          {/* Map Info Button */}
+          <button
+            onClick={() =>
+              setInfoState({
+                title: "Footprint Voyage Map",
+                message: "This map translates your real-world steps into an epic nautical journey. Walk to explore the seas, unlock hidden ports, and find sunken treasures!"
+              })
+            }
+            className="self-start bg-[#4a2c17]/90 hover:bg-[#92400e]/90 backdrop-blur-sm text-[#fde68a] border border-[#b45309] p-1.5 rounded-lg shadow-md flex items-center justify-center transition-all active:scale-95"
+          >
+            <Info className="w-3.5 h-3.5 text-sky-400" />
+          </button>
         </div>
 
         {/* Action Buttons: Style Toggle */}
@@ -399,6 +418,7 @@ export const StepMapView: React.FC<StepMapViewProps> = () => {
           </span>
         </div>
       </div>
+      <InfoModal isOpen={!!infoState} onClose={() => setInfoState(null)} title={infoState?.title || ""} message={infoState?.message || ""} />
     </div>
   );
 };

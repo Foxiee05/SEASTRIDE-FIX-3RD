@@ -9,7 +9,7 @@ interface RaidHistoryModalProps {
 export const RaidHistoryModal: React.FC<RaidHistoryModalProps> = ({
   onClose,
 }) => {
-  const { raidLogs } = useGame();
+  const { raidLogs, t } = useGame();
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 select-none">
@@ -19,7 +19,7 @@ export const RaidHistoryModal: React.FC<RaidHistoryModalProps> = ({
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-[#facc15]" />
             <h2 className="text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-              Battle History Log
+              {t("raid_history")}
             </h2>
           </div>
 
@@ -35,7 +35,7 @@ export const RaidHistoryModal: React.FC<RaidHistoryModalProps> = ({
         <div className="p-4 overflow-y-auto space-y-2 flex-1">
           {raidLogs.length === 0 ? (
             <div className="py-8 text-center text-xs text-[#fde68a] font-serif">
-              No battle history yet. Launch a BOMB raid on other ships!
+              {t("no_history")}
             </div>
           ) : (
             raidLogs.map((log) => (
@@ -61,11 +61,11 @@ export const RaidHistoryModal: React.FC<RaidHistoryModalProps> = ({
                   <div>
                     <div className="text-xs font-black text-white font-serif">
                       {log.type === "attack"
-                        ? `Raid on ${log.opponentName}`
-                        : `Defended against ${log.opponentName}`}
+                        ? `${t("attack_logs")}: ${log.opponentName}`
+                        : `${t("defense_logs")}: ${log.opponentName}`}
                     </div>
                     <div className="text-[10px] text-[#fde68a]/80 font-mono">
-                      Damage: {log.damage.toLocaleString()} HP • {log.timestamp}
+                      {t("damage_dealt")}: {log.damage.toLocaleString()} HP • {log.timestamp}
                     </div>
                     {log.cannonLostOrWon && (
                       <div className="text-[10px] font-black text-[#fbbf24] uppercase mt-0.5">

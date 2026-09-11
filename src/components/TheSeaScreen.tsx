@@ -16,7 +16,7 @@ export const TheSeaScreen: React.FC<TheSeaScreenProps> = ({
   onSelectTargetForAttack,
   onSwitchToBuild,
 }) => {
-  const { seaGameMode, setSeaGameMode } = useGame();
+  const { seaGameMode, setSeaGameMode, t } = useGame();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState<boolean>(false);
 
   return (
@@ -56,10 +56,10 @@ export const TheSeaScreen: React.FC<TheSeaScreenProps> = ({
               )}
               <span className="text-[11px] sm:text-xs font-bold font-serif uppercase tracking-wider">
                 {seaGameMode === "raid"
-                  ? "Raid Boss"
+                  ? t("raid_boss")
                   : seaGameMode === "treasure"
-                  ? "Treasure Hunt"
-                  : "Bombing"}
+                  ? t("treasure_hunt")
+                  : t("bombing")}
               </span>
             </button>
 
@@ -71,8 +71,8 @@ export const TheSeaScreen: React.FC<TheSeaScreenProps> = ({
                 />
                 <div className="absolute left-1/2 -translate-x-1/2 top-11 w-56 sm:w-60 bg-[#2b1d19]/95 border-2 border-[#b45309] rounded-2xl p-2 shadow-2xl backdrop-blur-md text-white z-50 animate-fade-in space-y-1.5">
                   <div className="text-[10px] font-serif font-black uppercase text-[#fde68a] px-2 pt-1 flex items-center justify-between border-b border-[#4a2c17] pb-1">
-                    <span>THE SEA MODE</span>
-                    <span className="text-[9px] text-[#fbbf24] font-mono">Select</span>
+                    <span>{t("the_sea_mode")}</span>
+                    <span className="text-[9px] text-[#fbbf24] font-mono">{t("select")}</span>
                   </div>
 
                   {/* 1. Ocean Bombing */}
@@ -90,9 +90,9 @@ export const TheSeaScreen: React.FC<TheSeaScreenProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="text-lg">💣</span>
                       <div>
-                        <div className="text-xs font-bold font-serif">Bombing</div>
+                        <div className="text-xs font-bold font-serif">{t("bombing")}</div>
                         <div className="text-[9px] text-[#fde68a]/70 leading-tight">
-                          Ocean Ship Bombardment
+                          {t("ocean_bombardment")}
                         </div>
                       </div>
                     </div>
@@ -116,9 +116,9 @@ export const TheSeaScreen: React.FC<TheSeaScreenProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="text-lg">⚔️</span>
                       <div>
-                        <div className="text-xs font-bold font-serif">Raid Boss</div>
+                        <div className="text-xs font-bold font-serif">{t("raid_boss")}</div>
                         <div className="text-[9px] text-red-200/80 leading-tight">
-                          Abyssal Co-op Beast
+                          {t("boss_desc")}
                         </div>
                       </div>
                     </div>
@@ -142,9 +142,9 @@ export const TheSeaScreen: React.FC<TheSeaScreenProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🧭</span>
                       <div>
-                        <div className="text-xs font-bold font-serif">Treasure Hunt</div>
+                        <div className="text-xs font-bold font-serif">{t("treasure_hunt")}</div>
                         <div className="text-[9px] text-emerald-200/80 leading-tight">
-                          2km Radar & Shared Loot
+                          {t("treasure_desc")}
                         </div>
                       </div>
                     </div>

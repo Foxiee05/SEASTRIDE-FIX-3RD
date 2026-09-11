@@ -19,6 +19,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
     equippedDecorations,
     buyDecoration,
     toggleEquipDecoration,
+    t,
   } = useGame();
 
   const [viewFilter, setViewFilter] = useState<"all" | "owned">("all");
@@ -35,9 +36,9 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-                SHOP
+                {t("shop")}
               </h2>
-              <p className="text-[10px] text-amber-300/80 font-bold uppercase">Ship Customizations & Relics</p>
+              <p className="text-[10px] text-amber-300/80 font-bold uppercase">{t("shop_subtitle")}</p>
             </div>
           </div>
 
@@ -57,7 +58,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
         <div className="bg-[#1a0f0d] p-1.5 border-b-2 border-[#4a2c17] flex items-center justify-between gap-2 px-3">
           <div className="text-xs font-serif font-black uppercase text-[#fde68a] flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-[#facc15]" />
-            <span>Decorations Catalog</span>
+            <span>{t("decorations_catalog")}</span>
           </div>
 
           <div className="flex items-center gap-1 bg-[#2b1d19] p-1 rounded-xl border border-[#4a2c17]">
@@ -70,7 +71,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                   : "text-[#fde68a]/70 hover:text-white"
               }`}
             >
-              All Items
+              {t("all_items")}
             </button>
             <button
               type="button"
@@ -81,7 +82,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                   : "text-[#fde68a]/70 hover:text-white"
               }`}
             >
-              Owned ({ownedDecorations.length})
+              {t("owned")} ({ownedDecorations.length})
             </button>
           </div>
         </div>
@@ -105,17 +106,17 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                 <div className="bg-[#2b1d19] border-2 border-dashed border-[#b45309]/50 rounded-2xl p-6 text-center space-y-2">
                   <div className="text-3xl">🏴‍☠️</div>
                   <div className="text-xs font-serif font-black uppercase text-[#fde68a]">
-                    No Owned Items Yet
+                    {t("no_owned_items")}
                   </div>
                   <p className="text-[10px] text-amber-200/70 max-w-xs mx-auto">
-                    You have not claimed or purchased any ship decorations yet. Plunder treasure boxes or browse the catalog below!
+                    {t("no_owned_desc")}
                   </p>
                   <button
                     type="button"
                     onClick={() => setViewFilter("all")}
                     className="mt-2 px-3 py-1.5 bg-[#b45309] hover:bg-[#d97706] text-white font-black text-[10px] uppercase rounded-xl shadow"
                   >
-                    Browse Shop Catalog
+                    {t("browse_catalog")}
                   </button>
                 </div>
               );
@@ -151,7 +152,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                             </span>
                             {dec.isSecret && (
                               <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 border border-amber-400/50">
-                                👑 Secret Relic
+                                👑 {t("secret_relic")}
                               </span>
                             )}
                           </div>
@@ -164,7 +165,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                       <div className="flex justify-between items-center pt-1 border-t border-[#4a2c17]">
                         <span className="text-[10px] font-bold uppercase text-[#fbbf24]">
                           {dec.isSecret ? (
-                            <span className="text-amber-300 font-black">⭐ Legendary</span>
+                            <span className="text-amber-300 font-black">⭐ {t("legendary")}</span>
                           ) : dec.currency === "coins" ? (
                             `${dec.price} 🪙`
                           ) : (
@@ -185,7 +186,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                             {isEquipped && (
                               <Check className="w-3 h-3 inline mr-1" />
                             )}
-                            <span>{isEquipped ? "Equipped" : "Equip"}</span>
+                            <span>{isEquipped ? t("equipped") : t("equip")}</span>
                           </button>
                         ) : (
                           <button
@@ -195,7 +196,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
                             }
                             className="px-3 py-1 rounded-lg text-[10px] font-black uppercase italic bg-[#b45309] hover:bg-[#d97706] border-b-2 border-[#2b1d19] text-white shadow active:translate-y-0.5"
                           >
-                            Buy Item
+                            {t("buy")}
                           </button>
                         )}
                       </div>

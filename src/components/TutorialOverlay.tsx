@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Joyride, STATUS, Step, EVENTS, ACTIONS, TooltipRenderProps } from "react-joyride";
+import { useGame } from "../context/GameContext";
 
 interface TutorialProps {
   activeTab: string;
@@ -18,6 +19,8 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
   size,
   tooltipProps,
 }) => {
+  const { t, language } = useGame();
+
   return (
     <div
       {...tooltipProps}
@@ -26,7 +29,7 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
       {/* Top Header: Step Badge & Skip Button (replaces 'X' icon) */}
       <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-[#8b5a33]/25">
         <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#8b5a33] bg-[#d1b794]/60 px-2 py-0.5 rounded-md">
-          Guide {index + 1} of {size}
+          {language === "vi" ? `Hướng dẫn ${index + 1}/${size}` : `Guide ${index + 1} of ${size}`}
         </span>
 
         {/* Skip button with text replacing 'x' */}
@@ -36,7 +39,7 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
           className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#d75448] hover:text-[#9b3026] active:scale-90 px-2 py-0.5 rounded transition-all cursor-pointer hover:bg-[#d75448]/10"
           title="Skip tutorial"
         >
-          Skip
+          {t("tutorial_skip")}
         </button>
       </div>
 
@@ -53,7 +56,7 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
                 type="button"
                 className="text-xs sm:text-sm font-bold text-[#8b5a33] hover:text-[#4a2c17] px-2.5 py-1 rounded-lg active:scale-95 transition-transform cursor-pointer"
               >
-                Back
+                {t("tutorial_prev")}
               </button>
             ) : (
               <div />
@@ -65,7 +68,7 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
             type="button"
             className="bg-[#93bb44] border-b-4 border-[#658627] text-white font-black text-xs sm:text-sm px-4 py-1.5 rounded-xl shadow-md active:border-b-0 active:translate-y-1 active:scale-95 transition-all cursor-pointer"
           >
-            {isLastStep ? "Done" : "Next"}
+            {isLastStep ? t("tutorial_finish") : t("tutorial_next")}
           </button>
         </div>
       )}

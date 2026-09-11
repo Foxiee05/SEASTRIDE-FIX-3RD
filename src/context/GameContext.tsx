@@ -6,6 +6,7 @@ import { soundFx } from '../utils/audio';
 import { PIRATE_AVATARS } from '../assets';
 import { generateDailyTreasures, rollTreasureReward, getRarityMetadata } from '../utils/treasureRewards';
 import { DEFAULT_COORDS } from '../hooks/useGpsTracker';
+import { TRANSLATIONS, Language } from '../utils/translations';
 
 export interface PlayerProfile {
   username: string;
@@ -147,6 +148,12 @@ interface GameContextType {
   // Audio state
   isMuted: boolean;
   toggleMute: () => void;
+
+  // Language & Translation
+  language: Language;
+  changeLanguage: (lang: Language) => void;
+  toggleLanguage: () => void;
+  t: (key: string, fallback?: string) => string;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -228,13 +235,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [shipCondition, setShipCondition] = useState<number>(() => {
     try {
+      const initialized = localStorage.getItem('pirate_ship_condition_v75');
+      if (!initialized) {
+        localStorage.setItem('pirate_ship_condition_v75', 'true');
+        return 75;
+      }
       const saved = localStorage.getItem('pirate_ship_condition');
       if (saved !== null) {
         const val = parseInt(saved, 10);
         if (!isNaN(val)) return val;
       }
     } catch (e) {}
-    return 95;
+    return 75;
   });
   
   // Equipment & Inventory
@@ -414,6 +426,43 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ]);
   const [isAutoWalking, setIsAutoWalking] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+
+  // App Language ('en' | 'vi')
+  const [language, setLanguage] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_app_language');
+      if (saved === 'en' || saved === 'vi') return saved;
+    } catch (e) {}
+    return 'en';
+  });
+
+  const changeLanguage = (lang: Language) => {
+    setLanguage(lang);
+    try {
+      localStorage.setItem('pirate_app_language', lang);
+    } catch (e) {}
+  };
+
+  const toggleLanguage = () => {
+    const next = language === 'en' ? 'vi' : 'en';
+    changeLanguage(next);
+  };
+
+  const t = (key: string, fallback?: string): string => {
+    if (!key) return fallback || "";
+    const langDict = TRANSLATIONS[language];
+    if (langDict && langDict[key]) {
+      return langDict[key];
+    }
+    if (language === "vi") {
+      const trimmed = key.trim();
+      if (langDict?.[trimmed]) return langDict[trimmed];
+      const lower = trimmed.toLowerCase();
+      if (langDict?.[lower]) return langDict[lower];
+      if (fallback && langDict?.[fallback]) return langDict[fallback];
+    }
+    return fallback || key;
+  };
 
   // Player Level & XP (500 XP per level, grants 200 coins on every level up)
   const [playerLevel, setPlayerLevel] = useState<number>(1);
@@ -1576,18 +1625,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  // Rebuild ship from 0% to 5% (costs 50 coins)
+  // Rebuild ship from 0% to 5% (costs 100 coins)
   const rebuildShip = (): boolean => {
     if (shipCondition > 0) {
       alert('Ship is not destroyed (condition > 0%). Use Repair instead!');
       return false;
     }
-    if (coins < 50) {
-      alert('Not enough coins! Rebuilding requires 50 coins.');
+    if (coins < 100) {
+      alert('Not enough coins! Rebuilding requires 100 coins.');
       return false;
     }
 
-    setCoins(c => c - 50);
+    setCoins(c => c - 100);
     setShipCondition(5);
     soundFx.playUpgrade();
     return true;
@@ -1880,6 +1929,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         raidLogs,
         isMuted,
         toggleMute,
+        language,
+        changeLanguage,
+        toggleLanguage,
+        t,
       }}
     >
       {children}

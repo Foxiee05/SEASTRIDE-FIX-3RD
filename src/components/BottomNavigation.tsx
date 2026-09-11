@@ -1,5 +1,6 @@
 import React from "react";
 import { Footprints, Anchor, Waves, Trophy } from "lucide-react";
+import { useGame } from "../context/GameContext";
 
 interface BottomNavigationProps {
   activeTab: "home" | "build" | "sea" | "leaderboard";
@@ -10,6 +11,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   activeTab,
   setActiveTab,
 }) => {
+  const { t } = useGame();
+
   return (
     <div className="bg-[#4a2c17] border-t-8 border-[#2b1d19] pb-[env(safe-area-inset-bottom)] z-50 flex-shrink-0 w-full shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
       <div className="flex justify-around items-center px-2 py-2 sm:px-6">
@@ -27,7 +30,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           <span
             className={`text-[10px] sm:text-xs font-black uppercase mt-1 ${activeTab === "home" ? "text-[#38bdf8]" : "text-[#f0dec1]/50"}`}
           >
-            Steps
+            {t("steps")}
           </span>
         </button>
 
@@ -45,7 +48,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           <span
             className={`text-[10px] sm:text-xs font-black uppercase mt-1 ${activeTab === "build" ? "text-[#38bdf8]" : "text-[#f0dec1]/50"}`}
           >
-            Build
+            {t("build")}
           </span>
         </button>
 
@@ -63,7 +66,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           <span
             className={`text-[10px] sm:text-xs font-black uppercase mt-1 ${activeTab === "sea" ? "text-[#38bdf8]" : "text-[#f0dec1]/50"}`}
           >
-            The Sea
+            {t("sea")}
           </span>
         </button>
 
@@ -81,7 +84,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           <span
             className={`text-[10px] sm:text-xs font-black uppercase mt-1 ${activeTab === "leaderboard" ? "text-[#38bdf8]" : "text-[#f0dec1]/50"}`}
           >
-            Fleet
+            {t("leaderboard")}
           </span>
         </button>
       </div>

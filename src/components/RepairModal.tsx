@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useGame } from "../context/GameContext";
-import { Wrench, X, AlertTriangle, ShieldCheck, CircleDollarSign, Sparkles } from "lucide-react";
+import { Wrench, X, AlertTriangle, ShieldCheck, CircleDollarSign, Sparkles, Info } from "lucide-react";
+import { InfoModal } from "./InfoModal";
 import { CurrencyDisplay } from "./CurrencyDisplay";
 
 interface RepairModalProps {
@@ -8,7 +9,8 @@ interface RepairModalProps {
 }
 
 export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
-  const { coins, shipCondition, repairShip, rebuildShip } = useGame();
+  const [infoState, setInfoState] = useState<{title: string; message: string} | null>(null);
+  const { coins, shipCondition, repairShip, rebuildShip, t } = useGame();
   
   const maxRepairPossible = Math.max(0, 100 - shipCondition);
   const minRepair = maxRepairPossible > 0 ? (maxRepairPossible >= 5 ? 5 : maxRepairPossible) : 0;
@@ -36,19 +38,12 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
     : 0;
 
   const repairCost = Math.ceil(effectiveRepairAmount / 5) * 5;
-  const fullRepairCost = Math.ceil(maxRepairPossible / 5) * 5;
 
   const handleRepair = () => {
     if (shipCondition === 0) {
       rebuildShip();
     } else if (effectiveRepairAmount > 0) {
       repairShip(effectiveRepairAmount);
-    }
-  };
-
-  const handleFullRepair = () => {
-    if (maxRepairPossible > 0) {
-      repairShip(maxRepairPossible);
     }
   };
 
@@ -60,7 +55,7 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
           <div className="flex items-center gap-2">
             <Wrench className="w-5 h-5 text-[#16a34a]" />
             <h2 className="text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-              Ship Repair
+              {t("ship_repair")}
             </h2>
           </div>
 
@@ -77,10 +72,27 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
 
         {/* Content */}
         <div className="p-4 space-y-4">
+          {/* Top Info Button outside box */}
+          <div className="flex justify-end -mb-2">
+            <button
+              type="button"
+              onClick={() =>
+                setInfoState({
+                  title: t("ship_repair"),
+                  message: t("ship_repair_desc"),
+                })
+              }
+              className="bg-[#4a2c17] hover:bg-[#92400e] text-[#fde68a] border border-[#b45309] p-1.5 rounded-lg shadow-md flex items-center justify-center transition-all active:scale-95"
+              title="Ship Repair Info"
+            >
+              <Info className="w-3.5 h-3.5 text-sky-400" />
+            </button>
+          </div>
+
           {/* Status Banner */}
           <div className="bg-[#2b1d19] border-4 border-[#b45309] rounded-2xl p-4 text-center space-y-2.5">
             <div className="text-xs font-serif font-black uppercase text-[#fde68a]">
-              Ship Condition Gauge
+              {t("ship_condition_gauge")}
             </div>
 
             <div className="text-4xl font-black font-mono tracking-tight text-[#fbbf24] drop-shadow">
@@ -115,21 +127,21 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
             {shipCondition <= 0 ? (
               <div className="text-xs font-bold text-red-300 bg-red-950/80 p-2 rounded-xl border border-red-800 flex items-center justify-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-red-400" />
-                <span>SHIP DESTROYED! Must Rebuild first.</span>
+                <span>{t("ship_destroyed_rebuild")}</span>
               </div>
             ) : shipCondition <= 50 ? (
               <div className="text-xs font-bold text-[#fde68a] bg-[#4a2c17] p-2 rounded-xl border border-[#b45309]">
-                ⚠️ Condition is &le; 50%. Raids disabled until repaired above 50%!
+                {t("condition_low_warning")}
               </div>
             ) : shipCondition >= 100 ? (
               <div className="text-xs font-bold text-emerald-200 bg-[#064e3b]/80 p-2 rounded-xl border border-[#16a34a] flex items-center justify-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-emerald-300" />
-                <span>Ship is in pristine 100% condition!</span>
+                <span>{t("ship_pristine")}</span>
               </div>
             ) : (
               <div className="text-xs font-bold text-emerald-200 bg-[#064e3b]/80 p-2 rounded-xl border border-[#16a34a] flex items-center justify-center gap-1">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Ship condition is combat-ready (&gt;50%)!</span>
+                <span>{t("ship_combat_ready")}</span>
               </div>
             )}
           </div>
@@ -138,38 +150,25 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
           {shipCondition === 0 ? (
             <div className="space-y-3 bg-[#2b1d19] p-3.5 rounded-xl border-2 border-[#b45309] text-center">
               <p className="text-xs text-[#fde68a]">
-                Rebuild increases condition from 0% to 5% so you can perform standard repairs.
+                {t("rebuild_desc")}
               </p>
               <button
                 onClick={rebuildShip}
-                disabled={coins < 50}
+                disabled={coins < 100}
                 className="w-full bg-red-700 hover:bg-red-600 disabled:opacity-50 border-b-4 border-r-2 border-red-950 text-white font-black py-3 rounded-xl uppercase italic tracking-wider text-sm shadow-xl active:translate-y-1 flex items-center justify-center gap-2"
               >
-                <span>Rebuild Ship (50</span>
+                <span>{t("rebuild_ship")} (100</span>
                 <CircleDollarSign className="w-4 h-4 text-[#f0c242]" />
                 <span>)</span>
-              </button>
-            </div>
-          ) : maxRepairPossible <= 0 ? (
-            <div className="bg-[#2b1d19] p-4 rounded-xl border-2 border-[#b45309] text-center space-y-2">
-              <p className="text-xs text-[#fde68a] font-serif font-bold">
-                No repairs currently needed. Your vessel is ready for battle!
-              </p>
-              <button
-                onClick={onClose}
-                className="w-full bg-[#16a34a] hover:bg-[#15803d] border-b-4 border-emerald-900 text-white font-black py-2.5 rounded-xl text-xs uppercase italic shadow-md active:translate-y-0.5"
-              >
-                Done
               </button>
             </div>
           ) : (
             <div className="space-y-3.5 bg-[#2b1d19] p-3.5 rounded-xl border-2 border-[#b45309]">
               {/* Slider Header */}
-              <div className="flex justify-between items-center text-xs font-serif font-black text-[#fde68a]">
-                <span>Repair: +{effectiveRepairAmount}% ({shipCondition}% ➔ {Math.min(100, shipCondition + effectiveRepairAmount)}%)</span>
-                <span className="text-[#fbbf24] flex items-center gap-1">
-                  Cost: {repairCost}
-                  <CircleDollarSign className="w-3.5 h-3.5 text-[#f0c242]" />
+              <div className="flex justify-center items-center font-serif font-black text-[#fde68a]">
+                <span className={`${shipCondition >= 100 ? "text-stone-400" : "text-[#fbbf24]"} flex items-center justify-center gap-1.5 text-base`}>
+                  {t("cost")}: {repairCost}
+                  <CircleDollarSign className={`w-[18px] h-[18px] ${shipCondition >= 100 ? "text-stone-400" : "text-[#f0c242]"}`} />
                 </span>
               </div>
 
@@ -177,12 +176,15 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
               <div className="space-y-2">
                 <input
                   type="range"
-                  min={minRepair}
-                  max={maxRepairPossible}
+                  min={0}
+                  max={Math.max(1, maxRepairPossible)}
                   step={maxRepairPossible >= 5 ? 5 : 1}
                   value={effectiveRepairAmount}
+                  disabled={shipCondition >= 100}
                   onChange={(e) => setRepairAmount(Number(e.target.value))}
-                  className="w-full accent-[#fbbf24] cursor-pointer h-2 bg-[#1a0f0d] rounded-lg appearance-none"
+                  className={`w-full accent-[#fbbf24] h-2 bg-[#1a0f0d] rounded-lg appearance-none ${
+                    shipCondition >= 100 ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+                  }`}
                 />
                 
                 {/* Preset Quick Chips */}
@@ -193,19 +195,23 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
                       return null; // Skip duplicates
                     }
                     const isMax = idx === 3 || presetVal === maxRepairPossible;
-                    const isActive = effectiveRepairAmount === presetVal;
+                    const isActive = effectiveRepairAmount === presetVal && shipCondition < 100;
+                    const isDisabled = shipCondition >= 100 || maxRepairPossible <= 0;
                     return (
                       <button
                         key={idx}
                         type="button"
+                        disabled={isDisabled}
                         onClick={() => setRepairAmount(presetVal)}
                         className={`text-[10px] font-bold font-mono px-2 py-1 rounded-lg border transition-all ${
-                          isActive
+                          isDisabled
+                            ? "bg-stone-800 text-stone-500 border-stone-700 opacity-60 cursor-not-allowed"
+                            : isActive
                             ? "bg-[#fbbf24] text-[#2b1d19] border-[#fde68a] shadow"
                             : "bg-[#4a2c17] text-[#fde68a] border-[#b45309] hover:bg-[#5c371d]"
                         }`}
                       >
-                        {isMax ? `Max (+${presetVal}%)` : `+${presetVal}%`}
+                        {isMax ? `${t("max")} (+${presetVal}%)` : `+${presetVal}%`}
                       </button>
                     );
                   })}
@@ -213,40 +219,24 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="flex justify-center pt-1">
                 <button
                   onClick={handleRepair}
-                  disabled={coins < repairCost || effectiveRepairAmount <= 0}
-                  className="bg-[#1d4ed8] hover:bg-[#2563eb] disabled:opacity-40 disabled:hover:bg-[#1d4ed8] border-b-4 border-r-2 border-[#1e3a8a] text-white font-black py-2.5 rounded-xl text-xs uppercase italic shadow-md active:translate-y-0.5 flex items-center justify-center gap-1.5"
+                  disabled={shipCondition >= 100 || coins < repairCost || effectiveRepairAmount <= 0}
+                  className={`w-full max-w-[240px] border-b-4 border-r-2 py-2.5 rounded-xl text-xs uppercase italic shadow-md active:translate-y-0.5 flex items-center justify-center font-black transition-all ${
+                    shipCondition >= 100 || coins < repairCost || effectiveRepairAmount <= 0
+                      ? "bg-stone-700 hover:bg-stone-700 border-stone-900 text-stone-400 cursor-not-allowed opacity-75"
+                      : "bg-[#1d4ed8] hover:bg-[#2563eb] border-[#1e3a8a] text-white"
+                  }`}
                 >
-                  <span>Repair +{effectiveRepairAmount}%</span>
-                  <span className="text-[10px] font-mono opacity-90 flex items-center">
-                    ({repairCost} <CircleDollarSign className="w-3 h-3 ml-0.5 text-[#f0c242]" />)
-                  </span>
-                </button>
-
-                <button
-                  onClick={handleFullRepair}
-                  disabled={
-                    maxRepairPossible <= 0 ||
-                    coins < fullRepairCost
-                  }
-                  className="bg-[#b45309] hover:bg-[#d97706] disabled:opacity-40 disabled:hover:bg-[#b45309] border-b-4 border-r-2 border-[#2b1d19] text-white font-black py-2.5 rounded-xl text-xs uppercase italic shadow-md active:translate-y-0.5 flex items-center justify-center gap-1.5"
-                >
-                  <span>Full Repair 100%</span>
-                  <span className="text-[10px] font-mono opacity-90 flex items-center">
-                    ({fullRepairCost} <CircleDollarSign className="w-3 h-3 ml-0.5 text-[#f0c242]" />)
-                  </span>
+                  <span>{t("repair")}</span>
                 </button>
               </div>
-
-              <p className="text-[10px] text-[#fde68a]/70 font-mono text-center pt-1">
-                *Rate: 5 Coins for every 5% Condition restored.
-              </p>
             </div>
           )}
         </div>
       </div>
+      <InfoModal isOpen={!!infoState} onClose={() => setInfoState(null)} title={infoState?.title || ""} message={infoState?.message || ""} />
     </div>
   );
 };

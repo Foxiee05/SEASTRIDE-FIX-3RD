@@ -27,7 +27,7 @@ interface ShipBuildScreenProps {
 export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
   openModal,
 }) => {
-  const { shipCondition, raidLogs } = useGame();
+  const { shipCondition, raidLogs, t } = useGame();
 
   return (
     <div className="relative h-full w-full flex flex-col overflow-hidden select-none bg-sky-950">
@@ -54,7 +54,7 @@ export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
             >
               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
               <ShoppingBag className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-100 drop-shadow-md" />
-              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-indigo-50">Shop</span>
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-indigo-50">{t("shop")}</span>
             </button>
 
             {/* UPGRADE BUTTON */}
@@ -64,23 +64,18 @@ export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
             >
               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
               <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-md" />
-              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-50">Upgrades</span>
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-sky-50">{t("upgrades")}</span>
             </button>
 
             {/* REPAIR BUTTON */}
             <button
               onClick={() => openModal("repair")}
-              disabled={shipCondition >= 100}
-              className={`tutorial-repair relative group transition-all border-b-[4px] py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)] ${
-                shipCondition >= 100
-                  ? "bg-slate-600 border-slate-800 opacity-80"
-                  : "bg-emerald-500 hover:bg-emerald-400 active:scale-95 border-emerald-700"
-              }`}
+              className="tutorial-repair relative group bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all border-b-[4px] border-emerald-700 py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
             >
               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
-              <Wrench className={`w-6 h-6 sm:w-7 sm:h-7 drop-shadow-md ${shipCondition >= 100 ? "text-slate-300" : "text-white"}`} />
-              <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${shipCondition >= 100 ? "text-slate-200" : "text-emerald-50"}`}>
-                Repair
+              <Wrench className="w-6 h-6 sm:w-7 sm:h-7 drop-shadow-md text-white" />
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-emerald-50">
+                {t("repair")}
               </span>
             </button>
 
@@ -97,7 +92,7 @@ export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />
               <History className="w-6 h-6 sm:w-7 sm:h-7 text-rose-100 drop-shadow-md" />
               <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-50">
-                History
+                {t("history")}
               </span>
             </button>
           </div>
@@ -108,7 +103,7 @@ export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
           
           {shipCondition <= 50 && (
             <div className="absolute top-14 text-[10px] sm:text-[11px] font-bold text-center text-rose-100 bg-rose-900/90 border border-rose-500 px-3 py-1 rounded-full shadow-[0_0_15px_rgba(225,29,72,0.4)] backdrop-blur-sm animate-pulse z-30 shrink-0">
-              ⚠️ Critical Damage!
+              {t("critical_damage")}
             </div>
           )}
 

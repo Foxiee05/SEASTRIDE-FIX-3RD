@@ -19,6 +19,7 @@ import { soundFx } from "./utils/audio";
 import { LeaderboardScreen } from "./components/LeaderboardScreen";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { TutorialOverlay } from "./components/TutorialOverlay";
+import { SettingsModal } from "./components/SettingsModal";
 
 type ActiveModal =
   | "upgrades"
@@ -29,6 +30,7 @@ type ActiveModal =
   | "attack"
   | "shipInspect"
   | "profile"
+  | "settings"
   | null;
 
 function MainAppContent() {
@@ -129,6 +131,7 @@ function MainAppContent() {
             onSelectSteps={() => setActiveTab("home")}
             onSelectGame={() => setActiveTab("build")}
             onSelectLeaderboard={() => setActiveTab("leaderboard")}
+            onOpenSettings={() => openModal("settings")}
           />
         ) : (
           <div className="flex flex-col h-full overflow-hidden">
@@ -200,6 +203,7 @@ function MainAppContent() {
           />
         )}
         {activeModal === "profile" && <ProfileModal onClose={closeModal} />}
+        {activeModal === "settings" && <SettingsModal onClose={closeModal} />}
 
         {/* Feature Highlight Tutorial */}
         <TutorialOverlay

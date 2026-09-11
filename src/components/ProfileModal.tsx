@@ -17,7 +17,7 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
-  const { profile, updateProfile } = useGame();
+  const { profile, updateProfile, t } = useGame();
 
   const [username, setUsername] = useState(profile.username);
   const [aboutMe, setAboutMe] = useState(profile.aboutMe);
@@ -72,14 +72,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
           <div className="flex items-center gap-2">
             <User className="w-5 h-5 text-[#facc15]" />
             <h2 className="text-base font-black italic tracking-wide text-[#facc15] uppercase font-serif">
-              Captain Profile
+              {t("captain_profile")}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 bg-[#4a2c17] hover:bg-red-700 rounded-lg text-amber-200 hover:text-white transition-colors"
+            className="p-1.5 bg-[#4a2c17] hover:bg-[#92400e] rounded-lg border border-[#b45309] text-[#fde68a]"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -118,7 +118,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
           <div>
             <label className="block text-[10px] font-bold text-[#fde68a] uppercase tracking-wider mb-1 flex items-center gap-1">
               <ImageIcon className="w-3.5 h-3.5 text-[#facc15]" />
-              Choose Cartoon Pirate Avatar
+              {t("choose_avatar")}
             </label>
 
             <div className="grid grid-cols-5 gap-1.5">
@@ -163,7 +163,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
                 className="w-full py-1.5 px-2.5 bg-[#4a2c17] hover:bg-[#b45309] border border-[#b45309] rounded-lg text-[11px] font-bold text-[#fde68a] flex items-center justify-center gap-1.5 active:scale-98 transition-all"
               >
                 <Upload className="w-3.5 h-3.5 text-[#facc15]" />
-                <span>Upload Custom Image From Device</span>
+                <span>{t("upload_custom")}</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -179,14 +179,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
           <div>
             <label className="block text-[10px] font-bold text-[#fde68a] uppercase tracking-wider mb-1 flex items-center gap-1">
               <Edit3 className="w-3 h-3 text-[#facc15]" />
-              Captain Username
+              {t("captain_username")}
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               maxLength={24}
-              placeholder="Enter captain name..."
+              placeholder={t("captain_username")}
               className="w-full bg-[#1a0f0d] border border-[#b45309] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#facc15] font-semibold"
             />
           </div>
@@ -195,18 +195,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
           <div>
             <label className="block text-[10px] font-bold text-[#fde68a] uppercase tracking-wider mb-1 flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-[#facc15]" />
-              About Me
+              {t("about_me")}
             </label>
             <textarea
               value={aboutMe}
               onChange={(e) => setAboutMe(e.target.value)}
               rows={2}
               maxLength={120}
-              placeholder="Share your pirate motto or journey..."
+              placeholder={t("about_me")}
               className="w-full bg-[#1a0f0d] border border-[#b45309] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#facc15] resize-none font-medium"
             />
             <div className="text-right text-[9px] text-amber-200/60 mt-0.5">
-              {aboutMe.length}/120 characters
+              {aboutMe.length}/120
             </div>
           </div>
 
@@ -223,12 +223,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
               {saveSuccess ? (
                 <>
                   <Check className="w-4 h-4 text-white" />
-                  <span>Profile Saved!</span>
+                  <span>{t("profile_saved")}</span>
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4 text-[#facc15]" />
-                  <span>Save Captain Profile</span>
+                  <span>{t("save_profile")}</span>
                 </>
               )}
             </button>

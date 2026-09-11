@@ -71,6 +71,7 @@ export const CoinsExchangeModal: React.FC<CoinsExchangeModalProps> = ({
     coins,
     gems,
     exchangeGemsForCoins,
+    t,
   } = useGame();
 
   const [purchaseSuccessMessage, setPurchaseSuccessMessage] = useState<string | null>(null);
@@ -118,7 +119,7 @@ export const CoinsExchangeModal: React.FC<CoinsExchangeModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-serif font-black uppercase text-[#fde68a] tracking-wider">
-                COINS EXCHANGE
+                {t("exchange_coins")}
               </h2>
             </div>
           </div>
@@ -245,7 +246,7 @@ export const CoinsExchangeModal: React.FC<CoinsExchangeModalProps> = ({
           {onOpenGemsModal && (
             <div className="bg-[#1a0f0d] border border-[#4a2c17] rounded-xl p-3 flex items-center justify-between gap-2">
               <div className="text-[11px] text-amber-200/80">
-                <span>Low on gems? Watch free sponsor ads or purchase gems in the Gems Vault.</span>
+                <span>{t("need_gems_hint")}</span>
               </div>
               <button
                 type="button"
@@ -256,7 +257,7 @@ export const CoinsExchangeModal: React.FC<CoinsExchangeModalProps> = ({
                 className="bg-[#0284c7] hover:bg-[#0369a1] text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex-shrink-0 shadow flex items-center gap-1"
               >
                 <Gem className="w-3 h-3 text-white" />
-                <span>Get Gems</span>
+                <span>{t("gems")}</span>
               </button>
             </div>
           )}

@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Volume2, VolumeX, Anchor } from "lucide-react";
+import { Settings, Anchor } from "lucide-react";
 import { ASSETS } from "../assets";
 import { useCutoutImage } from "../utils/imageUtils";
 import { useGame } from "../context/GameContext";
@@ -9,15 +9,17 @@ interface MenuScreenProps {
   onSelectSteps: () => void;
   onSelectGame: () => void;
   onSelectLeaderboard: () => void;
+  onOpenSettings?: () => void;
 }
 
 export function MenuScreen({
   onSelectSteps,
   onSelectGame,
   onSelectLeaderboard,
+  onOpenSettings,
 }: MenuScreenProps) {
   const transparentLogo = useCutoutImage(ASSETS.logo, { mode: "edge" });
-  const { isMuted, toggleMute } = useGame();
+  const { t } = useGame();
 
   return (
     <div className="absolute inset-0 w-full h-full z-50 flex flex-col items-center justify-center overflow-hidden">
@@ -32,10 +34,12 @@ export function MenuScreen({
       {/* Top Bar / Controls */}
       <div className="absolute top-0 right-0 p-4 sm:p-6 z-20">
         <button
-          onClick={toggleMute}
-          className="w-12 h-12 bg-[#4a2c17]/80 backdrop-blur-sm border-2 border-[#d97706] rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform"
+          onClick={onOpenSettings}
+          className="w-12 h-12 bg-[#4a2c17]/80 backdrop-blur-sm border-2 border-[#d97706] rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform hover:bg-[#5c371d]"
+          title={t("settings")}
+          aria-label="Settings"
         >
-          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+          <Settings size={24} className="text-amber-200" />
         </button>
       </div>
 
@@ -80,10 +84,10 @@ export function MenuScreen({
               <Anchor className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] group-hover:rotate-6 transition-transform duration-300" />
               <div className="flex flex-col items-center">
                 <span className="font-black text-white text-xl sm:text-2xl tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] uppercase">
-                  Start Voyage
+                  {t("start_voyage")}
                 </span>
                 <span className="text-[#fffbeb] text-[10px] sm:text-xs font-bold tracking-widest uppercase mt-1 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] opacity-90">
-                  Begin Your Adventure
+                  {t("begin_your_adventure")}
                 </span>
               </div>
             </div>

@@ -6,6 +6,7 @@ import {
   Shield,
   Zap,
   HelpCircle,
+  Settings,
 } from "lucide-react";
 import { CurrencyDisplay } from "./CurrencyDisplay";
 
@@ -13,7 +14,7 @@ interface HeaderHUDProps {
   activeTab: "home" | "build" | "sea" | "leaderboard";
   setActiveTab: (tab: "home" | "build" | "sea" | "leaderboard") => void;
   openModal: (
-    modal: "upgrades" | "shop" | "server" | "repair" | "raids" | "profile",
+    modal: "upgrades" | "shop" | "server" | "repair" | "raids" | "profile" | "settings",
   ) => void;
   onBackToMenu: () => void;
   onHelp: () => void;
@@ -36,6 +37,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
     toggleMute,
     shipCondition,
     profile,
+    t,
   } = useGame();
 
   return (
@@ -67,9 +69,9 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
             </button>
             <div className="flex flex-col ml-1 flex-1 min-w-0">
               <span className="text-[clamp(0.65rem,2.5vw,0.75rem)] sm:text-xs font-black text-[#f0dec1] leading-none uppercase tracking-wider truncate">
-                {profile?.username || "Captain"}
+                {profile?.username || t("captain")}
               </span>
-              <span className="text-[clamp(0.55rem,2vw,0.65rem)] sm:text-[10px] text-[#fbbf24] font-bold truncate">Lvl 1</span>
+              <span className="text-[clamp(0.55rem,2vw,0.65rem)] sm:text-[10px] text-[#fbbf24] font-bold truncate">{t("lvl")} 1</span>
             </div>
           </div>
 
@@ -80,26 +82,23 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
               className="flex items-center justify-center bg-[#34aab2] border-b-[3px] border-[#1e7880] text-white rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs font-bold active:scale-95 transition-transform h-8 sm:h-9"
             >
               <span className="truncate uppercase tracking-wider">
-                SERVER
+                {t("server")}
               </span>
             </button>
             <button
               onClick={onHelp}
               className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-[#8b5a33] border-b-[3px] border-[#4a2c17] text-white rounded-lg active:scale-90 shadow-sm"
-              title="Help & Tutorial"
+              title={t("help")}
             >
               <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-100" />
             </button>
             <button
-              onClick={toggleMute}
-              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-[#d75448] border-b-[3px] border-[#9b3026] text-white rounded-lg active:scale-90 shadow-sm"
-              title={isMuted ? "Unmute" : "Mute"}
+              onClick={() => openModal("settings")}
+              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-[#8b5a33] border-b-[3px] border-[#4a2c17] text-white rounded-lg active:scale-90 shadow-sm hover:bg-[#a0683b]"
+              title={t("settings")}
+              aria-label="Settings"
             >
-              {isMuted ? (
-                <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-red-200" />
-              ) : (
-                <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              )}
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-amber-100" />
             </button>
           </div>
         </div>
@@ -111,7 +110,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
             <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#93bb44] fill-[#93bb44] mr-1 flex-shrink-0" />
             <div className="flex flex-col w-full">
               <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-[#f0dec1] font-black uppercase tracking-wider leading-none mb-0.5">
-                <span>Energy</span>
+                <span>{t("energy")}</span>
                 <span className="text-white">
                   {energy}/{maxEnergy}
                 </span>
@@ -149,7 +148,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
             className="bg-[#93bb44] border-b-4 border-[#658627] text-white shadow-sm hover:brightness-110 active:border-b-0 active:translate-y-1 font-black text-xs px-4 py-1.5 rounded-lg border-2 border-[#064e3b] animate-bounce flex items-center gap-1 shadow-md"
           >
             <Shield className="w-4 h-4" />
-            <span>CRITICAL: REPAIR SHIP</span>
+            <span>{t("critical_repair_ship")}</span>
           </button>
         </div>
       )}
