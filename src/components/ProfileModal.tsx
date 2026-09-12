@@ -8,10 +8,12 @@ import {
   Image as ImageIcon,
   Sparkles,
   Lock,
+  Keyboard,
 } from "lucide-react";
 import { useGame } from "../context/GameContext";
 import { PIRATE_AVATARS } from "../assets";
 import { soundFx } from "../utils/audio";
+import { NameTypingOverlay } from "./NameTypingOverlay";
 
 interface ProfileModalProps {
   onClose: () => void;
@@ -24,6 +26,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
   const [aboutMe, setAboutMe] = useState(profile.aboutMe);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isTypingOverlayOpen, setIsTypingOverlayOpen] = useState(false);
 
   useEffect(() => {
     if (currentAccount?.username) {
@@ -202,17 +205,26 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
                 </button>
               )}
             </div>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={!!currentAccount}
-              maxLength={24}
-              placeholder={t("captain_username")}
-              className={`w-full bg-[#1a0f0d] border border-[#b45309] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#facc15] font-semibold ${
-                currentAccount ? "opacity-80 cursor-not-allowed bg-[#140b0a]" : ""
-              }`}
-            />
+            {currentAccount ? (
+              <input
+                type="text"
+                value={username}
+                disabled
+                maxLength={24}
+                className="w-full bg-[#140b0a] border border-[#b45309] rounded-lg px-2.5 py-1.5 text-xs text-white opacity-80 cursor-not-allowed font-semibold"
+              />
+            ) : (
+              <div
+                onClick={() => setIsTypingOverlayOpen(true)}
+                className="w-full bg-[#1a0f0d] border border-[#b45309] hover:border-[#facc15] cursor-pointer rounded-lg px-2.5 py-1.5 text-xs text-white flex items-center justify-between transition-colors shadow-inner"
+              >
+                <span className="font-semibold truncate">{username || t("captain_username")}</span>
+                <span className="flex items-center gap-1 text-[9px] bg-[#4a2c17] text-amber-200 px-1.5 py-0.5 rounded border border-amber-600/40">
+                  <Keyboard className="w-2.5 h-2.5 text-[#facc15]" />
+                  Type
+                </span>
+              </div>
+            )}
             {currentAccount && (
               <p className="text-[9px] text-amber-300/70 mt-0.5">
                 Account ID linked to this player name. Progress saves to Supabase automatically.
@@ -264,6 +276,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
           </div>
         </form>
       </div>
+
+      <NameTypingOverlay
+        isOpen={isTypingOverlayOpen}
+        value={username}
+        onChange={setUsername}
+        onClose={() => setIsTypingOverlayOpen(false)}
+        title={t("captain_username")}
+        placeholder="Enter captain name..."
+        maxLength={24}
+      />
     </div>
   );
 };

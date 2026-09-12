@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useGame } from "../context/GameContext";
-import { Anchor, ShieldAlert, UserPlus, LogIn, AlertCircle, Sparkles, Check, Database, X } from "lucide-react";
+import { Anchor, ShieldAlert, UserPlus, LogIn, AlertCircle, Sparkles, Check, Database, X, Keyboard } from "lucide-react";
 import { isSupabaseConfigured, validateUsername } from "../utils/supabaseClient";
+import { NameTypingOverlay } from "./NameTypingOverlay";
 
 interface AccountAuthModalProps {
   isOpen: boolean;
@@ -22,13 +23,13 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
   const [usernameInput, setUsernameInput] = useState<string>("");
   const [localValidationMessage, setLocalValidationMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isTypingOverlayOpen, setIsTypingOverlayOpen] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
   const isConfigured = isSupabaseConfigured();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+  const updateUsernameValue = (val: string) => {
     setUsernameInput(val);
     clearAccountError();
 
@@ -43,6 +44,10 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
     } else {
       setLocalValidationMessage("");
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateUsernameValue(e.target.value);
   };
 
   const handleCreateAccount = async (e: React.FormEvent) => {
@@ -214,15 +219,22 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
                 <label className="text-[11px] text-[#fde68a]/90 font-serif block mb-1">
                   Choose your pirate account name:
                 </label>
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="e.g. Captain_Sparrow99"
-                  value={usernameInput}
-                  onChange={handleInputChange}
-                  maxLength={24}
-                  className="w-full bg-[#1a0f0d] border-2 border-[#b45309] focus:border-[#facc15] rounded-xl px-3 py-2 text-sm text-white font-mono tracking-wide focus:outline-none"
-                />
+                <div
+                  onClick={() => setIsTypingOverlayOpen(true)}
+                  className="w-full bg-[#1a0f0d] border-2 border-[#b45309] hover:border-[#facc15] cursor-pointer rounded-xl px-3 py-2 text-sm text-white font-mono tracking-wide flex items-center justify-between shadow-inner group transition-colors"
+                >
+                  <span className="truncate">
+                    {usernameInput || (
+                      <span className="text-stone-500 font-normal italic">
+                        Tap here to type name...
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] bg-[#4a2c17] group-hover:bg-[#b45309] text-amber-200 border border-amber-600/50 px-2 py-0.5 rounded font-mono shrink-0 ml-2 transition-colors">
+                    <Keyboard className="w-3 h-3 text-[#facc15]" />
+                    <span>Type</span>
+                  </span>
+                </div>
                 <p className="text-[10px] text-[#fde68a]/70 font-mono mt-1">
                   Requirement: 3–24 characters; letters, numbers, and underscores only. Unique & case-sensitive.
                 </p>
@@ -307,15 +319,22 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
                 <label className="text-[11px] text-[#fde68a]/90 font-serif block mb-1">
                   Type your exact account name (case-sensitive):
                 </label>
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="e.g. Captain_Sparrow99"
-                  value={usernameInput}
-                  onChange={handleInputChange}
-                  maxLength={24}
-                  className="w-full bg-[#1a0f0d] border-2 border-[#b45309] focus:border-[#facc15] rounded-xl px-3 py-2 text-sm text-white font-mono tracking-wide focus:outline-none"
-                />
+                <div
+                  onClick={() => setIsTypingOverlayOpen(true)}
+                  className="w-full bg-[#1a0f0d] border-2 border-[#b45309] hover:border-[#facc15] cursor-pointer rounded-xl px-3 py-2 text-sm text-white font-mono tracking-wide flex items-center justify-between shadow-inner group transition-colors"
+                >
+                  <span className="truncate">
+                    {usernameInput || (
+                      <span className="text-stone-500 font-normal italic">
+                        Tap here to type name...
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px] bg-[#4a2c17] group-hover:bg-[#b45309] text-amber-200 border border-amber-600/50 px-2 py-0.5 rounded font-mono shrink-0 ml-2 transition-colors">
+                    <Keyboard className="w-3 h-3 text-[#facc15]" />
+                    <span>Type</span>
+                  </span>
+                </div>
                 <p className="text-[10px] text-[#fde68a]/70 font-mono mt-1">
                   Must match the exact case-sensitive name you registered with.
                 </p>
@@ -378,6 +397,18 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Transparent Black Overlay for Mobile Name Input without screen displacement */}
+      <NameTypingOverlay
+        isOpen={isTypingOverlayOpen}
+        value={usernameInput}
+        onChange={updateUsernameValue}
+        onClose={() => setIsTypingOverlayOpen(false)}
+        title={mode === "new" ? "CHOOSE CAPTAIN NAME" : "ENTER YOUR ACCOUNT NAME"}
+        placeholder="e.g. Captain_Sparrow99"
+        maxLength={24}
+        validationError={localValidationMessage || accountError || undefined}
+      />
     </div>
   );
 };

@@ -65,7 +65,10 @@ export const RaidHistoryModal: React.FC<RaidHistoryModalProps> = ({
                         : `${t("defense_logs")}: ${log.opponentName}`}
                     </div>
                     <div className="text-[10px] text-[#fde68a]/80 font-mono">
-                      {t("damage_dealt")}: {log.damage.toLocaleString()} HP • {log.timestamp}
+                      {log.type === "attack"
+                        ? `${t("damage_dealt")}: ${log.damage.toLocaleString()} HP`
+                        : `${t("damage_taken", "Damage Taken")}: -${log.damage.toLocaleString()} HP`}{" "}
+                      • {log.timestamp}
                     </div>
                     {log.cannonLostOrWon && (
                       <div className="text-[10px] font-black text-[#fbbf24] uppercase mt-0.5">
@@ -75,11 +78,20 @@ export const RaidHistoryModal: React.FC<RaidHistoryModalProps> = ({
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-xs font-extrabold text-[#fbbf24]">
-                    +{log.coinsChange} 🪙
-                  </span>
-                </div>
+                {/* Only show coins earned if user bombed someone (attack); never show attacker's coins if user was bombed */}
+                {log.type === "attack" ? (
+                  <div className="text-right">
+                    <span className="text-xs font-extrabold text-[#fbbf24]">
+                      +{log.coinsChange} 🪙
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-rose-300/80 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800/40">
+                      Defending
+                    </span>
+                  </div>
+                )}
               </div>
             ))
           )}
