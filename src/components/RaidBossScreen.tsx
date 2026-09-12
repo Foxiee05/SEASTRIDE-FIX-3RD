@@ -183,7 +183,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               </div>
               <div className="flex items-center gap-1 px-3 py-0.5 bg-[#120a08]/90 border border-amber-400/50 rounded-full text-[10px] font-bold text-amber-300 shadow">
                 <Clock size={10} className="text-amber-400 flex-shrink-0" />
-                <span>{timeRemaining} until monster leaves</span>
+                <span>{t("time_until_leaves", "{time} until monster leaves").replace("{time}", timeRemaining)}</span>
               </div>
             </div>
             
@@ -411,7 +411,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                               : 'text-stone-400 bg-black/80 border border-stone-700'
                           }`}
                         >
-                          {isReady ? 'CLAIM!' : isPassedBeforeJoin ? 'MISSED' : bounty.isFinal ? 'FINAL' : `${bounty.hpThresholdPercent}%`}
+                          {isReady ? t("claim_upper", "CLAIM!") : isPassedBeforeJoin ? t("missed_upper", "MISSED") : bounty.isFinal ? t("final_upper", "FINAL") : `${bounty.hpThresholdPercent}%`}
                         </span>
                       </div>
                     );
@@ -523,13 +523,13 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
           {/* Monster Leaves Countdown Badge (Left) */}
           <div className="absolute top-0 left-1 z-20 flex items-center gap-1 px-2.5 py-0.5 bg-[#2b1d19]/90 backdrop-blur-md rounded-full border border-amber-400/50 text-[9px] font-bold text-amber-300 shadow">
             <Clock size={10} className="text-amber-400 flex-shrink-0" />
-            <span>{timeRemaining} until monster leaves</span>
+            <span>{t("time_until_leaves", "{time} until monster leaves").replace("{time}", timeRemaining)}</span>
           </div>
 
           {/* Active Captains Badge (Right) */}
           <div className="absolute top-0 right-1 z-20 flex items-center gap-1 px-2.5 py-0.5 bg-[#2b1d19]/90 backdrop-blur-md rounded-full border border-[#8b5a2b] text-[9px] font-bold text-amber-200 shadow">
             <Users size={10} className="text-sky-400" />
-            <span>{currentRaidState.participants.length} In Battle</span>
+            <span>{currentRaidState.participants.length} {t("in_battle", "In Battle")}</span>
           </div>
 
 
@@ -860,7 +860,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] font-black text-amber-100 font-serif">
-                                {bounty.isFinal ? '🏆 FINAL VICTORY' : `MILESTONE #${idx + 1}`}
+                                {bounty.isFinal ? t("final_victory_caps", "🏆 FINAL VICTORY") : t("milestone_hash", "MILESTONE #{num}").replace("{num}", (idx + 1).toString())}
                               </span>
                               <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded ${
                                 isPassedBeforeJoin
@@ -876,9 +876,9 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                               {isPassedBeforeJoin ? (
                                 <span className="text-stone-500 font-medium">{t("reached_before_joined").replace("{percent}", joinedHpPercent.toFixed(0))}</span>
                               ) : bounty.isFinal ? (
-                                'Boss is defeated (0% HP)'
+                                t("boss_defeated_0hp", "Boss is defeated (0% HP)")
                               ) : (
-                                `{t("boss_hp")} drops to ${bounty.hpThresholdPercent}%`
+                                t("drops_to_percent", "{t('boss_hp')} drops to {percent}%").replace("{t('boss_hp')}", t("boss_hp")).replace("{percent}", bounty.hpThresholdPercent.toString())
                               )}
                             </div>
                           </div>
@@ -919,8 +919,8 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                         <div className="flex items-center justify-between text-[8px] text-stone-400">
                           <span className={`${isPassedBeforeJoin ? 'text-stone-500' : 'text-amber-200/90'} font-bold`}>
                             {isPassedBeforeJoin 
-                              ? 'Your Share: 0% (Reached before joining)' 
-                              : `Your Share (${rewardShare.hasDamage ? `${rewardShare.percent}%` : '0%'}):`}
+                              ? t("your_share_0_reached", "Your Share: 0% (Reached before joining)") 
+                              : t("your_share_percent", "Your Share ({percent}):").replace("{percent}", rewardShare.hasDamage ? `${rewardShare.percent}%` : "0%")}
                           </span>
                           <span className="text-stone-500">
                             Pool: {bounty.coins.toLocaleString()} 🪙 • {bounty.gems} 💎
@@ -1054,16 +1054,16 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 </div>
 
                 <h4 className="text-xs font-black text-amber-200 uppercase tracking-wider font-serif mt-1">
-                  {selectedMilestonePreview.isFinal ? '🏆 Final Victory Reward' : `🎯 ${selectedMilestonePreview.hpThresholdPercent}% {t("boss_hp")} Milestone`}
+                  {selectedMilestonePreview.isFinal ? t("final_victory_reward", "🏆 Final Victory Reward") : t("hp_milestone", "🎯 {percent}% {t('boss_hp')} Milestone").replace("{percent}", selectedMilestonePreview.hpThresholdPercent.toString()).replace("{t('boss_hp')}", t("boss_hp"))}
                 </h4>
 
                 <p className="text-[9px] text-amber-100/70 mt-0.5 mb-2">
                   {isPassedBeforeJoin ? (
                     <span className="text-stone-400 font-medium">{t("reached_before_joined_battle").replace("{percent}", joinedHpPercent.toFixed(0))}</span>
                   ) : selectedMilestonePreview.isFinal ? (
-                    'Shared proportional to total damage dealt'
+                    t("shared_proportional", "Shared proportional to total damage dealt")
                   ) : (
-                    `Unlocked when {t("boss_hp")} drops to ${selectedMilestonePreview.hpThresholdPercent}%`
+                    t("unlocked_when_drops", "Unlocked when {t('boss_hp')} drops to {percent}%").replace("{t('boss_hp')}", t("boss_hp")).replace("{percent}", selectedMilestonePreview.hpThresholdPercent.toString())
                   )}
                 </p>
 
@@ -1072,10 +1072,10 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                   <span className="text-amber-200/80 font-bold">{t("your_damage_share")}</span>
                   <span className="font-mono font-black text-yellow-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40">
                     {isPassedBeforeJoin 
-                      ? '0% (Reached before joining)' 
+                      ? t("zero_percent_reached_before", "0% (Reached before joining)") 
                       : previewShare.hasDamage 
-                      ? `${previewShare.percent}% of Pool` 
-                      : '0% (No damage dealt)'}
+                      ? t("percent_of_pool", "{percent}% of Pool").replace("{percent}", previewShare.percent.toString()) 
+                      : t("zero_percent_no_damage", "0% (No damage dealt)")}
                   </span>
                 </div>
 
@@ -1119,7 +1119,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                       </span>
                     ) : (
                       <span className="text-rose-400 font-bold">
-                        Deal at least {t("hp_damage")} in battle to claim!
+                        {t("deal_at_least_1_hp", "Deal at least 1 HP damage in battle to claim!")}
                       </span>
                     )
                   ) : (
@@ -1161,7 +1161,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                         disabled
                         className="w-full py-2.5 bg-[#25201e] border border-stone-700/60 text-stone-500 font-black text-xs uppercase tracking-wider rounded-xl font-serif cursor-not-allowed flex items-center justify-center gap-1.5 opacity-70"
                       >
-                        <Lock size={12} /> {isPassedBeforeJoin ? `Missed (Joined at ${joinedHpPercent.toFixed(0)}% HP)` : isClaimed ? 'Claimed' : 'Claim'}
+                        <Lock size={12} /> {isPassedBeforeJoin ? t("missed_joined_at", "Missed (Joined at {percent}% HP)").replace("{percent}", joinedHpPercent.toFixed(0)) : isClaimed ? t("claimed", "Claimed") : t("claim", "Claim")}
                       </button>
                     );
                   })()}
@@ -1287,7 +1287,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               </div>
 
               <h3 className="text-xs sm:text-sm font-black text-emerald-200 uppercase tracking-widest font-serif">
-                {t("your_damage")} SHARE
+                {t("your_damage")} {t("share_caps", "SHARE")}
               </h3>
 
               <div className="my-2 w-full bg-[#021c17]/90 border border-emerald-500/40 rounded-xl p-2 flex flex-col items-center gap-0.5">
@@ -1305,7 +1305,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                   <div className="w-full flex items-center justify-between pb-1 border-b border-emerald-500/30 text-[9px] font-bold">
                     <span className="text-emerald-200 uppercase flex items-center gap-1 font-serif">
                       <span>{nearestUpcomingMilestone.icon}</span>
-                      <span>{nearestUpcomingMilestone.isFinal ? 'Final Victory' : `Milestone (${nearestUpcomingMilestone.hpThresholdPercent}% HP)`}</span>
+                      <span>{nearestUpcomingMilestone.isFinal ? t("final_victory", "Final Victory") : t("milestone_hp", "Milestone ({percent}% HP)").replace("{percent}", nearestUpcomingMilestone.hpThresholdPercent.toString())}</span>
                     </span>
                     <span className="text-yellow-400 font-mono">
                       {nearestUpcomingMilestone.isFinal ? '0% HP' : `${nearestUpcomingMilestone.hpThresholdPercent}% HP`}

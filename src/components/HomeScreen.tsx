@@ -292,13 +292,12 @@ export const HomeScreen: React.FC = () => {
             onClick={() =>
               setInfoState({
                 title: t("gold"),
-                message:
-                  "100 steps = 10 coins. Walk to charge your energy and earn gold for your voyage! (100 bước = 10 vàng)",
+                message: t("energy_charged_info"),
               })
             }
             className="p-1 rounded-full bg-[#2b1d19] border border-[#b45309] hover:bg-[#3d2417] text-sky-400 hover:text-sky-300 transition-colors shadow-sm active:scale-95"
-            title="Gold Earning Info"
-            aria-label="Gold Earning Information"
+            title={t("gold_earning_info", "Gold Earning Info")}
+            aria-label={t("gold_earning_info", "Gold Earning Information")}
           >
             <Info className="w-3.5 h-3.5 text-sky-400" />
           </button>
@@ -504,7 +503,7 @@ export const HomeScreen: React.FC = () => {
                     />
                   </div>
                   <span className="text-[9px] sm:text-[10px] font-bold text-[#fde68a] mt-1 font-serif uppercase leading-none">
-                    {item.label}
+                    {t(item.label)}
                   </span>
                 </div>
               );

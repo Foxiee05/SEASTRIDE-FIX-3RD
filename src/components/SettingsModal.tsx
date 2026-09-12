@@ -43,139 +43,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         {/* Body Content */}
         <div className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* SECTION 1: SOUND & AUDIO */}
-          <div className="bg-[#2b1d19] p-3.5 sm:p-4 rounded-2xl border-2 border-[#b45309] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1 rounded-md bg-[#4a2c17] border border-[#b45309]/60">
-                  {isMuted ? (
-                    <VolumeX className="w-4 h-4 text-red-400" />
-                  ) : (
-                    <Volume2 className="w-4 h-4 text-emerald-400" />
-                  )}
-                </div>
-                <span className="text-xs sm:text-sm font-serif font-black text-[#fde68a] uppercase">
-                  {t("sound_music")}
-                </span>
+          <div className="bg-[#2b1d19] p-3.5 sm:p-4 rounded-2xl border-2 border-[#b45309] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-md bg-[#4a2c17] border border-[#b45309]/60">
+                {isMuted ? (
+                  <VolumeX className="w-4 h-4 text-red-400" />
+                ) : (
+                  <Volume2 className="w-4 h-4 text-emerald-400" />
+                )}
               </div>
-
-              <span
-                className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
-                  isMuted
-                    ? "bg-red-950/80 text-red-300 border-red-800"
-                    : "bg-emerald-950/80 text-emerald-300 border-emerald-800"
-                }`}
-              >
-                {isMuted ? t("sound_muted") : t("sound_on")}
+              <span className="text-xs sm:text-sm font-serif font-black text-[#fde68a] uppercase">
+                {t("sound_music")}
               </span>
             </div>
 
-            <p className="text-[11px] text-amber-100/70 leading-relaxed">
-              {t("sound_desc")}
-            </p>
-
-            {/* Mute / Unmute Button */}
+            {/* Mute / Unmute Switch */}
             <button
               type="button"
               onClick={toggleMute}
-              className={`w-full py-2.5 px-4 rounded-xl font-black uppercase italic text-xs tracking-wider border-b-4 border-r-2 flex items-center justify-center gap-2 shadow-lg active:translate-y-0.5 transition-all ${
-                isMuted
-                  ? "bg-emerald-700 hover:bg-emerald-600 border-emerald-950 text-white"
-                  : "bg-red-700 hover:bg-red-600 border-red-950 text-white"
-              }`}
+              className="relative flex h-8 w-20 items-center rounded-full border-2 border-[#b45309] bg-[#1a0f0d] p-0.5 cursor-pointer shadow-inner"
             >
-              {isMuted ? (
-                <>
-                  <Volume2 className="w-4 h-4" />
-                  <span>{t("unmute_button")}</span>
-                </>
-              ) : (
-                <>
-                  <VolumeX className="w-4 h-4" />
-                  <span>{t("mute_button")}</span>
-                </>
-              )}
+              <div
+                className={`absolute h-6 w-9 rounded-full transition-transform ${
+                  !isMuted ? 'bg-emerald-600 translate-x-0' : 'bg-red-600 translate-x-9'
+                }`}
+              />
+              <span className="relative z-10 flex-1 text-center text-[10px] font-black text-white">ON</span>
+              <span className="relative z-10 flex-1 text-center text-[10px] font-black text-white">OFF</span>
             </button>
           </div>
 
           {/* SECTION 2: LANGUAGE SELECTION */}
-          <div className="bg-[#2b1d19] p-3.5 sm:p-4 rounded-2xl border-2 border-[#b45309] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1 rounded-md bg-[#4a2c17] border border-[#b45309]/60">
-                  <Globe className="w-4 h-4 text-sky-400" />
-                </div>
-                <span className="text-xs sm:text-sm font-serif font-black text-[#fde68a] uppercase">
-                  {t("language_title")}
-                </span>
+          <div className="bg-[#2b1d19] p-3.5 sm:p-4 rounded-2xl border-2 border-[#b45309] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-md bg-[#4a2c17] border border-[#b45309]/60">
+                <Globe className="w-4 h-4 text-sky-400" />
               </div>
-
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold bg-[#4a2c17] text-amber-200 border border-[#b45309]">
-                {language === "vi" ? "Tiếng Việt 🇻🇳" : "English 🇬🇧"}
+              <span className="text-xs sm:text-sm font-serif font-black text-[#fde68a] uppercase">
+                {t("language_title")}
               </span>
             </div>
 
-            <p className="text-[11px] text-amber-100/70 leading-relaxed">
-              {t("language_desc")}
-            </p>
-
-            {/* Language Selector Buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => changeLanguage("en")}
-                className={`py-2 px-3 rounded-xl border text-xs font-black flex items-center justify-between transition-all ${
-                  language === "en"
-                    ? "bg-[#b45309] text-white border-[#facc15] shadow-md scale-[1.02]"
-                    : "bg-[#4a2c17] text-amber-100/80 border-[#b45309]/60 hover:bg-[#5c371d]"
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base">🇬🇧</span>
-                  <span className="uppercase text-[11px]">English</span>
-                </div>
-                {language === "en" && <Check className="w-3.5 h-3.5 text-[#facc15]" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => changeLanguage("vi")}
-                className={`py-2 px-3 rounded-xl border text-xs font-sans font-black flex items-center justify-between transition-all ${
-                  language === "vi"
-                    ? "bg-[#b45309] text-white border-[#facc15] shadow-md scale-[1.02]"
-                    : "bg-[#4a2c17] text-amber-100/80 border-[#b45309]/60 hover:bg-[#5c371d]"
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-sans">
-                  <span className="text-base">🇻🇳</span>
-                  <span className="uppercase text-[11px] font-sans font-black">Tiếng Việt</span>
-                </div>
-                {language === "vi" && <Check className="w-3.5 h-3.5 text-[#facc15]" />}
-              </button>
-            </div>
-
-            {/* Quick Switch Button */}
+            {/* Language Selector Switch */}
             <button
               type="button"
               onClick={() => changeLanguage(language === "vi" ? "en" : "vi")}
-              className="w-full py-2.5 px-4 rounded-xl font-black uppercase italic text-xs tracking-wider border-b-4 border-r-2 bg-[#1d4ed8] hover:bg-[#2563eb] border-[#1e3a8a] text-white flex items-center justify-center gap-2 shadow-lg active:translate-y-0.5 transition-all"
+              className="relative flex h-8 w-20 items-center rounded-full border-2 border-[#b45309] bg-[#1a0f0d] p-0.5 cursor-pointer shadow-inner"
             >
-              <Globe className="w-4 h-4" />
-              <span>
-                {language === "vi"
-                  ? t("switch_to_english")
-                  : t("switch_to_vietnamese")}
-              </span>
+              <div
+                className={`absolute h-6 w-9 rounded-full bg-[#3b82f6] transition-transform ${
+                  language === "en" ? 'translate-x-0' : 'translate-x-9'
+                }`}
+              />
+              <span className="relative z-10 flex-1 text-center text-[10px] font-black text-white">ENG</span>
+              <span className="relative z-10 flex-1 text-center text-[10px] font-black text-white">VIE</span>
             </button>
           </div>
-
-          {/* Close Button */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-2.5 rounded-xl bg-[#4a2c17] hover:bg-[#5c371d] border-2 border-[#b45309] text-[#fde68a] font-serif font-black uppercase text-xs tracking-wider active:scale-95 transition-all shadow-md"
-          >
-            {t("close")}
-          </button>
         </div>
       </div>
     </div>

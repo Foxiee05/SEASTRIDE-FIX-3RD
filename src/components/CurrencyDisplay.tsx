@@ -9,7 +9,7 @@ interface CurrencyDisplayProps {
 export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
   interactive = true,
 }) => {
-  const { coins, gems, openCoinsModal, openGemsModal } = useGame();
+  const { coins, gems, openCoinsModal, openGemsModal, t } = useGame();
 
   const handleCoinsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,7 +31,7 @@ export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
       <button
         type="button"
         onClick={handleCoinsClick}
-        title="Tap to Buy Coins with Gems"
+        title={t("tap_to_buy_coins", "Tap to Buy Coins with Gems")}
         className={`flex items-center justify-center gap-1 bg-[#4a2c17] border-2 sm:border-4 border-[#2b1d19] rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 shadow-[0_3px_0_#2b1d19] h-8 sm:h-10 transition-all ${
           interactive
             ? "active:scale-95 cursor-pointer"
@@ -48,7 +48,7 @@ export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
       <button
         type="button"
         onClick={handleGemsClick}
-        title="Tap to Get Gems (IAP & Ads)"
+        title={t("tap_to_get_gems", "Tap to Get Gems (IAP & Ads)")}
         className={`flex items-center justify-center gap-1 bg-[#34aab2] border-2 sm:border-4 border-[#1e7880] rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 shadow-[0_3px_0_#1e7880] h-8 sm:h-10 transition-all ${
           interactive
             ? "active:scale-95 cursor-pointer"

@@ -54,7 +54,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
             <button
               onClick={() => openModal("profile")}
               className="tutorial-profile w-9 h-9 sm:w-11 sm:h-11 bg-[#f0c242] border-2 sm:border-4 border-[#be9325] shadow-[0_4px_0_#be9325] rounded-full flex items-center justify-center shadow-md overflow-hidden flex-shrink-0 hover:scale-105 active:scale-95 transition-transform"
-              title="My Captain Profile"
+              title={t("my_captain_profile", "My Captain Profile")}
             >
               {profile?.avatarUrl ? (
                 <img
@@ -96,7 +96,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
               onClick={() => openModal("settings")}
               className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-[#8b5a33] border-b-[3px] border-[#4a2c17] text-white rounded-lg active:scale-90 shadow-sm hover:bg-[#a0683b]"
               title={t("settings")}
-              aria-label="Settings"
+              aria-label={t("settings", "Settings")}
             >
               <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-amber-100" />
             </button>

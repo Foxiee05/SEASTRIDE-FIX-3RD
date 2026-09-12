@@ -292,10 +292,10 @@ export const StepMapView: React.FC<StepMapViewProps> = () => {
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${isGpsActive ? "bg-emerald-400 animate-ping" : "bg-amber-400"}`}
                 />
-                <span>{isGpsActive ? "GPS Trace Live" : "Pedometer Map"}</span>
+                <span>{isGpsActive ? t("gps_trace_live", "GPS Trace Live") : t("pedometer_map", "Pedometer Map")}</span>
               </div>
               <div className="text-[10px] sm:text-xs font-black text-white font-mono leading-tight">
-                {footprints.length} Footprints •{" "}
+                {footprints.length} {t("footprints", "Footprints")} •{" "}
                 {(totalDistanceTraveledMeters / 1000).toFixed(2)} km
               </div>
             </div>
@@ -305,8 +305,8 @@ export const StepMapView: React.FC<StepMapViewProps> = () => {
           <button
             onClick={() =>
               setInfoState({
-                title: "Footprint Voyage Map",
-                message: "This map translates your real-world steps into an epic nautical journey. Walk to explore the seas, unlock hidden ports, and find sunken treasures!"
+                title: t("footprint_voyage_map", "Footprint Voyage Map"),
+                message: t("map_info_desc", "This map translates your real-world steps into an epic nautical journey. Walk to explore the seas, unlock hidden ports, and find sunken treasures!")
               })
             }
             className="self-start bg-[#4a2c17]/90 hover:bg-[#92400e]/90 backdrop-blur-sm text-[#fde68a] border border-[#b45309] p-1.5 rounded-lg shadow-md flex items-center justify-center transition-all active:scale-95"
@@ -324,7 +324,7 @@ export const StepMapView: React.FC<StepMapViewProps> = () => {
             className="bg-[#4a2c17] hover:bg-[#92400e] text-[#fde68a] border border-[#b45309] px-2.5 py-1 rounded-lg text-[9px] sm:text-[10px] font-bold uppercase shadow flex items-center gap-1"
             title="Toggle Vintage Parchment Filter"
           >
-            {mapStyle === "parchment" ? "📜 Parchment" : "🗺️ Standard"}
+            {mapStyle === "parchment" ? t("parchment_map", "📜 Parchment") : t("standard_map", "🗺️ Standard")}
           </button>
         </div>
       </div>
@@ -363,7 +363,7 @@ export const StepMapView: React.FC<StepMapViewProps> = () => {
               ? "bg-[#93bb44] border-b-4 border-[#658627] text-white shadow-sm border-[#064e3b] text-white"
               : "bg-[#2b1d19] border-[#b45309] text-[#fde68a] hover:bg-[#4a2c17]"
           }`}
-          title="Center on Captain"
+          title={t("center_captain", "Center on Captain")}
         >
           <Crosshair className="w-4 h-4" />
         </button>
@@ -385,7 +385,7 @@ export const StepMapView: React.FC<StepMapViewProps> = () => {
         <button
           onClick={clearTrace}
           className="p-2 bg-[#2b1d19] hover:bg-[#4a2c17] border border-[#b45309] rounded-lg text-red-300 shadow"
-          title="Clear footprint trail"
+          title={t("clear_footprint_trail", "Clear footprint trail")}
         >
           <RotateCcw className="w-3.5 h-3.5" />
         </button>

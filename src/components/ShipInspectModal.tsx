@@ -54,6 +54,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
           <button
             onClick={onClose}
             className="p-1.5 bg-[#4a2c17] hover:bg-[#92400e] rounded-lg border border-[#b45309] text-[#fde68a]"
+            title={t("close")}
           >
             <X className="w-5 h-5" />
           </button>
@@ -65,7 +66,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
           <div className="bg-[#2b1d19] border-4 border-[#b45309] rounded-2xl p-4 flex flex-col items-center relative overflow-hidden">
             <img
               src={shipImg}
-              alt="Ship"
+              alt={t("ship")}
               referrerPolicy="no-referrer"
               className="w-40 h-40 object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)]"
             />
@@ -92,7 +93,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
                     e.stopPropagation();
                     setInfoState({
                       title: t("condition"),
-                      message: "Represents the health of your flagship. If it drops to 50% or below, you cannot participate in boss raids until repaired!"
+                      message: t("condition_desc")
                     });
                   }} 
                 />
@@ -129,7 +130,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
             <div className="bg-[#2b1d19] border-2 border-[#b45309] p-3 rounded-2xl flex items-center gap-2.5">
               <img
                 src={cannonImg}
-                alt="Cannon"
+                alt={t("cannons")}
                 referrerPolicy="no-referrer"
                 className="w-8 h-8 object-contain"
               />
@@ -142,7 +143,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
                       e.stopPropagation();
                       setInfoState({
                         title: t("cannons"),
-                        message: "Higher level cannons deal more damage to raid bosses. Upgrade them in the Upgrades menu to increase your attack power."
+                        message: t("cannons_desc")
                       });
                     }} 
                   />
@@ -156,7 +157,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
             <div className="bg-[#2b1d19] border-2 border-[#b45309] p-3 rounded-2xl flex items-center gap-2.5">
               <img
                 src={shieldImg}
-                alt="Shield"
+                alt={t("shield")}
                 referrerPolicy="no-referrer"
                 className="w-8 h-8 object-contain"
               />
@@ -169,7 +170,7 @@ export const ShipInspectModal: React.FC<ShipInspectModalProps> = ({
                       e.stopPropagation();
                       setInfoState({
                         title: t("shield"),
-                        message: "Aura shields protect your ship's hull from taking damage during raids. Upgrade shields to reduce damage taken from boss attacks."
+                        message: t("shield_inspect_desc")
                       });
                     }} 
                   />

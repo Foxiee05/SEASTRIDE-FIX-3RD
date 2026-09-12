@@ -142,8 +142,7 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                   onClick={() =>
                     setInfoState({
                       title: t("ship_upgrades"),
-                      message:
-                        "Upgrading your ship increases its Max Hull HP, allowing it to withstand more damage in battles.",
+                      message: t("ship_upgrades_info"),
                     })
                   }
                   className="bg-[#4a2c17] hover:bg-[#92400e] text-[#fde68a] border border-[#b45309] p-1.5 rounded-lg shadow-md flex items-center justify-center transition-all active:scale-95"
@@ -214,9 +213,8 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                   type="button"
                   onClick={() =>
                     setInfoState({
-                      title: "Cannon Upgrades",
-                      message:
-                        "Buy and upgrade cannons. Equip them to boost your damage against raid bosses!",
+                      title: t("cannons_upgrade_title"),
+                      message: t("cannon_upgrades_info"),
                     })
                   }
                   className="bg-[#4a2c17] hover:bg-[#92400e] text-[#fde68a] border border-[#b45309] p-1.5 rounded-lg shadow-md flex items-center justify-center transition-all active:scale-95"
@@ -319,8 +317,7 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
               </div>
 
               <p className="text-[10px] text-[#fde68a]/80 font-mono text-left bg-[#2b1d19] p-3 rounded-xl border border-[#b45309]">
-                ⚠️ Warning: Cannons can be looted by enemy raiders if your
-                ship's HP falls below 30% during a battle!
+                {t("cannons_upgrade_warning")}
               </p>
             </div>
           )}
@@ -334,9 +331,8 @@ export const UpgradesModal: React.FC<UpgradesModalProps> = ({ onClose }) => {
                   type="button"
                   onClick={() =>
                     setInfoState({
-                      title: "Shield Upgrades",
-                      message:
-                        "Buy and upgrade aura shields. Equip them to reduce the damage you take from raid boss attacks!",
+                      title: t("shield_upgrade_title"),
+                      message: t("shield_upgrades_info"),
                     })
                   }
                   className="bg-[#4a2c17] hover:bg-[#92400e] text-[#fde68a] border border-[#b45309] p-1.5 rounded-lg shadow-md flex items-center justify-center transition-all active:scale-95"

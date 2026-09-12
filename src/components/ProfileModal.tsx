@@ -107,7 +107,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute bottom-0 right-0 bg-[#b45309] hover:bg-[#d97706] text-white p-1.5 rounded-full border border-amber-200 shadow-md active:scale-90 transition-transform"
-                title="Upload image from device"
+                title={t("upload_image", "Upload image from device")}
               >
                 <Upload className="w-3.5 h-3.5" />
               </button>

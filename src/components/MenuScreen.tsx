@@ -37,7 +37,7 @@ export function MenuScreen({
           onClick={onOpenSettings}
           className="w-12 h-12 bg-[#4a2c17]/80 backdrop-blur-sm border-2 border-[#d97706] rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform hover:bg-[#5c371d]"
           title={t("settings")}
-          aria-label="Settings"
+          aria-label={t("settings", "Settings")}
         >
           <Settings size={24} className="text-amber-200" />
         </button>

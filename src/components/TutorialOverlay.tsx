@@ -37,7 +37,7 @@ const CustomTooltip: React.FC<TooltipRenderProps> = ({
           {...skipProps}
           type="button"
           className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#d75448] hover:text-[#9b3026] active:scale-90 px-2 py-0.5 rounded transition-all cursor-pointer hover:bg-[#d75448]/10"
-          title="Skip tutorial"
+          title={t("skip")}
         >
           {t("tutorial_skip")}
         </button>

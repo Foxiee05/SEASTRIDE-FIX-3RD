@@ -88,9 +88,7 @@ export const CoinsExchangeModal: React.FC<CoinsExchangeModalProps> = ({
 
   const handleExchangeCoins = (pkg: CoinPackage) => {
     if (gems < pkg.gemsCost) {
-      setInsufficientGemsAlert(
-        `Need ${pkg.gemsCost} 💎 gems (you have ${gems} 💎). Top up gems first!`,
-      );
+      setInsufficientGemsAlert(t("need_more_gems"));
       if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
       alertTimeoutRef.current = setTimeout(() => setInsufficientGemsAlert(null), 4000);
       return;
@@ -99,9 +97,7 @@ export const CoinsExchangeModal: React.FC<CoinsExchangeModalProps> = ({
     const success = exchangeGemsForCoins(pkg);
     if (success) {
       setInsufficientGemsAlert(null);
-      setPurchaseSuccessMessage(
-        `Exchanged ${pkg.gemsCost} Gems for +${pkg.coinsReward.toLocaleString()} Coins!`,
-      );
+      setPurchaseSuccessMessage(t("exchanged_success"));
       if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
       successTimeoutRef.current = setTimeout(() => setPurchaseSuccessMessage(null), 3500);
     }
@@ -145,7 +141,7 @@ export const CoinsExchangeModal: React.FC<CoinsExchangeModalProps> = ({
               type="button"
               onClick={onClose}
               className="p-1.5 bg-[#4a2c17] hover:bg-[#92400e] rounded-lg border border-[#b45309] text-[#fde68a] active:scale-95 transition-transform"
-              title="Close"
+              title={t("close", "Close")}
             >
               <X className="w-5 h-5" />
             </button>
@@ -206,7 +202,7 @@ export const CoinsExchangeModal: React.FC<CoinsExchangeModalProps> = ({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-serif font-black text-sm text-white">
-                          {pkg.name}
+                          {t(pkg.id.replace('coin_', ''), pkg.name)}
                         </span>
                         <span className="bg-[#854d0e] text-[#fef08a] text-[11px] font-black px-2 py-0.5 rounded-md border border-[#facc15]/40 shadow-sm">
                           +{pkg.coinsReward.toLocaleString()} 🪙

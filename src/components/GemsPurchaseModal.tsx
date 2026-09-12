@@ -88,7 +88,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
       setIsWatchingAd(false);
       const ok = watchAdForGems();
       if (ok) {
-        setPurchaseSuccessMessage("+5 Free Gems added to your balance!");
+        setPurchaseSuccessMessage(t("free_gems_added", "+5 Free Gems added to your balance!"));
         if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         toastTimeoutRef.current = setTimeout(() => setPurchaseSuccessMessage(null), 3500);
       }
@@ -125,7 +125,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
     setTimeout(() => {
       buyGemsIAP(pkg);
       setPurchasingGemTier(null);
-      setPurchaseSuccessMessage(`Successfully purchased ${pkg.gems} Gems (${pkg.name})!`);
+      setPurchaseSuccessMessage(t("purchased_gems_success", `Successfully purchased ${pkg.gems} Gems (${pkg.name})!`).replace("{gems}", pkg.gems.toString()).replace("{name}", t(pkg.name, pkg.name)));
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       toastTimeoutRef.current = setTimeout(() => setPurchaseSuccessMessage(null), 3500);
     }, 600);
@@ -143,9 +143,8 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-serif font-black uppercase text-[#e0f2fe] tracking-wider">
-                GEMS VAULT
+                {t("gems_vault", "GEMS VAULT")}
               </h2>
-              <p className="text-[10px] text-sky-300/80 font-bold uppercase">{t("iap_rewards")}</p>
             </div>
           </div>
 
@@ -162,7 +161,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
               type="button"
               onClick={onClose}
               className="p-1.5 bg-[#163a56] rounded-lg border border-[#38bdf8]/40 text-sky-100 active:scale-95 transition-transform"
-              title="Close"
+              title={t("close", "Close")}
             >
               <X className="w-5 h-5" />
             </button>
@@ -191,15 +190,15 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
                 }`}
               >
                 {dailyAdWatches >= maxDailyAds
-                  ? "Limit (3/3 Used)"
-                  : `${maxDailyAds - dailyAdWatches}/3 Available Today`}
+                  ? t("ad_limit_used", "Limit (3/3 Used)")
+                  : t("ads_available_today", `${maxDailyAds - dailyAdWatches}/3 Available Today`).replace("{count}", (maxDailyAds - dailyAdWatches).toString())}
               </span>
             </div>
 
             {isWatchingAd ? (
               <div className="py-2.5 space-y-1.5 text-center bg-[#071927] rounded-xl border border-sky-600/40 p-3">
                 <div className="text-xs sm:text-sm font-black text-amber-300 font-serif animate-pulse">
-                  📺 Streaming Pirate Commercial... ({adTimer}s)
+                  {t("streaming_ad", "📺 Streaming Pirate Commercial... ({time}s)").replace("{time}", adTimer.toString())}
                 </div>
                 <div className="w-full bg-[#0c283d] h-2.5 rounded-full overflow-hidden border border-sky-800 max-w-xs mx-auto">
                   <div

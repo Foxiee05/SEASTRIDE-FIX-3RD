@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { RaidBossScreen } from "./RaidBossScreen";
 import { TreasureHuntScreen } from "./TreasureHuntScreen";
+import { MinigameSelector } from "./minigames/MinigameSelector";
+import confetti from "canvas-confetti";
 
 interface SailingShip {
   id: string;
@@ -74,11 +76,43 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
   } = useGame();
 
   const [selectedShip, setSelectedShip] = useState<SailingShip | null>(null);
+  const [minigameTarget, setMinigameTarget] = useState<SailingShip | null>(null);
 
   // Direct battle state inside Sea view for immediate action feedback
   const [isFiringSalvo, setIsFiringSalvo] = useState<boolean>(false);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const bombCutout = useCutoutImage(ASSETS.bombBtn);
+
+  // Trigger fireworks on WIN / PERFECT HIT
+  useEffect(() => {
+    if (battleResult && battleResult.minigameResult === 'win') {
+      const duration = 2500;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10000 };
+
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+      const interval = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+
+        const particleCount = 50 * (timeLeft / duration);
+        confetti({
+          ...defaults, particleCount,
+          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+        });
+        confetti({
+          ...defaults, particleCount,
+          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+        });
+      }, 250);
+
+      return () => clearInterval(interval);
+    }
+  }, [battleResult]);
 
   // Initialize sailing ships array
   const [ships, setShips] = useState<SailingShip[]>([]);
@@ -250,10 +284,18 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
       return;
     }
 
+    setMinigameTarget(targetShip);
+  };
+
+  const executeBombing = (isWin: boolean) => {
+    if (!minigameTarget || !minigameTarget.playerData) return;
+    
+    const target = minigameTarget.playerData;
+    setMinigameTarget(null);
     setIsFiringSalvo(true);
 
     setTimeout(() => {
-      const res = attackPlayer(targetShip.playerData!);
+      const res = attackPlayer(target, isWin ? 'win' : 'lose');
       setIsFiringSalvo(false);
       if (res) {
         setBattleResult(res);
@@ -319,6 +361,12 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
         ))}
       </div>
 
+      {minigameTarget && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center p-4">
+          <MinigameSelector onComplete={executeBombing} />
+        </div>
+      )}
+
       {/* Firing Salvo Animation Banner */}
       {isFiringSalvo && (
         <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center space-y-4 animate-fade-in p-4 text-center">
@@ -339,10 +387,18 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
 
       {/* Battle Result Victory Card Popup */}
       {battleResult && (
-        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#2b1d19] border-4 border-[#b45309] rounded-2xl p-5 text-center space-y-4 animate-fade-in shadow-2xl max-w-sm w-full text-amber-100">
-            <div className="text-2xl font-black text-[#fbbf24] font-serif tracking-wide uppercase drop-shadow">
-              {t("raid_victory")}
+        <div className={`absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-all`}>
+          <div className={`rounded-2xl p-5 text-center space-y-4 shadow-2xl max-w-sm w-full text-amber-100 transition-all ${
+            battleResult.minigameResult === 'win'
+              ? 'animate-[shake_0.5s_ease-in-out] bg-[#2b1d19] border-4 border-[#facc15] shadow-[0_0_30px_rgba(250,204,21,0.3)]'
+              : 'animate-fade-in bg-[#2b1d19] border-4 border-[#b45309]'
+          }`}>
+            <div className={`text-2xl font-black font-serif tracking-wide uppercase drop-shadow ${
+              battleResult.minigameResult === 'win'
+                ? 'text-[#facc15]'
+                : 'text-[#fbbf24]'
+            }`}>
+              {battleResult.minigameResult === 'lose' ? t("minigame_glance_hit") : battleResult.minigameResult === 'win' ? t("minigame_perfect_hit") : t("raid_victory")}
             </div>
 
             <div className="text-xs text-[#fde68a] font-serif">
@@ -358,8 +414,11 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
                 <div className="text-[10px] text-[#fde68a]/80 font-bold uppercase">
                   {t("damage_dealt")}
                 </div>
-                <div className="text-lg font-mono font-black text-red-400">
+                <div className="text-lg font-mono font-black text-red-400 flex items-center justify-center gap-1">
                   -{battleResult.damageDealt.toLocaleString()} HP
+                  {battleResult.minigameResult === 'win' && (
+                    <span className="text-xs text-[#facc15]">↑</span>
+                  )}
                 </div>
               </div>
               <div>
@@ -372,8 +431,8 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               </div>
             </div>
 
-            <div className="bg-[#1a0f0d] border-2 border-[#b45309] rounded-xl p-3 space-y-2">
-              <div className="text-xs font-black uppercase text-[#fde68a] font-serif">
+            <div className={`bg-[#1a0f0d] border-2 rounded-xl p-3 space-y-2 border-[#b45309]`}>
+              <div className={`text-xs font-black uppercase font-serif text-[#fde68a]`}>
                 {t("plundered_loot")}
               </div>
               <div className="flex items-center justify-center gap-3">
@@ -391,7 +450,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               </div>
 
               {battleResult.cannonLooted && (
-                <div className="bg-[#93bb44] border-b-4 border-[#658627] text-white shadow-sm border-2 border-[#064e3b] p-2 rounded-xl flex items-center justify-center gap-1.5 text-white text-[10px] font-black uppercase">
+                <div className="bg-[#93bb44] border-b-4 border-[#658627] text-white shadow-sm border-2 border-[#064e3b] p-2 rounded-xl flex items-center justify-center gap-1.5 text-white text-[10px] font-black uppercase mt-2">
                   <Sparkles className="w-4 h-4 text-[#facc15]" />
                   <span>
                     {t("looted_cannon")} Lv{battleResult.lootedCannonLevel}!
@@ -405,7 +464,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
                 setBattleResult(null);
                 setSelectedShip(null);
               }}
-              className="w-full bg-[#b45309] hover:bg-[#d97706] border-b-4 border-r-2 border-[#2b1d19] text-white font-black py-2.5 rounded-xl uppercase italic tracking-wider text-xs shadow-xl active:translate-y-1"
+              className={`w-full font-black py-2.5 rounded-xl uppercase italic tracking-wider text-xs shadow-xl active:translate-y-1 transition-colors bg-[#b45309] hover:bg-[#d97706] border-b-4 border-r-2 border-[#2b1d19] text-white`}
             >
               {t("continue_patrol")}
             </button>
@@ -500,6 +559,7 @@ const ShipOnSeaItem = React.memo(
     onClick: () => void;
     onFireBomb: () => void;
   }) => {
+    const { t } = useGame();
     const shipRawImg = getShipImageForLevel(ship.shipLevel);
     const cannonRawImg = getCannonImageForLevel(ship.cannonLevel);
     const shieldRawImg = getShieldImageForLevel(ship.shieldLevel);

@@ -46,7 +46,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ onClose }) => {
             <button
               onClick={onClose}
               className="p-1.5 bg-[#4a2c17] hover:bg-[#92400e] rounded-lg border border-[#b45309] text-[#fde68a] active:scale-95 transition-transform"
-              title="Close Shop"
+              title={t("close")}
             >
               <X className="w-5 h-5" />
             </button>

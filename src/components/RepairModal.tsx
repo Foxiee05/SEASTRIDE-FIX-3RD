@@ -83,7 +83,7 @@ export const RepairModal: React.FC<RepairModalProps> = ({ onClose }) => {
                 })
               }
               className="bg-[#4a2c17] hover:bg-[#92400e] text-[#fde68a] border border-[#b45309] p-1.5 rounded-lg shadow-md flex items-center justify-center transition-all active:scale-95"
-              title="Ship Repair Info"
+              title={t("ship_repair_info", "Ship Repair Info")}
             >
               <Info className="w-3.5 h-3.5 text-sky-400" />
             </button>
