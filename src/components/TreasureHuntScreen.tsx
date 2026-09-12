@@ -655,6 +655,7 @@ export const TreasureHuntScreen: React.FC = () => {
             <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse flex-shrink-0" />
             <span className="text-amber-200/70">{t("reset_in")}</span>
             <span className="text-amber-300 font-bold font-mono">{countdownStr || "24:00:00"}</span>
+            <span className="text-[9px] text-amber-400/80 font-mono font-bold">UTC+7</span>
           </div>
 
           {/* "?" Button to show game mode description */}

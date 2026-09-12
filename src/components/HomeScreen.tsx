@@ -165,12 +165,6 @@ export const HomeScreen: React.FC = () => {
             {profile?.username || t("wanderer")}
           </h1>
         </div>
-        <div className="flex items-center gap-1.5 bg-[#2b1d19] border-2 border-[#b45309] rounded-full px-3 py-1.5 shadow-md">
-          <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500 fill-orange-500" />
-          <span className="text-sm sm:text-base font-bold text-amber-100">
-            5
-          </span>
-        </div>
       </div>
 
       {/* Level & XP Progress Card */}

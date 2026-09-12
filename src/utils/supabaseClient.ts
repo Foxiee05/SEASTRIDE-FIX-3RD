@@ -447,6 +447,36 @@ export const joinOrAssignGlobalServer = async (
     return data as { success: boolean; server_code: string; server_id: string; reconnected?: boolean };
   } else {
     // Local demo allocation (simulates sequential rooms of 30)
+    try {
+      const raw = localStorage.getItem(`${LOCAL_SERVER_PLAYERS_PREFIX}local_server_global_1`);
+      const existing: DbGlobalServerPlayer[] = raw ? JSON.parse(raw) : [];
+      const idx = existing.findIndex(p => p.account_id === accountId);
+      const playerItem: DbGlobalServerPlayer = {
+        id: `local_p_${accountId}`,
+        server_id: 'local_server_global_1',
+        account_id: accountId,
+        username,
+        ship_level: shipStats.ship_level,
+        ship_condition: shipStats.ship_condition,
+        current_hp: shipStats.current_hp,
+        max_hp: shipStats.max_hp,
+        cannon_level: shipStats.cannon_level,
+        cannon_count: shipStats.cannon_count,
+        shield_level: shipStats.shield_level,
+        avatar_url: shipStats.avatar_url,
+        x_pos: 25,
+        y_pos: 25,
+        is_online: true,
+        last_seen_at: new Date().toISOString(),
+      };
+      if (idx >= 0) {
+        existing[idx] = playerItem;
+      } else {
+        existing.push(playerItem);
+      }
+      localStorage.setItem(`${LOCAL_SERVER_PLAYERS_PREFIX}local_server_global_1`, JSON.stringify(existing));
+    } catch (e) {}
+
     return {
       success: true,
       server_code: 'GLOBAL-1',
@@ -473,30 +503,89 @@ export const leaveGlobalServer = async (accountId: string): Promise<void> => {
 };
 
 /**
- * RPC: Update ship battle condition and position
+ * RPC + Table update: Update ship battle condition, position, and upgraded stats
  */
 export const updateShipState = async (
   accountId: string,
-  params: { x?: number; y?: number; hp?: number; condition?: number }
+  params: {
+    x?: number;
+    y?: number;
+    hp?: number;
+    condition?: number;
+    ship_level?: number;
+    max_hp?: number;
+    cannon_level?: number;
+    cannon_count?: number;
+    shield_level?: number;
+    avatar_url?: string;
+  }
 ): Promise<void> => {
   const supabase = getSupabase();
 
   if (supabase) {
-    const { error } = await supabase.rpc('update_ship_state', {
-      p_account_id: accountId,
-      p_x: params.x,
-      p_y: params.y,
-      p_hp: params.hp,
-      p_condition: params.condition,
-    });
+    try {
+      await supabase.rpc('update_ship_state', {
+        p_account_id: accountId,
+        p_x: params.x,
+        p_y: params.y,
+        p_hp: params.hp,
+        p_condition: params.condition,
+      });
+    } catch (e) {
+      console.warn('RPC update_ship_state warning:', e);
+    }
+
+    // Directly update global_server_players table so all ship upgrades and battle condition are reflected in real-time
+    const updateData: Record<string, any> = {
+      last_seen_at: new Date().toISOString(),
+    };
+    if (params.hp !== undefined) updateData.current_hp = params.hp;
+    if (params.condition !== undefined) updateData.ship_condition = params.condition;
+    if (params.ship_level !== undefined) updateData.ship_level = params.ship_level;
+    if (params.max_hp !== undefined) updateData.max_hp = params.max_hp;
+    if (params.cannon_level !== undefined) updateData.cannon_level = params.cannon_level;
+    if (params.cannon_count !== undefined) updateData.cannon_count = params.cannon_count;
+    if (params.shield_level !== undefined) updateData.shield_level = params.shield_level;
+    if (params.avatar_url !== undefined) updateData.avatar_url = params.avatar_url;
+    if (params.x !== undefined) updateData.x_pos = params.x;
+    if (params.y !== undefined) updateData.y_pos = params.y;
+
+    const { error } = await supabase
+      .from('global_server_players')
+      .update(updateData)
+      .eq('account_id', accountId);
+
     if (error) {
-      console.warn('Error updating ship state:', error);
+      console.warn('Error updating global_server_players table:', error);
+    }
+  } else {
+    // Local demo mode: update local server player record
+    try {
+      const raw = localStorage.getItem(`${LOCAL_SERVER_PLAYERS_PREFIX}local_server_global_1`);
+      if (raw) {
+        const players: DbGlobalServerPlayer[] = JSON.parse(raw);
+        const idx = players.findIndex(p => p.account_id === accountId);
+        if (idx !== -1) {
+          if (params.hp !== undefined) players[idx].current_hp = params.hp;
+          if (params.condition !== undefined) players[idx].ship_condition = params.condition;
+          if (params.ship_level !== undefined) players[idx].ship_level = params.ship_level;
+          if (params.max_hp !== undefined) players[idx].max_hp = params.max_hp;
+          if (params.cannon_level !== undefined) players[idx].cannon_level = params.cannon_level;
+          if (params.cannon_count !== undefined) players[idx].cannon_count = params.cannon_count;
+          if (params.shield_level !== undefined) players[idx].shield_level = params.shield_level;
+          if (params.avatar_url !== undefined) players[idx].avatar_url = params.avatar_url;
+          players[idx].last_seen_at = new Date().toISOString();
+          localStorage.setItem(`${LOCAL_SERVER_PLAYERS_PREFIX}local_server_global_1`, JSON.stringify(players));
+        }
+      }
+    } catch (e) {
+      console.warn('Local update error:', e);
     }
   }
 };
 
 /**
- * Fetches current players in a given server
+ * Fetches current players in a given server, merging latest authoritative progress from player_progress
  */
 export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServerPlayer[]> => {
   const supabase = getSupabase();
@@ -514,9 +603,115 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
       console.error('Error fetching server players:', error);
       return [];
     }
-    return data || [];
+
+    const serverPlayers: DbGlobalServerPlayer[] = data || [];
+    if (serverPlayers.length > 0) {
+      // Query player_progress table to get the true, most up-to-date ship level, cannons, shields, HP!
+      const accountIds = serverPlayers.map(p => p.account_id);
+      try {
+        const { data: progressRows } = await supabase
+          .from('player_progress')
+          .select('*')
+          .in('account_id', accountIds);
+
+        if (progressRows && progressRows.length > 0) {
+          const pMap = new Map(progressRows.map(pr => [pr.account_id, pr]));
+          return serverPlayers.map(sp => {
+            const pr = pMap.get(sp.account_id);
+            if (!pr) return sp;
+
+            const shipLevel = Number(pr.ship_level) || sp.ship_level || 1;
+            const maxHp = Number(pr.ship_max_hp) || (5000 + (shipLevel - 1) * 5000);
+            const condition = pr.ship_condition !== undefined ? Number(pr.ship_condition) : sp.ship_condition;
+            const currentHp = pr.ship_current_hp !== undefined ? Number(pr.ship_current_hp) : Math.round(maxHp * (condition / 100));
+
+            // Calculate exact highest cannon level
+            let maxCannonLvl = sp.cannon_level || 1;
+            if (Array.isArray(pr.owned_cannons) && pr.owned_cannons.length > 0) {
+              maxCannonLvl = Math.max(...pr.owned_cannons.map((c: any) => Number(c.level) || 1));
+            }
+            const cannonCount = Array.isArray(pr.equipped_cannons) ? pr.equipped_cannons.length : (sp.cannon_count || 1);
+
+            // Calculate exact shield level
+            let shieldLvl = sp.shield_level || 0;
+            if (pr.equipped_shield && Array.isArray(pr.owned_shields)) {
+              const sObj = pr.owned_shields.find((s: any) => s.id === pr.equipped_shield);
+              if (sObj) shieldLvl = Number(sObj.level) || 1;
+            }
+
+            return {
+              ...sp,
+              ship_level: shipLevel,
+              max_hp: maxHp,
+              current_hp: currentHp,
+              ship_condition: condition,
+              cannon_level: maxCannonLvl,
+              cannon_count: Math.max(1, cannonCount),
+              shield_level: shieldLvl,
+              avatar_url: pr.avatar_url || sp.avatar_url,
+            };
+          });
+        }
+      } catch (e) {
+        console.warn('Error fetching player_progress join:', e);
+      }
+    }
+
+    return serverPlayers;
   }
-  return [];
+
+  // Local demo fallback: load all accounts and their progress from localStorage
+  try {
+    const rawAccs = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+    if (!rawAccs) return [];
+    const accounts: DbAccount[] = JSON.parse(rawAccs);
+    const result: DbGlobalServerPlayer[] = [];
+
+    for (const acc of accounts) {
+      const pRaw = localStorage.getItem(`${LOCAL_PROGRESS_PREFIX}${acc.id}`);
+      const pr: Partial<DbPlayerProgress> = pRaw ? JSON.parse(pRaw) : {};
+      const shipLevel = Number(pr.ship_level) || 1;
+      const maxHp = Number(pr.ship_max_hp) || (5000 + (shipLevel - 1) * 5000);
+      const condition = pr.ship_condition !== undefined ? Number(pr.ship_condition) : 75;
+      const currentHp = pr.ship_current_hp !== undefined ? Number(pr.ship_current_hp) : Math.round(maxHp * (condition / 100));
+
+      let maxCannonLvl = 1;
+      if (Array.isArray(pr.owned_cannons) && pr.owned_cannons.length > 0) {
+        maxCannonLvl = Math.max(...pr.owned_cannons.map((c: any) => Number(c.level) || 1));
+      }
+      const cannonCount = Array.isArray(pr.equipped_cannons) ? pr.equipped_cannons.length : 1;
+
+      let shieldLvl = 0;
+      if (pr.equipped_shield && Array.isArray(pr.owned_shields)) {
+        const sObj = pr.owned_shields.find((s: any) => s.id === pr.equipped_shield);
+        if (sObj) shieldLvl = Number(sObj.level) || 1;
+      }
+
+      result.push({
+        id: `local_player_${acc.id}`,
+        server_id: serverId || 'local_server_global_1',
+        account_id: acc.id,
+        username: acc.username,
+        ship_level: shipLevel,
+        ship_condition: condition,
+        current_hp: currentHp,
+        max_hp: maxHp,
+        cannon_level: maxCannonLvl,
+        cannon_count: Math.max(1, cannonCount),
+        shield_level: shieldLvl,
+        avatar_url: pr.avatar_url || '',
+        x_pos: 20,
+        y_pos: 20,
+        is_online: true,
+        last_seen_at: new Date().toISOString(),
+      });
+    }
+
+    return result;
+  } catch (e) {
+    console.error('Error fetching local server players:', e);
+    return [];
+  }
 };
 
 /**

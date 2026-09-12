@@ -195,15 +195,22 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose, onSelectTarge
                 <div className={`text-xs font-black uppercase font-serif text-[#fde68a]`}>
                   {t("plundered_loot")}
                 </div>
-                <div className="flex items-center justify-center gap-4">
-                  <div className="flex items-center gap-1.5 bg-[#4a2c17] border-2 border-[#b45309] px-3.5 py-1.5 rounded-xl text-[#fbbf24] font-extrabold">
-                    <span className="text-lg">🪙</span>
+                <div className="flex items-center justify-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5 bg-[#4a2c17] border-2 border-[#b45309] px-3.5 py-1.5 rounded-xl text-[#fbbf24] font-extrabold text-sm">
+                    <span className="text-base">🪙</span>
                     <span>+{battleResult.coinsEarned} {t("coins")}</span>
                   </div>
 
+                  {battleResult.xpEarned !== undefined && (
+                    <div className="flex items-center gap-1.5 bg-[#451a03] border-2 border-[#d97706] px-3.5 py-1.5 rounded-xl text-[#fde68a] font-extrabold text-sm">
+                      <span className="text-base">⭐</span>
+                      <span>+{battleResult.xpEarned} EXP</span>
+                    </div>
+                  )}
+
                   {battleResult.gemsEarned > 0 && (
-                    <div className="flex items-center gap-1.5 bg-[#1e1b4b] border-2 border-[#4338ca] px-3.5 py-1.5 rounded-xl text-sky-200 font-extrabold">
-                      <span className="text-lg">💎</span>
+                    <div className="flex items-center gap-1.5 bg-[#1e1b4b] border-2 border-[#4338ca] px-3.5 py-1.5 rounded-xl text-sky-200 font-extrabold text-sm">
+                      <span className="text-base">💎</span>
                       <span>+{battleResult.gemsEarned} {t("gems")}!</span>
                     </div>
                   )}

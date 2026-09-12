@@ -66,6 +66,7 @@ export interface BattleResult {
   lootedCannonLevel?: number;
   shieldBlocked: boolean;
   minigameResult?: 'win' | 'lose';
+  xpEarned?: number;
 }
 
 export interface RaidLog {
@@ -191,6 +192,7 @@ export interface RaidParticipant {
 
 export interface ServerRaidState {
   serverCode: string;
+  sessionId?: string;
   bossId: SeaMonsterId;
   currentHp: number;
   maxHp: number;

@@ -1,1 +1,81 @@
 @import "tailwindcss";
+
+@theme {
+  --font-serif: "Chivo", sans-serif;
+  --font-sans: "Chivo", sans-serif;
+}
+
+/* Global Chivo font for all languages (English, Vietnamese, etc.) */
+:root,
+html,
+body,
+#root {
+  font-family: "Chivo", sans-serif;
+  font-optical-sizing: auto;
+}
+
+/* Ensure all typography, buttons, inputs, headings, and font utility classes use Chivo */
+body,
+#root,
+button,
+input,
+textarea,
+select,
+h1, h2, h3, h4, h5, h6,
+p, span, div,
+.font-serif,
+.font-sans {
+  font-family: "Chivo", sans-serif !important;
+  font-optical-sizing: auto;
+}
+
+/* Chivo Font helper classes */
+.chivo,
+.chivo-font,
+[class*="chivo-"] {
+  font-family: "Chivo", sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+}
+
+.chivo-light {
+  font-family: "Chivo", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 300;
+  font-style: normal;
+}
+
+.chivo-regular {
+  font-family: "Chivo", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.chivo-medium {
+  font-family: "Chivo", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.chivo-semibold {
+  font-family: "Chivo", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.chivo-bold {
+  font-family: "Chivo", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.chivo-black {
+  font-family: "Chivo", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 900;
+  font-style: normal;
+}

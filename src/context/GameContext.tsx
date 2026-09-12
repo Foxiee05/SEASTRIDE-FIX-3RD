@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Player, ServerInfo, BattleResult, RaidLog, StepRecord, StepStats, DailyCoinRecord, CannonItem, ShieldItem, ServerRaidState, SeaMonsterConfig, SeaMonsterId, RaidParticipant, ServerTreasure, TreasureActivityLog, TreasureRewardType, Decoration, UserTodayLoot, SeaGameMode, RaidMilestoneBounty } from '../types';
 import { INITIAL_SERVERS } from '../data/mockPlayers';
 import { SEA_MONSTERS, getMonsterMilestones } from '../data/monsters';
@@ -7,6 +7,13 @@ import { PIRATE_AVATARS } from '../assets';
 import { generateDailyTreasures, rollTreasureReward, getRarityMetadata } from '../utils/treasureRewards';
 import { DEFAULT_COORDS } from '../hooks/useGpsTracker';
 import { TRANSLATIONS, Language } from '../utils/translations';
+import {
+  getRaidSessionInfo,
+  getDeterministicSessionBoss,
+  getNextTreasureResetTimeUtc7,
+  getUtc7DateString,
+  RaidSessionInfo,
+} from '../utils/timeUtils';
 import {
   DbAccount,
   createAccount,
@@ -93,6 +100,7 @@ interface GameContextType {
   claimQuest: (questId: string, xp: number) => void;
   
   // Co-op Raid Event Mode
+  raidSessionInfo: RaidSessionInfo;
   currentRaidState: ServerRaidState;
   currentMonster: SeaMonsterConfig;
   raidCombatLogs: RaidCombatLog[];
@@ -455,6 +463,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Steps
   const [totalStepsToday, setTotalStepsToday] = useState<number>(4250);
+  const totalStepsTodayRef = useRef<number>(4250);
+  // Track gold coins awarded from steps today so possessed gold and "energy charged" match exactly
+  const [stepCoinsAwardedToday, setStepCoinsAwardedToday] = useState<number>(() => {
+    try {
+      const todayKey = new Date().toISOString().split('T')[0];
+      const saved = localStorage.getItem(`seastride_step_coins_awarded_${todayKey}`);
+      if (saved) return Number(saved);
+    } catch (e) {}
+    return 0;
+  });
+
   const [stepRecords, setStepRecords] = useState<StepRecord[]>(INITIAL_STEP_RECORDS);
   const [dailyCoinsHistory] = useState<DailyCoinRecord[]>([
     { day: 'Mon', coins: 150 },
@@ -475,12 +494,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (saved === 'en' || saved === 'vi') {
         if (typeof document !== 'undefined') {
           document.documentElement.lang = saved;
+          document.documentElement.setAttribute('data-lang', saved);
+          if (saved === 'vi') {
+            document.documentElement.classList.add('lang-vi');
+            document.body?.classList.add('lang-vi');
+          }
         }
         return saved;
       }
     } catch (e) {}
     if (typeof document !== 'undefined') {
       document.documentElement.lang = 'en';
+      document.documentElement.setAttribute('data-lang', 'en');
     }
     return 'en';
   });
@@ -489,11 +514,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLanguage(lang);
     if (typeof document !== 'undefined') {
       document.documentElement.lang = lang;
+      document.documentElement.setAttribute('data-lang', lang);
+      if (lang === 'vi') {
+        document.documentElement.classList.add('lang-vi');
+        document.body?.classList.add('lang-vi');
+      } else {
+        document.documentElement.classList.remove('lang-vi');
+        document.body?.classList.remove('lang-vi');
+      }
     }
     try {
       localStorage.setItem('pirate_app_language', lang);
     } catch (e) {}
   };
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language;
+      document.documentElement.setAttribute('data-lang', language);
+      if (language === 'vi') {
+        document.documentElement.classList.add('lang-vi');
+        document.body?.classList.add('lang-vi');
+      } else {
+        document.documentElement.classList.remove('lang-vi');
+        document.body?.classList.remove('lang-vi');
+      }
+    }
+  }, [language]);
 
   const toggleLanguage = () => {
     const next = language === 'en' ? 'vi' : 'en';
@@ -628,6 +675,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setOwnedDecorations(progress.owned_decorations || ['dec_jolly_roger']);
       setEquippedDecorations(progress.equipped_decorations || ['dec_jolly_roger']);
       setTotalStepsToday(0);
+      totalStepsTodayRef.current = 0;
       setStepRecords([]);
       setPlayerLevel(progress.player_level || 1);
       setPlayerXp(progress.player_xp || 250);
@@ -720,17 +768,35 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setIsAccountModalOpen(false);
 
-      const computedCannonLvl = (progress?.equipped_cannons || []).length > 0 ? 1 : 0;
-      const computedCannonCnt = (progress?.equipped_cannons || []).length;
-      const computedShieldLvl = progress?.equipped_shield ? 1 : 0;
+      let computedCannonLvl = 1;
+      if (progress?.owned_cannons && progress.owned_cannons.length > 0) {
+        computedCannonLvl = Math.max(...progress.owned_cannons.map((c: any) => Number(c.level) || 1));
+      }
+      const computedCannonCnt = progress?.equipped_cannons?.length || 1;
+      let computedShieldLvl = 0;
+      if (progress?.equipped_shield && progress?.owned_shields) {
+        const sObj = progress.owned_shields.find((s: any) => s.id === progress.equipped_shield);
+        if (sObj) computedShieldLvl = Number(sObj.level) || 1;
+      }
+
+      const accShipLevel = Number(progress?.ship_level) || 1;
+      const accMaxHp = Number(progress?.ship_max_hp) || (5000 + (accShipLevel - 1) * 5000);
+      const accCondition = progress?.ship_condition !== undefined ? Number(progress.ship_condition) : 75;
+      const accCurrentHp = progress?.ship_current_hp !== undefined ? Number(progress.ship_current_hp) : Math.round(accMaxHp * (accCondition / 100));
+
+      const stepsToday = Number(progress?.total_steps_today) || 0;
+      setTotalStepsToday(stepsToday);
+      totalStepsTodayRef.current = stepsToday;
+      const eligibleStepCoins = Math.floor(stepsToday / 100) * 10;
+      setStepCoinsAwardedToday(eligibleStepCoins);
 
       await syncAndAssignServer(account, {
-        ship_level: progress?.ship_level || shipLevel,
-        ship_condition: progress?.ship_condition || shipCondition,
-        current_hp: progress?.ship_current_hp || shipCurrentHp,
-        max_hp: progress?.ship_max_hp || shipMaxHp,
+        ship_level: accShipLevel,
+        ship_condition: accCondition,
+        current_hp: accCurrentHp,
+        max_hp: accMaxHp,
         cannon_level: computedCannonLvl,
-        cannon_count: computedCannonCnt,
+        cannon_count: Math.max(1, computedCannonCnt),
         shield_level: computedShieldLvl,
         avatar_url: progress?.avatar_url || profile.avatarUrl,
       });
@@ -810,17 +876,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...prev,
             players: prev.players.map((p) => {
               if (p.id === newRecord.account_id) {
+                const updatedShipLevel = Number(newRecord.ship_level) || p.shipLevel;
+                const updatedMaxHp = Number(newRecord.max_hp) || (5000 + (updatedShipLevel - 1) * 5000);
+                const updatedCondition = newRecord.ship_condition !== undefined ? Number(newRecord.ship_condition) : p.shipCondition;
+                const updatedCurrentHp = newRecord.current_hp !== undefined ? Number(newRecord.current_hp) : Math.round(updatedMaxHp * (updatedCondition / 100));
+
                 return {
                   ...p,
-                  name: newRecord.username,
-                  shipLevel: newRecord.ship_level,
-                  shipCondition: newRecord.ship_condition,
-                  currentHp: newRecord.current_hp,
-                  maxHp: newRecord.max_hp,
-                  cannonLevel: newRecord.cannon_level,
-                  cannonCount: newRecord.cannon_count,
-                  shieldLevel: newRecord.shield_level,
-                  isOnline: newRecord.is_online,
+                  name: newRecord.username || p.name,
+                  shipLevel: updatedShipLevel,
+                  shipCondition: updatedCondition,
+                  currentHp: updatedCurrentHp,
+                  maxHp: updatedMaxHp,
+                  cannonLevel: Number(newRecord.cannon_level) || p.cannonLevel,
+                  cannonCount: Number(newRecord.cannon_count) || p.cannonCount,
+                  shieldLevel: newRecord.shield_level !== undefined ? Number(newRecord.shield_level) : p.shieldLevel,
+                  isOnline: newRecord.is_online !== undefined ? newRecord.is_online : p.isOnline,
                 };
               }
               return p;
@@ -844,6 +915,46 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [assignedServerId, currentAccount?.id]);
 
+  // Periodic server player refresh to guarantee other users' ship level, cannon level & HP are always exact
+  const refreshServerPlayers = useCallback(async () => {
+    if (!assignedServerId || !currentAccount) return;
+    try {
+      const dbPlayers = await fetchServerPlayers(assignedServerId);
+      const mappedPlayers: Player[] = dbPlayers
+        .filter((p) => p.account_id !== currentAccount.id)
+        .map((p) => ({
+          id: p.account_id,
+          name: p.username,
+          title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+          avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
+          shipLevel: p.ship_level,
+          shipCondition: p.ship_condition,
+          currentHp: p.current_hp,
+          maxHp: p.max_hp,
+          cannonLevel: p.cannon_level,
+          cannonCount: p.cannon_count,
+          shieldLevel: p.shield_level,
+          isOnline: p.is_online,
+        }));
+
+      setCurrentServer((prev) => ({
+        ...prev,
+        playerCount: mappedPlayers.length + 1,
+        players: mappedPlayers,
+      }));
+    } catch (e) {
+      console.warn('Error refreshing server players:', e);
+    }
+  }, [assignedServerId, currentAccount?.id]);
+
+  useEffect(() => {
+    if (!assignedServerId || !currentAccount) return;
+    const interval = setInterval(() => {
+      refreshServerPlayers();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [assignedServerId, currentAccount?.id, refreshServerPlayers]);
+
   // Clean up server player presence on beforeunload
   useEffect(() => {
     const handleUnload = () => {
@@ -857,7 +968,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [currentAccount?.id]);
 
-  // Debounced auto-save of player progress to Supabase
+  // Debounced auto-save of player progress to Supabase and multiplayer sync
   useEffect(() => {
     if (!currentAccount) return;
 
@@ -889,12 +1000,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         claimed_quests: Array.from(claimedQuests),
       });
 
-      // Also broadcast current ship state to multiplayer room
+      // Also broadcast current complete ship state to multiplayer room so other players see exact upgrades
+      const maxCannonLvl = ownedCannons.length > 0 ? Math.max(...ownedCannons.map(c => c.level)) : 1;
+      const equippedCannonCount = equippedCannons.length > 0 ? equippedCannons.length : 1;
+      let equippedShieldLvl = 0;
+      if (equippedShield) {
+        const sh = ownedShields.find(s => s.id === equippedShield);
+        if (sh) equippedShieldLvl = sh.level;
+      }
+
       updateShipState(currentAccount.id, {
         hp: shipCurrentHp,
         condition: shipCondition,
+        ship_level: shipLevel,
+        max_hp: shipMaxHp,
+        cannon_level: maxCannonLvl,
+        cannon_count: equippedCannonCount,
+        shield_level: equippedShieldLvl,
+        avatar_url: profile.avatarUrl,
       });
-    }, 1200);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [
@@ -924,18 +1049,49 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     claimedQuests,
   ]);
 
-  // Raid State per Server with Random Boss Spawned on Launch
+  // ==================== RAID BOSS SYSTEM (UTC+7 SCHEDULE) ====================
+  // Raid session runs from Friday 00:00:00 AM to Monday 23:59:59 PM (UTC+7).
+  // Each time the session starts, ONE RANDOM boss appears and remains until the session ends.
+  const [raidSessionInfo, setRaidSessionInfo] = useState<RaidSessionInfo>(() => getRaidSessionInfo(Date.now()));
+
+  const getOrInitSessionBoss = (sessionId: string): SeaMonsterId => {
+    try {
+      const saved = localStorage.getItem('pirate_session_boss_' + sessionId);
+      if (saved && (saved === 'megalodon' || saved === 'siren' || saved === 'scylla' || saved === 'kraken')) {
+        return saved as SeaMonsterId;
+      }
+    } catch (e) {}
+    const deterministicBoss = getDeterministicSessionBoss(sessionId);
+    try {
+      localStorage.setItem('pirate_session_boss_' + sessionId, deterministicBoss);
+    } catch (e) {}
+    return deterministicBoss;
+  };
+
+  // Raid State per Server
   const [raidStates, setRaidStates] = useState<Record<string, ServerRaidState>>(() => {
-    const ALL_MONSTER_KEYS: SeaMonsterId[] = ['megalodon', 'siren', 'scylla', 'kraken'];
+    const session = getRaidSessionInfo(Date.now());
+    const sessionBossId = getOrInitSessionBoss(session.sessionId);
+    const monster = SEA_MONSTERS[sessionBossId];
+
+    try {
+      const saved = localStorage.getItem('pirate_raid_states_v7');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          const first = Object.values(parsed)[0] as ServerRaidState | undefined;
+          if (first && first.sessionId === session.sessionId && first.bossId === sessionBossId) {
+            return parsed;
+          }
+        }
+      }
+    } catch (e) {}
+
     const initialMap: Record<string, ServerRaidState> = {};
 
     INITIAL_SERVERS.forEach((server) => {
-      // Pick a random sea monster boss each time the app opens
-      const bossId: SeaMonsterId = ALL_MONSTER_KEYS[Math.floor(Math.random() * ALL_MONSTER_KEYS.length)];
-
-      const monster = SEA_MONSTERS[bossId];
       const participants: RaidParticipant[] = server.players.slice(0, 8).map((p, idx) => {
-        const damage = Math.round(monster.maxHp * (0.04 + ((8 - idx) / 8) * 0.05));
+        const damage = Math.round(monster.maxHp * (0.02 + ((8 - idx) / 8) * 0.03));
         return {
           id: p.id,
           name: p.name,
@@ -963,18 +1119,88 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       initialMap[server.code] = {
         serverCode: server.code,
-        bossId,
+        sessionId: session.sessionId,
+        bossId: sessionBossId,
         currentHp,
         maxHp: monster.maxHp,
         participants,
         isDefeated: currentHp <= 0,
         dailyPrizeClaimed: false,
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        claimedMilestones: [],
+        expiresAt: session.sessionEndTime,
         hasJoined: false,
       };
     });
     return initialMap;
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_raid_states_v7', JSON.stringify(raidStates));
+    } catch (e) {}
+  }, [raidStates]);
+
+  // Periodic Raid Session monitor in UTC+7 (every second)
+  useEffect(() => {
+    const sessionTimer = setInterval(() => {
+      const currentInfo = getRaidSessionInfo(Date.now());
+      setRaidSessionInfo(currentInfo);
+
+      // Check if session ID changed (e.g., rollover into new weekend session)
+      setRaidStates(prev => {
+        const first = Object.values(prev)[0];
+        if (first && first.sessionId && first.sessionId !== currentInfo.sessionId) {
+          // New session started! Choose ONE random boss for this new session
+          const newBossId = getOrInitSessionBoss(currentInfo.sessionId);
+          const monster = SEA_MONSTERS[newBossId];
+          const newMap: Record<string, ServerRaidState> = {};
+
+          INITIAL_SERVERS.forEach(server => {
+            const participants: RaidParticipant[] = server.players.slice(0, 8).map((p, idx) => ({
+              id: p.id,
+              name: p.name,
+              title: p.title,
+              avatarUrl: p.avatarUrl,
+              damage: Math.round(monster.maxHp * (0.02 + ((8 - idx) / 8) * 0.03)),
+              isUser: false,
+              shipLevel: p.shipLevel,
+            }));
+
+            participants.push({
+              id: 'user_player',
+              name: profile.username || 'Captain Blackbeard',
+              title: 'Dread Navigator',
+              avatarUrl: profile.avatarUrl || PIRATE_AVATARS[0]?.url || '',
+              damage: 0,
+              isUser: true,
+              shipLevel: 1,
+            });
+
+            const totalDmg = participants.reduce((sum, p) => sum + p.damage, 0);
+            const currentHp = Math.max(0, monster.maxHp - totalDmg);
+
+            newMap[server.code] = {
+              serverCode: server.code,
+              sessionId: currentInfo.sessionId,
+              bossId: newBossId,
+              currentHp,
+              maxHp: monster.maxHp,
+              participants,
+              isDefeated: currentHp <= 0,
+              dailyPrizeClaimed: false,
+              claimedMilestones: [],
+              expiresAt: currentInfo.sessionEndTime,
+              hasJoined: false,
+            };
+          });
+          return newMap;
+        }
+        return prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(sessionTimer);
+  }, [profile.username, profile.avatarUrl]);
 
   const [raidCombatLogs, setRaidCombatLogs] = useState<RaidCombatLog[]>([
     {
@@ -997,11 +1223,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ]);
 
   // Current server active raid state
+  const sessionBossId = getOrInitSessionBoss(raidSessionInfo.sessionId);
   const currentRaidState: ServerRaidState = raidStates[currentServer.code] || {
     serverCode: currentServer.code,
-    bossId: 'megalodon',
-    currentHp: SEA_MONSTERS.megalodon.maxHp,
-    maxHp: SEA_MONSTERS.megalodon.maxHp,
+    sessionId: raidSessionInfo.sessionId,
+    bossId: sessionBossId,
+    currentHp: SEA_MONSTERS[sessionBossId]?.maxHp || 200000,
+    maxHp: SEA_MONSTERS[sessionBossId]?.maxHp || 200000,
     participants: [
       {
         id: 'user_player',
@@ -1015,11 +1243,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ],
     isDefeated: false,
     dailyPrizeClaimed: false,
-    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    expiresAt: raidSessionInfo.sessionEndTime,
     hasJoined: false,
   };
 
-  const currentMonster = SEA_MONSTERS[currentRaidState.bossId] || SEA_MONSTERS.megalodon;
+  const currentMonster = SEA_MONSTERS[currentRaidState.bossId] || SEA_MONSTERS[sessionBossId] || SEA_MONSTERS.megalodon;
 
   // Join Raid Function
   const joinRaid = (targetServerCode?: string) => {
@@ -1286,7 +1514,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Respawn or change monster
   const respawnRaidBoss = (newBossId?: SeaMonsterId) => {
-    const nextBoss = newBossId || currentRaidState.bossId;
+    const nextBoss = newBossId || currentRaidState.bossId || sessionBossId;
     const monster = SEA_MONSTERS[nextBoss];
 
     setRaidStates(prev => {
@@ -1302,13 +1530,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...prev,
         [currentServer.code]: {
           ...serverState,
+          sessionId: raidSessionInfo.sessionId,
           bossId: nextBoss,
           maxHp: monster.maxHp,
           currentHp: monster.maxHp - totalNpcDamage,
           isDefeated: false,
           dailyPrizeClaimed: false,
           participants: resetParticipants,
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          expiresAt: raidSessionInfo.sessionEndTime,
         }
       };
     });
@@ -1384,17 +1613,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {}
   }, [seaGameMode]);
 
-  // ==================== TREASURE HUNT SYSTEM ====================
-  // Calculate next 24-hour reset time (00:00:00 midnight)
+  // ==================== TREASURE HUNT SYSTEM (UTC+7 COUNTDOWN & CLEAN FEED) ====================
+  // Calculate next 24-hour reset time (00:00:00 midnight UTC+7)
   const calculateNextResetTime = (): number => {
-    const now = new Date();
-    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
-    return nextMidnight.getTime();
+    return getNextTreasureResetTimeUtc7(Date.now());
   };
 
   const [treasureResetTime, setTreasureResetTime] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('pirate_treasure_reset_time');
+      const saved = localStorage.getItem('pirate_treasure_reset_time_utc7');
       if (saved) {
         const time = parseInt(saved, 10);
         if (!isNaN(time) && time > Date.now()) {
@@ -1404,17 +1631,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {}
     const nextTime = calculateNextResetTime();
     try {
-      localStorage.setItem('pirate_treasure_reset_time', nextTime.toString());
+      localStorage.setItem('pirate_treasure_reset_time_utc7', nextTime.toString());
     } catch (e) {}
     return nextTime;
   });
 
   const [todayLoot, setTodayLoot] = useState<UserTodayLoot>(() => {
     try {
-      const saved = localStorage.getItem('pirate_walk_today_loot');
+      const saved = localStorage.getItem('pirate_walk_today_loot_utc7');
       if (saved) {
         const parsed = JSON.parse(saved);
-        const todayStr = new Date().toDateString();
+        const todayStr = getUtc7DateString(Date.now());
         if (parsed.date === todayStr && parsed.loot) {
           return parsed.loot;
         }
@@ -1434,9 +1661,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Server-isolated Daily Treasures of the Day
   const [serverTreasuresMap, setServerTreasuresMap] = useState<Record<string, ServerTreasure[]>>(() => {
     try {
-      const saved = localStorage.getItem('pirate_server_treasures_map_v3');
-      const savedDate = localStorage.getItem('pirate_server_treasures_date_v3');
-      const todayStr = new Date().toDateString();
+      const saved = localStorage.getItem('pirate_server_treasures_map_utc7');
+      const savedDate = localStorage.getItem('pirate_server_treasures_date_utc7');
+      const todayStr = getUtc7DateString(Date.now());
       if (saved && savedDate === todayStr) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
@@ -1461,64 +1688,43 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem('pirate_server_treasures_map_v3', JSON.stringify(serverTreasuresMap));
-      localStorage.setItem('pirate_server_treasures_date_v3', new Date().toDateString());
+      localStorage.setItem('pirate_server_treasures_map_utc7', JSON.stringify(serverTreasuresMap));
+      localStorage.setItem('pirate_server_treasures_date_utc7', getUtc7DateString(Date.now()));
     } catch (e) {}
   }, [serverTreasuresMap]);
 
-  // Server-isolated Treasure Hunting Feed Logs
+  // Server-isolated Treasure Hunting Feed Logs (NO PLACEHOLDERS)
   const [treasureLogsMap, setTreasureLogsMap] = useState<Record<string, TreasureActivityLog[]>>(() => {
     try {
-      const saved = localStorage.getItem('pirate_server_treasure_logs_map_v3');
+      const saved = localStorage.getItem('pirate_server_treasure_logs_clean_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-          return parsed;
+          const cleaned: Record<string, TreasureActivityLog[]> = {};
+          Object.keys(parsed).forEach(k => {
+            cleaned[k] = (parsed[k] || []).filter((l: TreasureActivityLog) => 
+              !l.id.includes('_init') && !l.id.includes('_init_auto')
+            );
+          });
+          return cleaned;
         }
       }
     } catch (e) {}
 
     const initialMap: Record<string, TreasureActivityLog[]> = {};
     INITIAL_SERVERS.forEach((server) => {
-      const p1 = server.players[0] || { name: 'Captain Anne Bonny', avatarUrl: PIRATE_AVATARS[4]?.url || '' };
-      const p2 = server.players[1] || { name: 'Firstmate Pete', avatarUrl: PIRATE_AVATARS[2]?.url || '' };
-      initialMap[server.code] = [
-        {
-          id: `tlog_${server.code}_init_1`,
-          serverCode: server.code,
-          playerName: p1.name,
-          avatarUrl: p1.avatarUrl || PIRATE_AVATARS[4]?.url || '',
-          serverName: server.name,
-          locationName: `${server.name} Cove (540m)`,
-          rewardLabel: '1,000 Gold Coins',
-          rarity: 'uncommon',
-          timestamp: Date.now() - 120000,
-          isUser: false,
-        },
-        {
-          id: `tlog_${server.code}_init_2`,
-          serverCode: server.code,
-          playerName: p2.name,
-          avatarUrl: p2.avatarUrl || PIRATE_AVATARS[2]?.url || '',
-          serverName: server.name,
-          locationName: `${server.name} Shoals (1.2km)`,
-          rewardLabel: '100 Gold Coins',
-          rarity: 'common',
-          timestamp: Date.now() - 340000,
-          isUser: false,
-        }
-      ];
+      initialMap[server.code] = [];
     });
     return initialMap;
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem('pirate_server_treasure_logs_map_v3', JSON.stringify(treasureLogsMap));
+      localStorage.setItem('pirate_server_treasure_logs_clean_v1', JSON.stringify(treasureLogsMap));
     } catch (e) {}
   }, [treasureLogsMap]);
 
-  // Ensure active server always has treasures and logs populated
+  // Ensure active server always has treasures populated
   useEffect(() => {
     const code = currentServer.code;
     setServerTreasuresMap(prev => {
@@ -1536,43 +1742,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return prev;
     });
+  }, [currentServer.code, ownedDecorations]);
 
-    setTreasureLogsMap(prev => {
-      if (!prev[code] || prev[code].length === 0) {
-        const lead = currentServer.players[0] || { name: 'Quartermaster Jack', avatarUrl: PIRATE_AVATARS[1]?.url || '' };
-        return {
-          ...prev,
-          [code]: [
-            {
-              id: `tlog_${code}_init_auto`,
-              serverCode: code,
-              playerName: lead.name,
-              avatarUrl: lead.avatarUrl || PIRATE_AVATARS[1]?.url || '',
-              serverName: currentServer.name,
-              locationName: `${currentServer.name} Anchorage`,
-              rewardLabel: '1,000 Gold Coins',
-              rarity: 'uncommon',
-              timestamp: Date.now() - 90000,
-              isUser: false,
-            }
-          ],
-        };
-      }
-      return prev;
-    });
-  }, [currentServer.code, currentServer.name, currentServer.players, ownedDecorations]);
-
-  // Periodic 24-Hour Reset Monitor (checks every second)
+  // Periodic 24-Hour Reset Monitor in UTC+7 (checks every second)
   useEffect(() => {
     const checkReset = () => {
       if (Date.now() >= treasureResetTime) {
         const nextTime = calculateNextResetTime();
         setTreasureResetTime(nextTime);
         try {
-          localStorage.setItem('pirate_treasure_reset_time', nextTime.toString());
+          localStorage.setItem('pirate_treasure_reset_time_utc7', nextTime.toString());
         } catch (e) {}
 
-        // Reset today's plunder stash
+        // Reset today's plunder stash for new UTC+7 day
         const freshLoot: UserTodayLoot = {
           totalChestsOpened: 0,
           totalCoins: 0,
@@ -1582,13 +1764,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         setTodayLoot(freshLoot);
         try {
-          localStorage.setItem('pirate_walk_today_loot', JSON.stringify({
-            date: new Date().toDateString(),
+          localStorage.setItem('pirate_walk_today_loot_utc7', JSON.stringify({
+            date: getUtc7DateString(Date.now()),
             loot: freshLoot,
           }));
         } catch (e) {}
 
-        // Respawn fresh daily treasures across all servers (each server has unique seeds/positions)
+        // Respawn fresh daily treasures across all servers
         const freshTreasuresMap: Record<string, ServerTreasure[]> = {};
         servers.forEach((server) => {
           freshTreasuresMap[server.code] = generateDailyTreasures(
@@ -1600,6 +1782,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
         });
         setServerTreasuresMap(freshTreasuresMap);
+
+        // Reset logs feed for new day
+        const cleanLogs: Record<string, TreasureActivityLog[]> = {};
+        servers.forEach((server) => {
+          cleanLogs[server.code] = [];
+        });
+        setTreasureLogsMap(cleanLogs);
       }
     };
 
@@ -1737,81 +1926,40 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { reward, success: true };
   };
 
-  // Simulated Server Fleet Treasure Claims (Strictly server-isolated: crew on currentServer claims only on currentServer)
-  useEffect(() => {
-    const fleetInterval = setInterval(() => {
-      const serverCode = currentServer.code;
-      const serverName = currentServer.name;
-
-      setServerTreasuresMap(prevMap => {
-        const currentList = prevMap[serverCode] || [];
-        const unclaimed = currentList.filter(t => !t.isClaimed);
-        if (unclaimed.length <= 1) return prevMap; // Keep at least 1 for the player
-
-        // Pick a random treasure that a pirate on THIS server discovers
-        const randomTarget = unclaimed[Math.floor(Math.random() * unclaimed.length)];
-        
-        // Pick captain from current server's roster
-        const roster = currentServer.players.filter(p => p.name !== profile.username);
-        const randomCaptain = roster.length > 0
-          ? roster[Math.floor(Math.random() * roster.length)]
-          : { name: 'Corsair Thorne', avatarUrl: PIRATE_AVATARS[0]?.url || '' };
-
-        const uniqueFleetLogId = `tlog_${serverCode}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-        // Schedule log addition to this server only
-        setTimeout(() => {
-          setTreasureLogsMap(prevLogsMap => {
-            const serverLogs = prevLogsMap[serverCode] || [];
-            const newLog: TreasureActivityLog = {
-              id: uniqueFleetLogId,
-              serverCode: serverCode,
-              playerName: randomCaptain.name,
-              avatarUrl: randomCaptain.avatarUrl || PIRATE_AVATARS[Math.floor(Math.random() * PIRATE_AVATARS.length)]?.url || '',
-              serverName: serverName,
-              locationName: `${serverName} Waters`,
-              rewardLabel: randomTarget.reward.label,
-              rarity: randomTarget.rarity,
-              timestamp: Date.now(),
-              isUser: false,
-            };
-            return {
-              ...prevLogsMap,
-              [serverCode]: [newLog, ...serverLogs.slice(0, 19)],
-            };
-          });
-        }, 0);
-
-        return {
-          ...prevMap,
-          [serverCode]: currentList.map(t => 
-            t.id === randomTarget.id 
-              ? { ...t, isClaimed: true, claimedBy: `${randomCaptain.name} (${serverName})`, claimedAt: Date.now() }
-              : t
-          ),
-        };
-      });
-    }, 28000); // Every 28 seconds
-
-    return () => clearInterval(fleetInterval);
-  }, [currentServer.code, currentServer.name, currentServer.players, profile.username]);
-
   const totalDailyTreasures = serverTreasures.length;
   const remainingTreasuresCount = serverTreasures.filter(t => !t.isClaimed).length;
 
-  // Add Steps & Reward logic (100 steps = 10 coins, + steps gain XP toward level up, + 1 step = 1 HP boss damage)
+  // Add Steps & Reward logic:
+  // 100 steps = 10 coins (added to possessed gold). Exactly 10 coins per 100 steps.
+  // WALKING DOES NOT GAIN EXP (only bombing and daily quests gain EXP for leveling up).
+  // 1 step = 1 HP boss damage during raid.
   const addSteps = (amount: number) => {
-    setTotalStepsToday(prev => {
-      const updated = prev + amount;
-      const coinsEarned = Math.floor(amount / 100) * 10;
-      if (coinsEarned > 0) {
-        setCoins(c => c + coinsEarned);
-        soundFx.playCoin();
-      }
-      return updated;
-    });
+    if (amount <= 0) return;
 
-    gainXp(amount);
+    const prev = totalStepsTodayRef.current;
+    const updated = prev + amount;
+    totalStepsTodayRef.current = updated;
+
+    const prevEligibleCoins = Math.floor(prev / 100) * 10;
+    const newEligibleCoins = Math.floor(updated / 100) * 10;
+    const coinsToAdd = newEligibleCoins - prevEligibleCoins;
+
+    setTotalStepsToday(updated);
+
+    if (coinsToAdd > 0) {
+      setCoins(c => c + coinsToAdd);
+      setStepCoinsAwardedToday(awarded => {
+        const next = awarded + coinsToAdd;
+        try {
+          const todayKey = new Date().toISOString().split('T')[0];
+          localStorage.setItem(`seastride_step_coins_awarded_${todayKey}`, String(next));
+        } catch (e) {}
+        return next;
+      });
+      soundFx.playCoin();
+    }
+
+    // NOTE: Walking does NOT gain EXP for leveling up (only bombing other ships and daily quests gain EXP)
 
     // If user has joined the raid and it's active, every step counts as 1 HP damage!
     if (currentRaidState.hasJoined && !currentRaidState.isDefeated) {
@@ -1819,8 +1967,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // update today's record in chart
-    setStepRecords(prev => {
-      const next = [...prev];
+    setStepRecords(prevRecords => {
+      const next = [...prevRecords];
       const todayIndex = next.length - 1;
       if (todayIndex >= 0) {
         next[todayIndex] = { ...next[todayIndex], steps: next[todayIndex].steps + amount };
@@ -1972,6 +2120,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCoins(c => c + coinsEarned);
     if (gemsEarned > 0) setGems(g => g + gemsEarned);
 
+    // Level XP gain from bombing other ships (10-50 EXP depending on hit quality)
+    let xpEarned = 25;
+    if (minigameResult === 'win') {
+      // Perfect Hit / Bullseye
+      xpEarned = 50;
+    } else if (minigameResult === 'lose') {
+      // Glance Hit / Deflected
+      xpEarned = 10;
+    } else {
+      // Direct hit: calculate based on damage impact ratio
+      if (hpRatioReduced >= 0.75) {
+        xpEarned = 45;
+      } else if (hpRatioReduced >= 0.5) {
+        xpEarned = 35;
+      } else if (hpRatioReduced >= 0.25) {
+        xpEarned = 25;
+      } else {
+        xpEarned = 15;
+      }
+    }
+    gainXp(xpEarned);
+
     // Update target player in current server and server list
     const updatedTargetPlayer: Player = {
       ...target,
@@ -1979,6 +2149,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       shipCondition: enemyHpPercent,
       cannonCount: cannonLooted ? Math.max(0, target.cannonCount - 1) : target.cannonCount,
     };
+
+    // Broadcast target damage state to server
+    updateShipState(target.id, {
+      hp: enemyRemainingHp,
+      condition: enemyHpPercent,
+      cannon_count: updatedTargetPlayer.cannonCount,
+    });
 
     setServers(prevServers =>
       prevServers.map(srv => {
@@ -2023,6 +2200,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lootedCannonLevel,
       shieldBlocked,
       minigameResult,
+      xpEarned,
     };
   };
 
@@ -2299,6 +2477,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         questXp,
         claimedQuests,
         claimQuest,
+        raidSessionInfo,
         currentRaidState,
         currentMonster,
         raidCombatLogs,

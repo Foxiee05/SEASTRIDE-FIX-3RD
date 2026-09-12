@@ -242,7 +242,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
 
     // Raid Boss Screen Details
     join_fleet_raid_title: "Join Fleet Raid Battle?",
-    time_until_leaves: "until monster leaves",
+    time_until_leaves: "{time} until monster leaves",
+    raid_ends_in: "Leaves in",
     step_damage_info: "Every footstep deals 1 HP damage to the leviathan and earns you a share of the sealed bounty!",
     yes_join_raid: "Yes, Join Raid",
     no_return: "No, Return",
@@ -450,6 +451,12 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     server_hunting_feed: "SERVER HUNTING FEED",
     server_wide_live_feed: "Server-wide Live Feed",
     join_fleet_raid: "Join Fleet Raid Battle?",
+    raid_boss_slumber: "Abyssal Slumber",
+    raid_boss_inactive_title: "The Leviathan is Resting",
+    raid_boss_inactive_desc: "The Sea Monster has retreated into the deep abyssal trench. The next Raid Boss session will emerge from Friday 00:00:00 AM until Monday 23:59:59 PM (UTC+7).",
+    next_raid_in: "Next Raid Boss Arrives In:",
+    raid_session_schedule: "Friday 00:00:00 - Monday 23:59:59 (UTC+7)",
+    return_to_ocean: "Return to Ocean",
     boss_hp_label: "Boss HP:",
     your_damage_share: "Your Damage Share:",
     
@@ -752,7 +759,14 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
 
     // Raid Boss Screen Details
     join_fleet_raid_title: "Tham Gia Đột Kích Hạm Đội?",
+    raid_boss_slumber: "Vực Thẳm Biển Nghỉ Ngơi",
+    raid_boss_inactive_title: "Trùm Biển Đang Nghỉ Ngơi",
+    raid_boss_inactive_desc: "Quái vật biển đã lặn sâu xuống vực thẳm. Đợt săn trùm tiếp theo sẽ xuất hiện từ Thứ Sáu 00:00:00 sáng đến Thứ Hai 23:59:59 tối (UTC+7).",
+    next_raid_in: "Trùm Biển Tiếp Theo Xuất Hiện Sau:",
+    raid_session_schedule: "Thứ Sáu 00:00:00 - Thứ Hai 23:59:59 (UTC+7)",
+    return_to_ocean: "Quay Lại Đại Dương",
     time_until_leaves: "{time} nữa quái vật sẽ rút lui",
+    raid_ends_in: "Rút lui sau",
     step_damage_info: "Mỗi bước chân gây 1 sát thương HP lên quái vật biển và mang về phần thưởng kho báu niêm phong!",
     yes_join_raid: "Đồng Ý, Tham Gia Ngay",
     no_return: "Quay Lại",

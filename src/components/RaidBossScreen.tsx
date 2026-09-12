@@ -24,6 +24,7 @@ import { getMonsterMilestones } from '../data/monsters';
 import { RaidMilestoneBounty } from '../types';
 import { soundFx } from '../utils/audio';
 import { useCutoutImage } from '../utils/imageUtils';
+import { formatDuration, getRaidSessionInfo } from '../utils/timeUtils';
 
 interface FloatingDamage {
   id: number;
@@ -44,6 +45,7 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
     currentServer, 
     currentRaidState, 
     currentMonster, 
+    raidSessionInfo,
     joinRaid,
     claimRaidPrize, 
     claimMilestoneBounty,
@@ -58,22 +60,26 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
   const [claimResult, setClaimResult] = useState<{ coinsWon: number; gemsWon: number; percent: number; chestName: string } | null>(null);
   const [milestoneClaimResult, setMilestoneClaimResult] = useState<{ bounty: RaidMilestoneBounty; coinsWon: number; gemsWon: number; percent: number } | null>(null);
   const [selectedMilestonePreview, setSelectedMilestonePreview] = useState<RaidMilestoneBounty | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState('18h 42m 15s');
 
-  // Daily timer countdown simulator
+  // UTC+7 Raid Session Info & Countdown
+  const effectiveSessionInfo = raidSessionInfo || getRaidSessionInfo(Date.now());
+  const [timeRemaining, setTimeRemaining] = useState<string>(() => {
+    return effectiveSessionInfo.isActive
+      ? formatDuration(effectiveSessionInfo.msUntilEnd)
+      : formatDuration(effectiveSessionInfo.msUntilNextStart);
+  });
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-      const diff = endOfDay.getTime() - now.getTime();
-      if (diff > 0) {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const secs = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeRemaining(`${hours}h ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`);
+    const updateCountdown = () => {
+      const info = getRaidSessionInfo(Date.now());
+      if (info.isActive) {
+        setTimeRemaining(formatDuration(info.msUntilEnd));
+      } else {
+        setTimeRemaining(formatDuration(info.msUntilNextStart));
       }
-    }, 1000);
+    };
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -157,6 +163,66 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
   const monsterImg = useCutoutImage(rawMonsterImg, { mode: 'edge', keepInternalGreenAsBlack: false });
 
   // -------------------------------------------------------------
+  // VIEW DORMANT: NO ACTIVE RAID SESSION (TUE 00:00 - THU 23:59:59 UTC+7)
+  // -------------------------------------------------------------
+  if (!effectiveSessionInfo.isActive) {
+    return (
+      <div 
+        id="raid-boss-dormant-screen"
+        data-no-swipe="true"
+        className="w-full max-w-full h-full flex flex-col bg-gradient-to-b from-[#1c120c] via-[#101b2b] to-[#070c14] text-amber-100 overflow-y-auto overflow-x-hidden relative select-none p-4 pb-12"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(180,83,9,0.15)_0%,transparent_70%)] pointer-events-none" />
+        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-[75vh] text-center max-w-sm mx-auto w-full gap-4">
+          {/* Leviathan Icon in Dormant Slumber */}
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-900/90 border-2 border-amber-500/40 flex items-center justify-center shadow-2xl relative">
+            <span className="text-5xl sm:text-6xl filter grayscale opacity-75 animate-pulse">🌊</span>
+            <div className="absolute -bottom-1 px-2.5 py-0.5 rounded-full bg-[#2b1d19] border border-amber-400 text-[10px] font-bold text-amber-300">
+              {t("dormant", "DORMANT")}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <h2 className="text-base sm:text-lg font-black font-serif uppercase tracking-wider text-amber-300">
+              {t("raid_session_inactive", "Sea Monster Has Retreated")}
+            </h2>
+            <p className="text-xs text-amber-200/80 leading-relaxed px-2">
+              {t("raid_session_desc", "Raid Boss session appears from Friday 00:00:00 AM until Monday 23:59:59 PM (UTC+7).")}
+            </p>
+          </div>
+
+          {/* Countdown Card to next session */}
+          <div className="w-full bg-[#2b1d19]/90 border-2 border-[#b45309] rounded-2xl p-4 shadow-xl flex flex-col items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-serif font-black uppercase text-amber-400">
+              <Clock size={14} className="animate-spin" style={{ animationDuration: '10s' }} />
+              <span>{t("next_session_starts_in", "Next Raid Awakens In")}</span>
+            </div>
+            <div className="text-xl sm:text-2xl font-black font-mono text-yellow-300 tracking-wider">
+              {timeRemaining}
+            </div>
+            <div className="text-[10.5px] font-mono text-amber-400/80 bg-[#170e0c] px-3 py-1 rounded-full border border-[#8b5a2b]/50">
+              UTC+7 In-App Time
+            </div>
+          </div>
+
+          {/* Back button */}
+          <button
+            onClick={() => {
+              soundFx.playClick();
+              onBackToMenu?.();
+            }}
+            className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-lg border-2 border-yellow-200 active:scale-95 transition-all flex items-center justify-center gap-2 font-serif"
+          >
+            <ArrowLeft size={16} /> {t("return_to_ocean", "Return to Ocean")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
   // VIEW A: "JOIN RAID?" PROMPT & CONFIRMATION LOBBY
   // -------------------------------------------------------------
   if (!currentRaidState.hasJoined) {
@@ -181,9 +247,11 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 <Swords size={16} className="text-[#facc15] flex-shrink-0" /> 
                 <span className="truncate">{t("join_fleet_raid")}</span>
               </div>
-              <div className="flex items-center gap-1 px-3 py-0.5 bg-[#120a08]/90 border border-amber-400/50 rounded-full text-[10px] font-bold text-amber-300 shadow">
-                <Clock size={10} className="text-amber-400 flex-shrink-0" />
-                <span>{t("time_until_leaves", "{time} until monster leaves").replace("{time}", timeRemaining)}</span>
+              <div className="flex items-center gap-1.5 px-3 py-0.5 bg-[#120a08]/90 border border-amber-400/50 rounded-full text-[10px] font-bold text-amber-300 shadow">
+                <Clock size={11} className="text-amber-400 flex-shrink-0 animate-pulse" />
+                <span className="text-amber-200/80">{t("raid_ends_in", "Leaves in")}:</span>
+                <span className="font-mono font-black text-yellow-300 tracking-tight">{timeRemaining}</span>
+                <span className="text-[8.5px] font-mono text-amber-400/80 bg-black/40 px-1 py-0.2 rounded border border-amber-500/30">UTC+7</span>
               </div>
             </div>
             
@@ -521,9 +589,11 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
           )}
 
           {/* Monster Leaves Countdown Badge (Left) */}
-          <div className="absolute top-0 left-1 z-20 flex items-center gap-1 px-2.5 py-0.5 bg-[#2b1d19]/90 backdrop-blur-md rounded-full border border-amber-400/50 text-[9px] font-bold text-amber-300 shadow">
-            <Clock size={10} className="text-amber-400 flex-shrink-0" />
-            <span>{t("time_until_leaves", "{time} until monster leaves").replace("{time}", timeRemaining)}</span>
+          <div className="absolute top-0 left-1 z-20 flex items-center gap-1.5 px-2.5 py-0.5 bg-[#2b1d19]/95 backdrop-blur-md rounded-full border border-amber-400/60 text-[9.5px] font-bold text-amber-300 shadow-md">
+            <Clock size={10} className="text-amber-400 flex-shrink-0 animate-pulse" />
+            <span className="text-amber-200/80">{t("raid_ends_in", "Leaves in")}:</span>
+            <span className="font-mono font-black text-yellow-300 tracking-tight">{timeRemaining}</span>
+            <span className="text-[8.5px] font-mono text-amber-400/80 bg-black/40 px-1 py-0.2 rounded border border-amber-500/30">UTC+7</span>
           </div>
 
           {/* Active Captains Badge (Right) */}
