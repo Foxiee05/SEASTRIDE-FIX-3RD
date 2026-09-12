@@ -52,12 +52,18 @@ interface TheSeaViewProps {
   onOpenAttackModal: () => void;
   onSelectTargetForAttack?: (player: Player) => void;
   onSwitchToBuild: () => void;
+  onMinigameActive?: (active: boolean) => void;
+  selectedTargetPlayer?: Player | null;
+  onClearSelectedTarget?: () => void;
 }
 
 export const TheSeaView: React.FC<TheSeaViewProps> = ({
   onOpenAttackModal,
   onSelectTargetForAttack,
   onSwitchToBuild,
+  onMinigameActive,
+  selectedTargetPlayer,
+  onClearSelectedTarget,
 }) => {
   const {
     currentServer,
@@ -136,6 +142,36 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
   useEffect(() => {
     shipsRef.current = ships;
   }, [ships]);
+
+  // Handle attack target passed from AttackModal or parent
+  useEffect(() => {
+    if (selectedTargetPlayer) {
+      const existing = ships.find((s) => s.id === selectedTargetPlayer.id);
+      const targetShip: SailingShip = existing || {
+        id: selectedTargetPlayer.id,
+        name: selectedTargetPlayer.name,
+        title: selectedTargetPlayer.title,
+        isPlayer: false,
+        playerData: selectedTargetPlayer,
+        x: 50,
+        y: 50,
+        vx: 0,
+        vy: 0,
+        shipLevel: selectedTargetPlayer.shipLevel,
+        shipCondition: selectedTargetPlayer.shipCondition,
+        currentHp: selectedTargetPlayer.currentHp,
+        maxHp: selectedTargetPlayer.maxHp,
+        cannonLevel: selectedTargetPlayer.cannonLevel,
+        cannonCount: selectedTargetPlayer.cannonCount,
+        shieldLevel: selectedTargetPlayer.shieldLevel,
+        equippedDecorations: ["dec_jolly_roger"],
+      };
+      setSelectedShip(null);
+      setMinigameTarget(targetShip);
+      onMinigameActive?.(true);
+      onClearSelectedTarget?.();
+    }
+  }, [selectedTargetPlayer, ships, onMinigameActive, onClearSelectedTarget]);
 
   // Create initial fleet
   useEffect(() => {
@@ -297,7 +333,9 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
       return;
     }
 
+    setSelectedShip(null);
     setMinigameTarget(targetShip);
+    onMinigameActive?.(true);
   };
 
   const executeBombing = (isWin: boolean) => {
@@ -305,6 +343,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
     
     const target = minigameTarget.playerData;
     setMinigameTarget(null);
+    onMinigameActive?.(false);
     setIsFiringSalvo(true);
 
     setTimeout(() => {
@@ -375,7 +414,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
       </div>
 
       {minigameTarget && (
-        <div className="absolute inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="absolute inset-0 z-[60] w-full h-full overflow-hidden">
           <MinigameSelector onComplete={executeBombing} />
         </div>
       )}
@@ -408,7 +447,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
                 : 'bg-[#2b1d19] border-4 border-[#facc15] shadow-[0_0_25px_rgba(250,204,21,0.3)] transform-none'
               : 'animate-fade-in bg-[#2b1d19] border-4 border-[#b45309]'
           }`}>
-            <div className={`text-2xl font-black font-serif tracking-wide uppercase drop-shadow ${
+            <div className={`text-xl sm:text-2xl font-black font-serif tracking-wide uppercase drop-shadow whitespace-nowrap ${
               battleResult.minigameResult === 'win'
                 ? 'text-[#facc15]'
                 : 'text-[#fbbf24]'

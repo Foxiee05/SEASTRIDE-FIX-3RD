@@ -10,9 +10,10 @@ import { soundFx } from "../utils/audio";
 
 interface AttackModalProps {
   onClose: () => void;
+  onSelectTargetForAttack?: (player: Player) => void;
 }
 
-export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
+export const AttackModal: React.FC<AttackModalProps> = ({ onClose, onSelectTargetForAttack }) => {
   const { currentServer, attackPlayer, energy, t, shipCondition } = useGame();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [minigameTarget, setMinigameTarget] = useState<Player | null>(null);
@@ -76,6 +77,11 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
       alert("Ship condition is too low (<= 50%)! Repair your ship before entering battle.");
       return;
     }
+    if (onSelectTargetForAttack) {
+      onSelectTargetForAttack(selectedPlayer);
+      onClose();
+      return;
+    }
     setMinigameTarget(selectedPlayer);
   };
 
@@ -96,10 +102,12 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 select-none">
-      {minigameTarget && (
-        <MinigameSelector onComplete={executeAttack} />
-      )}
-      <div className="bg-[#4a2c17] border-8 border-[#2b1d19] rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative text-amber-100 flex flex-col max-h-[90vh]">
+      {minigameTarget ? (
+        <div className="w-full h-full max-w-md sm:max-w-2xl relative overflow-hidden">
+          <MinigameSelector onComplete={executeAttack} />
+        </div>
+      ) : (
+        <div className="bg-[#4a2c17] border-8 border-[#2b1d19] rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative text-amber-100 flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-[#2b1d19] border-b-4 border-[#4a2c17] p-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -287,6 +295,7 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

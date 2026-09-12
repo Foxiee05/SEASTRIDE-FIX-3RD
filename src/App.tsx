@@ -20,6 +20,7 @@ import { LeaderboardScreen } from "./components/LeaderboardScreen";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { TutorialOverlay } from "./components/TutorialOverlay";
 import { SettingsModal } from "./components/SettingsModal";
+import { Player } from "./types";
 
 type ActiveModal =
   | "upgrades"
@@ -47,6 +48,7 @@ function MainAppContent() {
     "menu" | "home" | "build" | "sea" | "leaderboard"
   >("menu");
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+  const [pendingAttackTarget, setPendingAttackTarget] = useState<Player | null>(null);
   const [tutorialTrigger, setTutorialTrigger] = useState<{
     tab?: string;
     step?: number;
@@ -157,6 +159,8 @@ function MainAppContent() {
                 <TheSeaScreen
                   openModal={openModal as any}
                   onSwitchToBuild={() => setActiveTab("build")}
+                  pendingAttackTarget={pendingAttackTarget}
+                  onClearPendingAttackTarget={() => setPendingAttackTarget(null)}
                 />
               )}
               {activeTab === "leaderboard" && (
@@ -194,7 +198,16 @@ function MainAppContent() {
         {activeModal === "server" && <ServerModal onClose={closeModal} />}
         {activeModal === "repair" && <RepairModal onClose={closeModal} />}
         {activeModal === "raids" && <RaidHistoryModal onClose={closeModal} />}
-        {activeModal === "attack" && <AttackModal onClose={closeModal} />}
+        {activeModal === "attack" && (
+          <AttackModal
+            onClose={closeModal}
+            onSelectTargetForAttack={(player) => {
+              setPendingAttackTarget(player);
+              closeModal();
+              setActiveTab("sea");
+            }}
+          />
+        )}
         {activeModal === "shipInspect" && (
           <ShipInspectModal
             onClose={closeModal}
