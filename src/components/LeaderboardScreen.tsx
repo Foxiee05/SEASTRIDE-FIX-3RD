@@ -17,59 +17,33 @@ interface LeaderboardScreenProps {
   onBack: () => void;
 }
 
-const baseLeaderboard = [
-  {
-    id: "bot_1",
-    name: "Captain Silver",
-    level: 6,
-    gold: 15200,
-    isCurrentUser: false,
-    avatarUrl: PIRATE_AVATARS[1]?.url,
-  },
-  {
-    id: "bot_2",
-    name: "Scurvy Sally",
-    level: 5,
-    gold: 11850,
-    isCurrentUser: false,
-    avatarUrl: PIRATE_AVATARS[4]?.url,
-  },
-  {
-    id: "bot_3",
-    name: "Captain Pegleg",
-    level: 3,
-    gold: 3400,
-    isCurrentUser: false,
-    avatarUrl: PIRATE_AVATARS[2]?.url,
-  },
-  {
-    id: "bot_4",
-    name: "Walkin' Willie",
-    level: 2,
-    gold: 800,
-    isCurrentUser: false,
-    avatarUrl: PIRATE_AVATARS[3]?.url,
-  },
-];
-
 export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
   onBack,
 }) => {
-  const { profile, shipLevel, coins, playerLevel, dailyCoinsHistory, t } =
+  const { profile, coins, playerLevel, currentServer, dailyCoinsHistory, t } =
     useGame();
   const [activeTab, setActiveTab] = useState<"level" | "coins">("level");
 
   const sortedLeaderboard = useMemo(() => {
     const currentUser = {
       id: "current_user",
-      name: profile?.username || "Wanderer",
+      name: profile?.username || "Captain",
       level: playerLevel,
       gold: coins,
       isCurrentUser: true,
       avatarUrl: profile?.avatarUrl,
     };
 
-    const combined = [...baseLeaderboard, currentUser];
+    const rivals = (currentServer?.players || []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      level: p.shipLevel,
+      gold: Math.round(p.currentHp / 2),
+      isCurrentUser: false,
+      avatarUrl: p.avatarUrl,
+    }));
+
+    const combined = [currentUser, ...rivals];
 
     return combined
       .sort((a, b) => {
@@ -83,7 +57,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
         ...player,
         rank: index + 1,
       }));
-  }, [playerLevel, coins, profile?.username, activeTab]);
+  }, [playerLevel, coins, profile?.username, profile?.avatarUrl, currentServer?.players, activeTab]);
 
   return (
     <div className="flex flex-col h-full bg-[#f0dec1] text-[#4a2c17] font-serif selection:bg-[#f0c242] border-b-4 border-[#be9325] text-white selection:text-stone-950 overflow-hidden relative">

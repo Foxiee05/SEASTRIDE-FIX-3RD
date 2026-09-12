@@ -203,3 +203,62 @@ export interface ServerRaidState {
   joinedHpPercent?: number;
   joinedAtHp?: number;
 }
+
+// Supabase Name-Only Account System Types
+export interface PlayerAccount {
+  id: string;
+  username: string;
+  created_at: string;
+  last_login_at: string;
+}
+
+export interface PlayerProgressData {
+  account_id: string;
+  coins: number;
+  gems: number;
+  energy: number;
+  player_level: number;
+  player_xp: number;
+  ship_level: number;
+  ship_condition: number;
+  ship_current_hp: number;
+  ship_max_hp: number;
+  avatar_url: string;
+  about_me: string;
+  owned_cannons: CannonItem[];
+  equipped_cannons: string[];
+  owned_shields: ShieldItem[];
+  equipped_shield: string | null;
+  owned_decorations: string[];
+  equipped_decorations: string[];
+  total_steps_today: number;
+  step_records: StepRecord[];
+  daily_coins_history?: DailyCoinRecord[];
+  quest_index?: number;
+  quest_xp?: number;
+  claimed_quests?: number[];
+  updated_at?: string;
+}
+
+export interface GlobalServerRow {
+  id: string;
+  name: string;
+  capacity: number;
+  current_players: number;
+  created_at: string;
+}
+
+export interface GlobalServerPlayerRow {
+  id: string;
+  server_id: string;
+  account_id: string;
+  username: string;
+  avatar_url: string;
+  title: string;
+  ship_level: number;
+  ship_condition: number;
+  current_hp: number;
+  max_hp: number;
+  is_online: boolean;
+  last_seen_at: string;
+}

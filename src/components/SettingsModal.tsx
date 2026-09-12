@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Settings, Volume2, VolumeX, Globe, Check } from "lucide-react";
+import { X, Settings, Volume2, VolumeX, Globe, Check, User, LogOut, ArrowRightLeft, ShieldAlert } from "lucide-react";
 import { useGame } from "../context/GameContext";
 
 interface SettingsModalProps {
@@ -7,7 +7,26 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
-  const { isMuted, toggleMute, language, changeLanguage, t } = useGame();
+  const {
+    isMuted,
+    toggleMute,
+    language,
+    changeLanguage,
+    t,
+    currentAccount,
+    openAccountModal,
+    logoutAccount,
+  } = useGame();
+
+  const handleSwitchAccount = () => {
+    onClose();
+    openAccountModal();
+  };
+
+  const handleLogout = async () => {
+    onClose();
+    await logoutAccount();
+  };
 
   return (
     <div
@@ -98,6 +117,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               <span className="relative z-10 flex-1 text-center text-[10px] font-black text-white">ENG</span>
               <span className="relative z-10 flex-1 text-center text-[10px] font-black text-white">VIE</span>
             </button>
+          </div>
+
+          {/* SECTION 3: SUPABASE ACCOUNT */}
+          <div className="bg-[#2b1d19] p-3.5 sm:p-4 rounded-2xl border-2 border-[#b45309] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-[#4a2c17] border border-[#b45309]/60">
+                  <User className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <span className="text-xs sm:text-sm font-serif font-black text-[#fde68a] uppercase block">
+                    Account (Name-Only)
+                  </span>
+                  <span className="text-[11px] text-amber-200/80 font-mono">
+                    {currentAccount ? `@${currentAccount.username}` : "Not logged in"}
+                  </span>
+                </div>
+              </div>
+
+              {currentAccount && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/50">
+                  Synced
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleSwitchAccount}
+                className="py-2 px-3 rounded-xl bg-[#4a2c17] hover:bg-[#b45309] border border-[#b45309] text-xs font-bold text-amber-100 flex items-center justify-center gap-1.5 transition-colors shadow"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5 text-[#facc15]" />
+                <span>Switch Player</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="py-2 px-3 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-800 text-xs font-bold text-red-200 flex items-center justify-center gap-1.5 transition-colors shadow"
+              >
+                <LogOut className="w-3.5 h-3.5 text-red-400" />
+                <span>Log Out</span>
+              </button>
+            </div>
+
+            <div className="bg-[#1a0f0d] p-2 rounded-lg text-[10px] text-stone-400 flex items-start gap-1.5 border border-amber-900/40">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <span>Demo system without passwords or emails. Any user with this name can resume this game save.</span>
+            </div>
           </div>
         </div>
       </div>

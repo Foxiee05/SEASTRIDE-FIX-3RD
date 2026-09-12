@@ -7,6 +7,18 @@ import { PIRATE_AVATARS } from '../assets';
 import { generateDailyTreasures, rollTreasureReward, getRarityMetadata } from '../utils/treasureRewards';
 import { DEFAULT_COORDS } from '../hooks/useGpsTracker';
 import { TRANSLATIONS, Language } from '../utils/translations';
+import {
+  DbAccount,
+  createAccount,
+  getAccountByUsername,
+  savePlayerProgress,
+  addGameRecord,
+  joinOrAssignGlobalServer,
+  leaveGlobalServer,
+  updateShipState,
+  fetchServerPlayers,
+  subscribeToServerPlayers,
+} from '../utils/supabaseClient';
 
 export interface PlayerProfile {
   username: string;
@@ -154,6 +166,17 @@ interface GameContextType {
   changeLanguage: (lang: Language) => void;
   toggleLanguage: () => void;
   t: (key: string, fallback?: string) => string;
+
+  // Supabase Name-Only Account System
+  currentAccount: DbAccount | null;
+  isAccountModalOpen: boolean;
+  accountError: string | null;
+  clearAccountError: () => void;
+  registerNewAccount: (username: string) => Promise<void>;
+  loginExistingAccount: (username: string) => Promise<void>;
+  logoutAccount: () => Promise<void>;
+  openAccountModal: () => void;
+  closeAccountModal: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -194,6 +217,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [energy, setEnergy] = useState<number>(5);
   const maxEnergy = 5;
 
+  // Supabase Name-Only Account State
+  const [currentAccount, setCurrentAccount] = useState<DbAccount | null>(null);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [assignedServerId, setAssignedServerId] = useState<string | null>(null);
+
+  const clearAccountError = () => setAccountError(null);
+  const openAccountModal = () => setIsAccountModalOpen(true);
+  const closeAccountModal = () => {
+    if (currentAccount) {
+      setIsAccountModalOpen(false);
+    }
+  };
+
   // Profile State
   const [profile, setProfile] = useState<PlayerProfile>(() => {
     try {
@@ -204,7 +241,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (e) {}
     return {
-      username: 'Captain Blackbeard',
+      username: 'Captain',
       aboutMe: 'Sailing the Seven Seas in search of legendary step treasures and gold!',
       avatarUrl: PIRATE_AVATARS[0]?.url || '',
     };
@@ -248,6 +285,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {}
     return 75;
   });
+
+  // Derived ship HP
+  const shipMaxHp = 5000 + (shipLevel - 1) * 5000;
+  const shipCurrentHp = Math.round(shipMaxHp * (shipCondition / 100));
   
   // Equipment & Inventory
   const [ownedCannons, setOwnedCannons] = useState<CannonItem[]>(() => {
@@ -506,6 +547,382 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setQuestIndex(prev => prev + 1);
     gainXp(xp);
   };
+
+  // Helper: auto-assign and connect to global multiplayer server
+  const syncAndAssignServer = async (
+    acc: DbAccount,
+    stats: {
+      ship_level: number;
+      ship_condition: number;
+      current_hp: number;
+      max_hp: number;
+      cannon_level: number;
+      cannon_count: number;
+      shield_level: number;
+      avatar_url: string;
+    }
+  ) => {
+    try {
+      const assignment = await joinOrAssignGlobalServer(acc.id, acc.username, stats);
+      if (assignment && assignment.server_code) {
+        setAssignedServerId(assignment.server_id);
+        const dbPlayers = await fetchServerPlayers(assignment.server_id);
+        const mappedPlayers: Player[] = dbPlayers
+          .filter((p) => p.account_id !== acc.id)
+          .map((p) => ({
+            id: p.account_id,
+            name: p.username,
+            title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+            avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
+            shipLevel: p.ship_level,
+            shipCondition: p.ship_condition,
+            currentHp: p.current_hp,
+            maxHp: p.max_hp,
+            cannonLevel: p.cannon_level,
+            cannonCount: p.cannon_count,
+            shieldLevel: p.shield_level,
+            isOnline: p.is_online,
+          }));
+
+        const newServer: ServerInfo = {
+          code: assignment.server_code,
+          type: 'global',
+          name: `Global Fleet ${assignment.server_code.split('-')[1] || '1'}`,
+          playerCount: mappedPlayers.length + 1,
+          maxPlayers: 30, // 30 ships max!
+          players: mappedPlayers,
+        };
+
+        setCurrentServer(newServer);
+        setServers((prev) => {
+          const others = prev.filter((s) => s.code !== assignment.server_code);
+          return [newServer, ...others];
+        });
+      }
+    } catch (err: any) {
+      console.error('Server allocation error:', err);
+    }
+  };
+
+  // Register New Player
+  const registerNewAccount = async (username: string) => {
+    setAccountError(null);
+    try {
+      const { account, progress } = await createAccount(username);
+      setCurrentAccount(account);
+
+      setProfile({
+        username: account.username,
+        aboutMe: progress.about_me || 'Sailing the Seven Seas!',
+        avatarUrl: progress.avatar_url || PIRATE_AVATARS[0].url,
+      });
+      setCoins(progress.coins);
+      setGems(progress.gems);
+      setEnergy(progress.energy);
+      setShipLevel(progress.ship_level);
+      setShipCondition(progress.ship_condition);
+      setOwnedCannons(progress.owned_cannons || [{ id: 'c_1', level: 1 }]);
+      setEquippedCannons(progress.equipped_cannons || ['c_1']);
+      setOwnedShields(progress.owned_shields || []);
+      setEquippedShield(progress.equipped_shield || null);
+      setOwnedDecorations(progress.owned_decorations || ['dec_jolly_roger']);
+      setEquippedDecorations(progress.equipped_decorations || ['dec_jolly_roger']);
+      setTotalStepsToday(0);
+      setStepRecords([]);
+      setPlayerLevel(progress.player_level || 1);
+      setPlayerXp(progress.player_xp || 250);
+      setQuestIndex(0);
+      setQuestXp(0);
+      setClaimedQuests(new Set());
+      setRaidLogs([]);
+
+      try {
+        localStorage.setItem('seastride_active_username', account.username);
+      } catch (e) {}
+
+      setIsAccountModalOpen(false);
+
+      await syncAndAssignServer(account, {
+        ship_level: progress.ship_level,
+        ship_condition: progress.ship_condition,
+        current_hp: progress.ship_current_hp,
+        max_hp: progress.ship_max_hp,
+        cannon_level: 1,
+        cannon_count: 1,
+        shield_level: 0,
+        avatar_url: progress.avatar_url || PIRATE_AVATARS[0].url,
+      });
+
+      soundFx.playVictory();
+    } catch (err: any) {
+      setAccountError(err.message || 'Failed to create account');
+      throw err;
+    }
+  };
+
+  // Login Existing Player
+  const loginExistingAccount = async (username: string) => {
+    setAccountError(null);
+    try {
+      const { account, progress, records } = await getAccountByUsername(username);
+      setCurrentAccount(account);
+
+      if (progress) {
+        setProfile({
+          username: account.username,
+          aboutMe: progress.about_me || 'Sailing the Seven Seas!',
+          avatarUrl: progress.avatar_url || PIRATE_AVATARS[0].url,
+        });
+        setCoins(progress.coins ?? 1250);
+        setGems(progress.gems ?? 20);
+        setEnergy(progress.energy ?? 5);
+        setShipLevel(progress.ship_level ?? 1);
+        setShipCondition(progress.ship_condition ?? 75);
+        setOwnedCannons(progress.owned_cannons || [{ id: 'c_1', level: 1 }]);
+        setEquippedCannons(progress.equipped_cannons || ['c_1']);
+        setOwnedShields(progress.owned_shields || []);
+        setEquippedShield(progress.equipped_shield || null);
+        setOwnedDecorations(progress.owned_decorations || ['dec_jolly_roger']);
+        setEquippedDecorations(progress.equipped_decorations || ['dec_jolly_roger']);
+        setTotalStepsToday(progress.total_steps_today ?? 0);
+        setStepRecords(progress.step_records || []);
+        setPlayerLevel(progress.player_level ?? 1);
+        setPlayerXp(progress.player_xp ?? 250);
+        setQuestIndex(progress.quest_index ?? 0);
+        setQuestXp(progress.quest_xp ?? 0);
+        setClaimedQuests(new Set(progress.claimed_quests || []));
+
+        if (records && records.length > 0) {
+          const mappedLogs: RaidLog[] = records
+            .filter((r) => r.record_type === 'battle_log' || r.record_type === 'raid_log')
+            .map((r) => ({
+              id: r.id,
+              timestamp: new Date(r.created_at).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              type: r.details?.type || 'attack',
+              opponentName: r.details?.opponentName || 'Rival Captain',
+              outcome: r.details?.outcome || 'victory',
+              coinsChange: r.details?.coinsChange || 0,
+              damage: r.details?.damage || 0,
+              cannonLostOrWon: r.details?.cannonLostOrWon,
+            }));
+          if (mappedLogs.length > 0) {
+            setRaidLogs(mappedLogs);
+          }
+        }
+      }
+
+      try {
+        localStorage.setItem('seastride_active_username', account.username);
+      } catch (e) {}
+
+      setIsAccountModalOpen(false);
+
+      const computedCannonLvl = (progress?.equipped_cannons || []).length > 0 ? 1 : 0;
+      const computedCannonCnt = (progress?.equipped_cannons || []).length;
+      const computedShieldLvl = progress?.equipped_shield ? 1 : 0;
+
+      await syncAndAssignServer(account, {
+        ship_level: progress?.ship_level || shipLevel,
+        ship_condition: progress?.ship_condition || shipCondition,
+        current_hp: progress?.ship_current_hp || shipCurrentHp,
+        max_hp: progress?.ship_max_hp || shipMaxHp,
+        cannon_level: computedCannonLvl,
+        cannon_count: computedCannonCnt,
+        shield_level: computedShieldLvl,
+        avatar_url: progress?.avatar_url || profile.avatarUrl,
+      });
+
+      soundFx.playClick();
+    } catch (err: any) {
+      setAccountError(err.message || 'Failed to login account');
+      throw err;
+    }
+  };
+
+  // Logout Account
+  const logoutAccount = async () => {
+    if (currentAccount) {
+      await leaveGlobalServer(currentAccount.id);
+    }
+    setAssignedServerId(null);
+    setCurrentAccount(null);
+    try {
+      localStorage.removeItem('seastride_active_username');
+    } catch (e) {}
+    setIsAccountModalOpen(true);
+    soundFx.playClose();
+  };
+
+  // Initial account restoration or prompt
+  useEffect(() => {
+    const active = localStorage.getItem('seastride_active_username');
+    if (active) {
+      loginExistingAccount(active).catch(() => {
+        setIsAccountModalOpen(true);
+      });
+    } else {
+      setIsAccountModalOpen(true);
+    }
+  }, []);
+
+  // Supabase Realtime Subscription for Room
+  useEffect(() => {
+    if (!assignedServerId || !currentAccount) return;
+
+    const subscription = subscribeToServerPlayers(assignedServerId, (payload) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+
+      if (eventType === 'INSERT' && newRecord) {
+        if (newRecord.account_id !== currentAccount.id) {
+          const newPlayer: Player = {
+            id: newRecord.account_id,
+            name: newRecord.username,
+            title: newRecord.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+            avatarUrl: newRecord.avatar_url || PIRATE_AVATARS[0].url,
+            shipLevel: newRecord.ship_level,
+            shipCondition: newRecord.ship_condition,
+            currentHp: newRecord.current_hp,
+            maxHp: newRecord.max_hp,
+            cannonLevel: newRecord.cannon_level,
+            cannonCount: newRecord.cannon_count,
+            shieldLevel: newRecord.shield_level,
+            isOnline: newRecord.is_online,
+          };
+
+          setCurrentServer((prev) => {
+            const exists = prev.players.some((p) => p.id === newPlayer.id);
+            const updated = exists
+              ? prev.players.map((p) => (p.id === newPlayer.id ? newPlayer : p))
+              : [...prev.players, newPlayer];
+            return {
+              ...prev,
+              playerCount: updated.length + 1,
+              players: updated,
+            };
+          });
+        }
+      } else if (eventType === 'UPDATE' && newRecord) {
+        if (newRecord.account_id !== currentAccount.id) {
+          setCurrentServer((prev) => ({
+            ...prev,
+            players: prev.players.map((p) => {
+              if (p.id === newRecord.account_id) {
+                return {
+                  ...p,
+                  name: newRecord.username,
+                  shipLevel: newRecord.ship_level,
+                  shipCondition: newRecord.ship_condition,
+                  currentHp: newRecord.current_hp,
+                  maxHp: newRecord.max_hp,
+                  cannonLevel: newRecord.cannon_level,
+                  cannonCount: newRecord.cannon_count,
+                  shieldLevel: newRecord.shield_level,
+                  isOnline: newRecord.is_online,
+                };
+              }
+              return p;
+            }),
+          }));
+        }
+      } else if (eventType === 'DELETE' && oldRecord) {
+        setCurrentServer((prev) => {
+          const filtered = prev.players.filter((p) => p.id !== oldRecord.account_id);
+          return {
+            ...prev,
+            playerCount: filtered.length + 1,
+            players: filtered,
+          };
+        });
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [assignedServerId, currentAccount?.id]);
+
+  // Clean up server player presence on beforeunload
+  useEffect(() => {
+    const handleUnload = () => {
+      if (currentAccount) {
+        leaveGlobalServer(currentAccount.id);
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [currentAccount?.id]);
+
+  // Debounced auto-save of player progress to Supabase
+  useEffect(() => {
+    if (!currentAccount) return;
+
+    const timer = setTimeout(() => {
+      savePlayerProgress(currentAccount.id, {
+        coins,
+        gems,
+        energy,
+        max_energy: maxEnergy,
+        player_level: playerLevel,
+        player_xp: playerXp,
+        ship_level: shipLevel,
+        ship_condition: shipCondition,
+        ship_current_hp: shipCurrentHp,
+        ship_max_hp: shipMaxHp,
+        avatar_url: profile.avatarUrl,
+        about_me: profile.aboutMe,
+        owned_cannons: ownedCannons,
+        equipped_cannons: equippedCannons,
+        owned_shields: ownedShields,
+        equipped_shield: equippedShield,
+        owned_decorations: ownedDecorations,
+        equipped_decorations: equippedDecorations,
+        total_steps_today: totalStepsToday,
+        step_records: stepRecords,
+        daily_coins_history: dailyCoinsHistory,
+        quest_index: questIndex,
+        quest_xp: questXp,
+        claimed_quests: Array.from(claimedQuests),
+      });
+
+      // Also broadcast current ship state to multiplayer room
+      updateShipState(currentAccount.id, {
+        hp: shipCurrentHp,
+        condition: shipCondition,
+      });
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [
+    currentAccount?.id,
+    coins,
+    gems,
+    energy,
+    playerLevel,
+    playerXp,
+    shipLevel,
+    shipCondition,
+    shipCurrentHp,
+    shipMaxHp,
+    profile.avatarUrl,
+    profile.aboutMe,
+    ownedCannons,
+    equippedCannons,
+    ownedShields,
+    equippedShield,
+    ownedDecorations,
+    equippedDecorations,
+    totalStepsToday,
+    stepRecords,
+    dailyCoinsHistory,
+    questIndex,
+    questXp,
+    claimedQuests,
+  ]);
 
   // Raid State per Server with Random Boss Spawned on Launch
   const [raidStates, setRaidStates] = useState<Record<string, ServerRaidState>>(() => {
@@ -946,27 +1363,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentServer.code, currentRaidState.isDefeated]);
 
   // Logs
-  const [raidLogs, setRaidLogs] = useState<RaidLog[]>([
-    {
-      id: 'log_1',
-      timestamp: '10 mins ago',
-      type: 'attack',
-      opponentName: 'Calico Jack',
-      outcome: 'victory',
-      coinsChange: 100,
-      damage: 5000,
-      cannonLostOrWon: 'Looted Cannon Lv1!',
-    },
-    {
-      id: 'log_2',
-      timestamp: '1 hour ago',
-      type: 'defense',
-      opponentName: 'Redbeard Drake',
-      outcome: 'defended',
-      coinsChange: 0,
-      damage: 2500,
-    }
-  ]);
+  const [raidLogs, setRaidLogs] = useState<RaidLog[]>([]);
 
   // ==================== SEA GAME MODE SELECTION ====================
   const [seaGameMode, setSeaGameMode] = useState<SeaGameMode>(() => {
@@ -1401,10 +1798,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const totalDailyTreasures = serverTreasures.length;
   const remainingTreasuresCount = serverTreasures.filter(t => !t.isClaimed).length;
-
-  // Derived ship HP
-  const shipMaxHp = 5000 + (shipLevel - 1) * 5000;
-  const shipCurrentHp = Math.round(shipMaxHp * (shipCondition / 100));
 
   // Add Steps & Reward logic (100 steps = 10 coins, + steps gain XP toward level up, + 1 step = 1 HP boss damage)
   const addSteps = (amount: number) => {
@@ -1959,6 +2352,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         changeLanguage,
         toggleLanguage,
         t,
+        // Supabase Account
+        currentAccount,
+        isAccountModalOpen,
+        accountError,
+        clearAccountError,
+        registerNewAccount,
+        loginExistingAccount,
+        logoutAccount,
+        openAccountModal,
+        closeAccountModal,
       }}
     >
       {children}

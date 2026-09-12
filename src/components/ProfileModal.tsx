@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   X,
   Upload,
@@ -7,6 +7,7 @@ import {
   Edit3,
   Image as ImageIcon,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import { useGame } from "../context/GameContext";
 import { PIRATE_AVATARS } from "../assets";
@@ -17,12 +18,18 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
-  const { profile, updateProfile, t } = useGame();
+  const { profile, updateProfile, t, currentAccount, openAccountModal } = useGame();
 
-  const [username, setUsername] = useState(profile.username);
+  const [username, setUsername] = useState(currentAccount?.username || profile.username);
   const [aboutMe, setAboutMe] = useState(profile.aboutMe);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (currentAccount?.username) {
+      setUsername(currentAccount.username);
+    }
+  }, [currentAccount?.username]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -177,18 +184,40 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ onClose }) => {
 
           {/* Username Input */}
           <div>
-            <label className="block text-[10px] font-bold text-[#fde68a] uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Edit3 className="w-3 h-3 text-[#facc15]" />
-              {t("captain_username")}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[10px] font-bold text-[#fde68a] uppercase tracking-wider flex items-center gap-1">
+                {currentAccount ? <Lock className="w-3 h-3 text-[#facc15]" /> : <Edit3 className="w-3 h-3 text-[#facc15]" />}
+                {t("captain_username")}
+              </label>
+              {currentAccount && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    openAccountModal();
+                  }}
+                  className="text-[10px] text-amber-300 hover:text-amber-100 underline font-semibold"
+                >
+                  Switch Player
+                </button>
+              )}
+            </div>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={!!currentAccount}
               maxLength={24}
               placeholder={t("captain_username")}
-              className="w-full bg-[#1a0f0d] border border-[#b45309] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#facc15] font-semibold"
+              className={`w-full bg-[#1a0f0d] border border-[#b45309] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#facc15] font-semibold ${
+                currentAccount ? "opacity-80 cursor-not-allowed bg-[#140b0a]" : ""
+              }`}
             />
+            {currentAccount && (
+              <p className="text-[9px] text-amber-300/70 mt-0.5">
+                Account ID linked to this player name. Progress saves to Supabase automatically.
+              </p>
+            )}
           </div>
 
           {/* About Me Input */}

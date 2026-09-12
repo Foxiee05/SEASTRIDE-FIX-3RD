@@ -20,6 +20,7 @@ import { LeaderboardScreen } from "./components/LeaderboardScreen";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { TutorialOverlay } from "./components/TutorialOverlay";
 import { SettingsModal } from "./components/SettingsModal";
+import { AccountAuthModal } from "./components/AccountAuthModal";
 import { Player } from "./types";
 
 type ActiveModal =
@@ -43,6 +44,9 @@ function MainAppContent() {
     openGemsModal,
     isCoinsModalOpen,
     closeCoinsModal,
+    isAccountModalOpen,
+    closeAccountModal,
+    currentAccount,
   } = useGame();
   const [activeTab, setActiveTab] = useState<
     "menu" | "home" | "build" | "sea" | "leaderboard"
@@ -217,6 +221,13 @@ function MainAppContent() {
         )}
         {activeModal === "profile" && <ProfileModal onClose={closeModal} />}
         {activeModal === "settings" && <SettingsModal onClose={closeModal} />}
+
+        {/* Supabase Name-Only Account Modal */}
+        <AccountAuthModal
+          isOpen={isAccountModalOpen}
+          onClose={closeAccountModal}
+          canClose={!!currentAccount}
+        />
 
         {/* Feature Highlight Tutorial */}
         <TutorialOverlay
