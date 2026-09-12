@@ -6,6 +6,7 @@ import { useCutoutImage } from "../utils/imageUtils";
 import { X, Sparkles } from "lucide-react";
 import { MinigameSelector } from "./minigames/MinigameSelector";
 import confetti from "canvas-confetti";
+import { soundFx } from "../utils/audio";
 
 interface AttackModalProps {
   onClose: () => void;
@@ -17,13 +18,20 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
   const [minigameTarget, setMinigameTarget] = useState<Player | null>(null);
   const [isAttacking, setIsAttacking] = useState<boolean>(false);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
+  const [isShaking, setIsShaking] = useState<boolean>(false);
   const bombCutout = useCutoutImage(ASSETS.bombBtn);
 
   const players = currentServer.players;
 
-  // Trigger fireworks on WIN / PERFECT HIT
+  // Trigger fireworks and shake effect on WIN / PERFECT HIT
   useEffect(() => {
     if (battleResult && battleResult.minigameResult === 'win') {
+      setIsShaking(true);
+      soundFx.playVictory();
+      const shakeTimer = setTimeout(() => {
+        setIsShaking(false);
+      }, 750);
+
       const duration = 2500;
       const animationEnd = Date.now() + duration;
       const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10000 };
@@ -48,7 +56,12 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
         });
       }, 250);
 
-      return () => clearInterval(interval);
+      return () => {
+        clearTimeout(shakeTimer);
+        clearInterval(interval);
+      };
+    } else {
+      setIsShaking(false);
     }
   }, [battleResult]);
 
@@ -115,7 +128,9 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
           {battleResult ? (
             <div className={`bg-[#2b1d19] rounded-2xl p-5 text-center space-y-4 shadow-2xl transition-all ${
               battleResult.minigameResult === 'win'
-                ? 'animate-[shake_0.5s_ease-in-out] border-4 border-[#facc15] shadow-[0_0_30px_rgba(250,204,21,0.3)]'
+                ? isShaking
+                  ? 'animate-perfect-shake border-4 border-[#facc15] shadow-[0_0_35px_rgba(250,204,21,0.55)]'
+                  : 'border-4 border-[#facc15] shadow-[0_0_25px_rgba(250,204,21,0.3)] transform-none'
                 : 'border-4 border-[#b45309] animate-fade-in'
             }`}>
               {/* Header Title */}
@@ -203,7 +218,10 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose }) => {
               </div>
 
               <button
-                onClick={() => setBattleResult(null)}
+                onClick={() => {
+                  setBattleResult(null);
+                  setIsShaking(false);
+                }}
                 className={`w-full font-black py-3 rounded-xl uppercase italic tracking-wider text-sm shadow-xl active:translate-y-1 transition-colors bg-[#b45309] hover:bg-[#d97706] border-b-4 border-r-2 border-[#2b1d19] text-white`}
               >
                 {t("raid_again")}

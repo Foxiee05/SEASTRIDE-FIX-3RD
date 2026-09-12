@@ -26,6 +26,7 @@ import { RaidBossScreen } from "./RaidBossScreen";
 import { TreasureHuntScreen } from "./TreasureHuntScreen";
 import { MinigameSelector } from "./minigames/MinigameSelector";
 import confetti from "canvas-confetti";
+import { soundFx } from "../utils/audio";
 
 interface SailingShip {
   id: string;
@@ -81,11 +82,18 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
   // Direct battle state inside Sea view for immediate action feedback
   const [isFiringSalvo, setIsFiringSalvo] = useState<boolean>(false);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
+  const [isShaking, setIsShaking] = useState<boolean>(false);
   const bombCutout = useCutoutImage(ASSETS.bombBtn);
 
-  // Trigger fireworks on WIN / PERFECT HIT
+  // Trigger fireworks and shake effect on WIN / PERFECT HIT
   useEffect(() => {
     if (battleResult && battleResult.minigameResult === 'win') {
+      setIsShaking(true);
+      soundFx.playVictory();
+      const shakeTimer = setTimeout(() => {
+        setIsShaking(false);
+      }, 750);
+
       const duration = 2500;
       const animationEnd = Date.now() + duration;
       const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10000 };
@@ -110,7 +118,12 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
         });
       }, 250);
 
-      return () => clearInterval(interval);
+      return () => {
+        clearTimeout(shakeTimer);
+        clearInterval(interval);
+      };
+    } else {
+      setIsShaking(false);
     }
   }, [battleResult]);
 
@@ -390,7 +403,9 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
         <div className={`absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-all`}>
           <div className={`rounded-2xl p-5 text-center space-y-4 shadow-2xl max-w-sm w-full text-amber-100 transition-all ${
             battleResult.minigameResult === 'win'
-              ? 'animate-[shake_0.5s_ease-in-out] bg-[#2b1d19] border-4 border-[#facc15] shadow-[0_0_30px_rgba(250,204,21,0.3)]'
+              ? isShaking
+                ? 'animate-perfect-shake bg-[#2b1d19] border-4 border-[#facc15] shadow-[0_0_35px_rgba(250,204,21,0.55)]'
+                : 'bg-[#2b1d19] border-4 border-[#facc15] shadow-[0_0_25px_rgba(250,204,21,0.3)] transform-none'
               : 'animate-fade-in bg-[#2b1d19] border-4 border-[#b45309]'
           }`}>
             <div className={`text-2xl font-black font-serif tracking-wide uppercase drop-shadow ${
@@ -463,6 +478,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
               onClick={() => {
                 setBattleResult(null);
                 setSelectedShip(null);
+                setIsShaking(false);
               }}
               className={`w-full font-black py-2.5 rounded-xl uppercase italic tracking-wider text-xs shadow-xl active:translate-y-1 transition-colors bg-[#b45309] hover:bg-[#d97706] border-b-4 border-r-2 border-[#2b1d19] text-white`}
             >
