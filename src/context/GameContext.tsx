@@ -10,8 +10,12 @@ import {
   getRaidSessionInfo,
   getDeterministicSessionBoss,
   getNextTreasureResetTimeUtc7,
+  getNextDailyResetTimeUtc7,
+  getUtc7StartOfDay,
   getUtc7DateString,
   RaidSessionInfo,
+  ENERGY_REGEN_INTERVAL_MS,
+  formatEnergyCountdown,
 } from '../utils/timeUtils';
 import {
   DbAccount,
@@ -51,6 +55,8 @@ interface GameContextType {
   gems: number;
   energy: number;
   maxEnergy: number;
+  energyNextResetTime: number | null;
+  energyCountdown: string;
   
   // Profile
   profile: PlayerProfile;
@@ -229,8 +235,46 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return 20;
   });
 
-  const [energy, setEnergy] = useState<number>(5);
   const maxEnergy = 5;
+
+  // Next energy regeneration timestamp (ms). Null when energy is at max.
+  const [energyNextResetTime, setEnergyNextResetTime] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_energy_next_reset_time');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    } catch (e) {}
+    return null;
+  });
+
+  const [energy, setEnergy] = useState<number>(() => {
+    try {
+      const savedEnergy = localStorage.getItem('pirate_energy_val_v2') ?? localStorage.getItem('pirate_energy_val_utc7');
+      const savedNextReset = localStorage.getItem('pirate_energy_next_reset_time');
+      if (savedEnergy !== null) {
+        let parsed = parseInt(savedEnergy, 10);
+        if (!isNaN(parsed) && parsed >= 0) {
+          parsed = Math.min(maxEnergy, parsed);
+          // Check if any 2-hour cycles completed while offline
+          if (parsed < maxEnergy && savedNextReset) {
+            const nextTime = parseInt(savedNextReset, 10);
+            const now = Date.now();
+            if (!isNaN(nextTime) && nextTime > 0 && now >= nextTime) {
+              const elapsed = now - nextTime;
+              const points = 1 + Math.floor(elapsed / ENERGY_REGEN_INTERVAL_MS);
+              parsed = Math.min(maxEnergy, parsed + points);
+            }
+          }
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return 5;
+  });
+
+  const [energyCountdown, setEnergyCountdown] = useState<string>('');
 
   // Supabase Name-Only Account State
   const [currentAccount, setCurrentAccount] = useState<DbAccount | null>(null);
@@ -238,6 +282,77 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [accountError, setAccountError] = useState<string | null>(null);
   const [assignedServerId, setAssignedServerId] = useState<string | null>(null);
   const [isSwitchingServer, setIsSwitchingServer] = useState<boolean>(false);
+
+  // Sync energy & energyNextResetTime to localStorage on change
+  useEffect(() => {
+    try {
+      localStorage.setItem('pirate_energy_val_v2', energy.toString());
+      if (currentAccount?.id) {
+        localStorage.setItem(`pirate_energy_val_v2_${currentAccount.id}`, energy.toString());
+      }
+      if (energyNextResetTime !== null && energy < maxEnergy) {
+        localStorage.setItem('pirate_energy_next_reset_time', energyNextResetTime.toString());
+        if (currentAccount?.id) {
+          localStorage.setItem(`pirate_energy_next_reset_time_${currentAccount.id}`, energyNextResetTime.toString());
+        }
+      } else {
+        localStorage.removeItem('pirate_energy_next_reset_time');
+        if (currentAccount?.id) {
+          localStorage.removeItem(`pirate_energy_next_reset_time_${currentAccount.id}`);
+        }
+      }
+    } catch (e) {}
+  }, [energy, energyNextResetTime, currentAccount?.id]);
+
+  // 2-Hour Energy Regeneration Monitor & Real-Time Countdown
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now();
+
+      // Case 1: Energy is at max (5/5)
+      if (energy >= maxEnergy) {
+        if (energyNextResetTime !== null) {
+          setEnergyNextResetTime(null);
+        }
+        if (energyCountdown !== '') {
+          setEnergyCountdown('');
+        }
+        return;
+      }
+
+      // Case 2: Energy < maxEnergy, ensure a valid target reset time is set
+      let targetTime = energyNextResetTime;
+      if (!targetTime || isNaN(targetTime) || targetTime <= 0) {
+        targetTime = now + ENERGY_REGEN_INTERVAL_MS;
+        setEnergyNextResetTime(targetTime);
+      }
+
+      if (now >= targetTime) {
+        // At least 2 hours elapsed: calculate total energy restored
+        const elapsedSinceTarget = now - targetTime;
+        const recoveredPoints = 1 + Math.floor(elapsedSinceTarget / ENERGY_REGEN_INTERVAL_MS);
+        const newEnergy = Math.min(maxEnergy, energy + recoveredPoints);
+
+        setEnergy(newEnergy);
+
+        if (newEnergy >= maxEnergy) {
+          setEnergyNextResetTime(null);
+          setEnergyCountdown('');
+        } else {
+          const remainderMs = elapsedSinceTarget % ENERGY_REGEN_INTERVAL_MS;
+          const nextTarget = now + (ENERGY_REGEN_INTERVAL_MS - remainderMs);
+          setEnergyNextResetTime(nextTarget);
+          setEnergyCountdown(formatEnergyCountdown(Math.max(0, nextTarget - now)));
+        }
+      } else {
+        setEnergyCountdown(formatEnergyCountdown(Math.max(0, targetTime - now)));
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [energy, energyNextResetTime, maxEnergy, energyCountdown]);
 
   const clearAccountError = () => setAccountError(null);
   const openAccountModal = () => setIsAccountModalOpen(true);
@@ -718,7 +833,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       setCoins(progress.coins);
       setGems(progress.gems);
-      setEnergy(progress.energy);
+      const startingEnergy = progress.energy ?? 5;
+      setEnergy(startingEnergy);
+      setEnergyNextResetTime(null);
+      setEnergyCountdown('');
+      try {
+        localStorage.setItem(`pirate_energy_val_v2_${account.id}`, startingEnergy.toString());
+        localStorage.removeItem(`pirate_energy_next_reset_time_${account.id}`);
+      } catch (e) {}
       setShipLevel(progress.ship_level);
       setShipCondition(progress.ship_condition);
       setOwnedCannons(progress.owned_cannons || [{ id: 'c_1', level: 1 }]);
@@ -776,7 +898,63 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setCoins(progress.coins ?? 1250);
         setGems(progress.gems ?? 20);
-        setEnergy(progress.energy ?? 5);
+
+        // 2-Hour energy reset / regeneration calculation:
+        let effectiveEnergy = progress.energy ?? 5;
+        let nextTarget: number | null = null;
+        const now = Date.now();
+
+        if (effectiveEnergy < maxEnergy) {
+          const savedTargetStr = localStorage.getItem(`pirate_energy_next_reset_time_${account.id}`) ||
+            localStorage.getItem('pirate_energy_next_reset_time');
+          const savedTarget = savedTargetStr ? parseInt(savedTargetStr, 10) : 0;
+
+          if (savedTarget > 0) {
+            if (now >= savedTarget) {
+              const elapsed = now - savedTarget;
+              const points = 1 + Math.floor(elapsed / ENERGY_REGEN_INTERVAL_MS);
+              effectiveEnergy = Math.min(maxEnergy, effectiveEnergy + points);
+              if (effectiveEnergy < maxEnergy) {
+                const rem = elapsed % ENERGY_REGEN_INTERVAL_MS;
+                nextTarget = now + (ENERGY_REGEN_INTERVAL_MS - rem);
+              }
+            } else {
+              nextTarget = savedTarget;
+            }
+          } else if (progress.updated_at) {
+            const updatedAtMs = new Date(progress.updated_at).getTime();
+            if (!isNaN(updatedAtMs) && updatedAtMs > 0) {
+              const elapsed = now - updatedAtMs;
+              const points = Math.floor(elapsed / ENERGY_REGEN_INTERVAL_MS);
+              effectiveEnergy = Math.min(maxEnergy, effectiveEnergy + points);
+              if (effectiveEnergy < maxEnergy) {
+                const rem = elapsed % ENERGY_REGEN_INTERVAL_MS;
+                nextTarget = now + (ENERGY_REGEN_INTERVAL_MS - rem);
+              }
+            }
+          }
+
+          if (effectiveEnergy < maxEnergy && !nextTarget) {
+            nextTarget = now + ENERGY_REGEN_INTERVAL_MS;
+          }
+        }
+
+        setEnergy(effectiveEnergy);
+        setEnergyNextResetTime(nextTarget);
+        if (nextTarget && effectiveEnergy < maxEnergy) {
+          setEnergyCountdown(formatEnergyCountdown(Math.max(0, nextTarget - now)));
+        } else {
+          setEnergyCountdown('');
+        }
+        try {
+          localStorage.setItem(`pirate_energy_val_v2_${account.id}`, effectiveEnergy.toString());
+          if (nextTarget && effectiveEnergy < maxEnergy) {
+            localStorage.setItem(`pirate_energy_next_reset_time_${account.id}`, nextTarget.toString());
+          } else {
+            localStorage.removeItem(`pirate_energy_next_reset_time_${account.id}`);
+          }
+        } catch (e) {}
+
         setShipLevel(progress.ship_level ?? 1);
         setShipCondition(progress.ship_condition ?? 75);
         setOwnedCannons(progress.owned_cannons || [{ id: 'c_1', level: 1 }]);
@@ -793,7 +971,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setQuestXp(progress.quest_xp ?? 0);
         setClaimedQuests(new Set(progress.claimed_quests || []));
 
-        const now = Date.now();
         const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
         const mappedLogs: RaidLog[] = (records || [])
           .filter((r) => r.record_type === 'battle_log' || r.record_type === 'raid_log')
@@ -1906,10 +2083,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [currentServer.code, ownedDecorations]);
 
-  // Periodic 24-Hour Reset Monitor in UTC+7 (checks every second)
+  // Periodic 24-Hour Treasure Reset Monitor in UTC+7 (checks every second)
   useEffect(() => {
     const checkReset = () => {
-      if (Date.now() >= treasureResetTime) {
+      const now = Date.now();
+
+      // Daily Treasure Hunt Reset at 00:00:00 UTC+7
+      if (now >= treasureResetTime) {
         const nextTime = calculateNextResetTime();
         setTreasureResetTime(nextTime);
         try {
@@ -1956,7 +2136,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const interval = setInterval(checkReset, 1000);
     return () => clearInterval(interval);
-  }, [treasureResetTime, servers, ownedDecorations]);
+  }, [treasureResetTime, servers, ownedDecorations, currentAccount?.id]);
 
   // Current server's daily treasures
   const serverTreasures: ServerTreasure[] = serverTreasuresMap[currentServer.code] || [];
@@ -2299,7 +2479,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // BOMB / Attack Player logic
   const attackPlayer = (target: Player, minigameResult?: 'win' | 'lose'): BattleResult | null => {
     if (energy < 1) {
-      alert('Not enough Energy! You need 1 Energy to launch a Bomb raid. Energy refills daily!');
+      alert('Not enough Energy! You need 1 Energy to launch a Bomb raid. +1 Energy restores every 2 hours!');
       return null;
     }
     if (shipCondition <= 0) {
@@ -2307,7 +2487,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
 
-    setEnergy(e => e - 1);
+    setEnergy(e => Math.max(0, e - 1));
+    if (energy >= maxEnergy || !energyNextResetTime) {
+      const targetTime = Date.now() + ENERGY_REGEN_INTERVAL_MS;
+      setEnergyNextResetTime(targetTime);
+      setEnergyCountdown(formatEnergyCountdown(ENERGY_REGEN_INTERVAL_MS));
+      try {
+        localStorage.setItem('pirate_energy_next_reset_time', targetTime.toString());
+        if (currentAccount?.id) {
+          localStorage.setItem(`pirate_energy_next_reset_time_${currentAccount.id}`, targetTime.toString());
+        }
+      } catch (e) {}
+    }
     soundFx.playCannonBomb();
 
     // Damage calculation: sum of equipped cannons' damage * condition factor
@@ -2741,6 +2932,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         gems,
         energy,
         maxEnergy,
+        energyNextResetTime,
+        energyCountdown,
         profile,
         updateProfile,
         shipLevel,

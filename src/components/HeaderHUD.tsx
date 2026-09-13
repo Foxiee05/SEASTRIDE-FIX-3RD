@@ -32,6 +32,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
     gems,
     energy,
     maxEnergy,
+    energyCountdown,
     currentServer,
     isMuted,
     toggleMute,
@@ -106,12 +107,26 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
         {/* Bottom Row: Currencies & Energy (Resources) */}
         <div className="flex items-center justify-between sm:justify-start gap-1.5 w-full bg-[#1e1108]/40 p-1.5 rounded-xl border border-[#4a2c17]">
           {/* Energy Bar (Takes flexible space, min-width to keep readable) */}
-          <div className="flex-1 min-w-[100px] flex items-center bg-[#4a2c17] border-2 sm:border-4 border-[#2b1d19] rounded-lg shadow-[0_3px_0_#2b1d19] px-2 py-1 h-8 sm:h-10 tutorial-energy-bar">
+          <div
+            className="flex-1 min-w-[105px] flex items-center bg-[#4a2c17] border-2 sm:border-4 border-[#2b1d19] rounded-lg shadow-[0_3px_0_#2b1d19] px-2 py-1 h-8 sm:h-10 tutorial-energy-bar cursor-help"
+            title={`${t("energy")}: ${energy}/${maxEnergy} • ${
+              energy < maxEnergy && energyCountdown
+                ? `+1 in ${energyCountdown}`
+                : t("energy_full", "MAX")
+            }`}
+          >
             <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#93bb44] fill-[#93bb44] mr-1 flex-shrink-0" />
             <div className="flex flex-col w-full">
               <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-[#f0dec1] font-black uppercase tracking-wider leading-none mb-0.5">
-                <span>{t("energy")}</span>
-                <span className="text-white">
+                <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                  <span className="truncate">{t("energy")}</span>
+                  {energy < maxEnergy && energyCountdown && (
+                    <span className="font-mono text-[8px] sm:text-[9px] text-[#c6f076] font-bold tracking-tight bg-[#2b1d19]/80 px-1 py-0.5 rounded border border-[#5a3a22]/70 flex-shrink-0">
+                      {energyCountdown}
+                    </span>
+                  )}
+                </div>
+                <span className="text-white ml-1 flex-shrink-0">
                   {energy}/{maxEnergy}
                 </span>
               </div>

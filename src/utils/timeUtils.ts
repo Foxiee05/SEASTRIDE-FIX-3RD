@@ -62,13 +62,43 @@ export function getUtc7DateString(timestamp: number = Date.now()): string {
 }
 
 /**
+ * Calculate the start of the current UTC+7 day (00:00:00.000 UTC+7).
+ */
+export function getUtc7StartOfDay(timestamp: number = Date.now()): number {
+  const parts = getUtc7Parts(timestamp);
+  return makeUtc7Timestamp(parts.year, parts.month, parts.date, 0, 0, 0, 0);
+}
+
+/**
+ * Calculate the next daily reset time (00:00:00 UTC+7 midnight).
+ * Resets every 24 hours at 00:00:00 UTC+7.
+ */
+export function getNextDailyResetTimeUtc7(timestamp: number = Date.now()): number {
+  const parts = getUtc7Parts(timestamp);
+  // Next 00:00:00 UTC+7 is the start of date + 1
+  return makeUtc7Timestamp(parts.year, parts.month, parts.date + 1, 0, 0, 0, 0);
+}
+
+/**
  * Calculate the next daily reset time (00:00:00 UTC+7 midnight).
  * Resets every 24 hours at 00:00:00 UTC+7.
  */
 export function getNextTreasureResetTimeUtc7(timestamp: number = Date.now()): number {
-  const parts = getUtc7Parts(timestamp);
-  // Next 00:00:00 UTC+7 is the start of date + 1
-  return makeUtc7Timestamp(parts.year, parts.month, parts.date + 1, 0, 0, 0, 0);
+  return getNextDailyResetTimeUtc7(timestamp);
+}
+
+export const ENERGY_REGEN_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours = 7,200,000 ms
+
+/**
+ * Format remaining milliseconds for energy regen countdown into HH:MM:SS format.
+ */
+export function formatEnergyCountdown(msRemaining: number): string {
+  if (msRemaining <= 0) return "00:00:00";
+  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export interface RaidSessionInfo {
