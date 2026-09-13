@@ -50,7 +50,7 @@ export interface ServerInfo {
   type: ServerType;
   name: string;
   playerCount: number;
-  maxPlayers: number; // 100 for global, 30 for private
+  maxPlayers: number; // 30 ships max
   players: Player[];
 }
 

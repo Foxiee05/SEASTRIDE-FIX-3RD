@@ -82,7 +82,8 @@ interface GameContextType {
   // Servers
   currentServer: ServerInfo;
   servers: ServerInfo[];
-  switchServer: (serverCode: string) => Promise<void> | void;
+  isSwitchingServer: boolean;
+  switchServer: (serverCode: string, customServerName?: string) => Promise<void> | void;
   createPrivateServer: (serverName: string) => Promise<string> | string;
   refreshServerPlayers: () => Promise<void>;
   
@@ -237,6 +238,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [assignedServerId, setAssignedServerId] = useState<string | null>(null);
+  const [isSwitchingServer, setIsSwitchingServer] = useState<boolean>(false);
 
   const clearAccountError = () => setAccountError(null);
   const openAccountModal = () => setIsAccountModalOpen(true);
@@ -2198,6 +2200,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatar_url: profile?.avatarUrl || '',
     };
 
+    if (isSwitchingServer) return;
+    setIsSwitchingServer(true);
+
     try {
       const res = await joinSpecificServer(
         currentAccount.id,
@@ -2233,6 +2238,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }));
 
         const isPriv = res.server_code.startsWith('PRIV-');
+        const authoritativeCount = dbPlayers.length;
+
         const newServer: ServerInfo = {
           code: res.server_code,
           type: res.server_type || (isPriv ? 'private' : 'global'),
@@ -2241,7 +2248,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             (isPriv
               ? `Private Island (${res.server_code})`
               : `Global Fleet ${res.server_code.split('-')[1] || '1'}`),
-          playerCount: mappedPlayers.length + 1,
+          playerCount: authoritativeCount,
           maxPlayers: res.max_players || 30,
           players: mappedPlayers,
         };
@@ -2260,6 +2267,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (e) {
       console.error('Failed to switch server:', e);
+    } finally {
+      setIsSwitchingServer(false);
     }
   };
 
@@ -2739,6 +2748,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         equippedDecorations,
         currentServer,
         servers,
+        isSwitchingServer,
         switchServer,
         createPrivateServer,
         refreshServerPlayers,

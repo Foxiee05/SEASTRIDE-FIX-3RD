@@ -834,6 +834,30 @@ export const joinSpecificServer = async (
   const supabase = getSupabase();
 
   if (supabase) {
+    try {
+      const { data, error } = await supabase.rpc('switch_or_join_server', {
+        p_account_id: accountId,
+        p_username: username,
+        p_ship_stats: shipStats,
+        p_target_server_code: normalizedCode,
+        p_custom_server_name: customServerName || null,
+      });
+
+      if (!error && data && data.success) {
+        return {
+          success: true,
+          server_code: data.server_code,
+          server_id: data.server_id,
+          server_name: data.server_name,
+          server_type: data.server_type,
+          max_players: data.capacity || 30,
+        };
+      }
+    } catch (rpcErr) {
+      console.warn('RPC switch_or_join_server notice, falling back to direct upsert:', rpcErr);
+    }
+
+    // Direct fallback if RPC is not deployed yet in current project
     const { error: upsertErr } = await supabase
       .from('global_server_players')
       .upsert(
@@ -1647,9 +1671,10 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
     });
 
     const filtered = Array.from(combinedMap.values()).filter((sp) => {
+      if (!sp || !sp.server_id) return false;
       if (sp.server_id === sId || sp.server_id === canonicalId) return true;
       if (code && sp.server_id && getCanonicalServerId(sp.server_id) === canonicalId) return true;
-      return true; // Include all local players in offline fallback mode
+      return false;
     });
 
     const result: DbGlobalServerPlayer[] = [];

@@ -136,6 +136,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
   // Initialize sailing ships array
   const [ships, setShips] = useState<SailingShip[]>([]);
   const shipsRef = useRef<SailingShip[]>([]);
+  const shipDOMRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const animationRef = useRef<number | null>(null);
 
   // Keep shipsRef synced
@@ -250,7 +251,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
     equippedDecorations,
   ]);
 
-  // Silky smooth 60 FPS physics animation loop without flickering or jitter
+  // Silky smooth 60 FPS physics animation loop using direct DOM transforms for 0-lag rendering
   useEffect(() => {
     let lastTime = performance.now();
 
@@ -259,7 +260,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
       lastTime = time;
 
       if (shipsRef.current.length > 0) {
-        const nextShips = shipsRef.current.map((ship) => {
+        shipsRef.current.forEach((ship) => {
           let nx = ship.x + ship.vx * (dt / 16);
           let ny = ship.y + ship.vy * (dt / 16);
           let nvx = ship.vx;
@@ -281,17 +282,17 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
             nvy = -Math.abs(nvy);
           }
 
-          return {
-            ...ship,
-            x: nx,
-            y: ny,
-            vx: nvx,
-            vy: nvy,
-          };
-        });
+          ship.x = nx;
+          ship.y = ny;
+          ship.vx = nvx;
+          ship.vy = nvy;
 
-        shipsRef.current = nextShips;
-        setShips(nextShips);
+          const el = shipDOMRefs.current[ship.id];
+          if (el) {
+            el.style.left = `${nx}%`;
+            el.style.top = `${ny}%`;
+          }
+        });
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -402,6 +403,9 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
           <ShipOnSeaItem
             key={ship.id}
             ship={ship}
+            domRef={(el) => {
+              shipDOMRefs.current[ship.id] = el;
+            }}
             isSelected={selectedShip?.id === ship.id}
             onClick={() => setSelectedShip(ship)}
             onFireBomb={() => handleFireBombOnShip(ship)}
@@ -608,11 +612,13 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
 const ShipOnSeaItem = React.memo(
   ({
     ship,
+    domRef,
     isSelected,
     onClick,
     onFireBomb,
   }: {
     ship: SailingShip;
+    domRef?: (el: HTMLDivElement | null) => void;
     isSelected: boolean;
     onClick: () => void;
     onFireBomb: () => void;
@@ -635,6 +641,7 @@ const ShipOnSeaItem = React.memo(
 
     return (
       <div
+        ref={domRef}
         onClick={onClick}
         style={{
           left: `${ship.x}%`,

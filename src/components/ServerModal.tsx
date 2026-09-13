@@ -7,7 +7,7 @@ interface ServerModalProps {
 }
 
 export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
-  const { currentServer, servers, switchServer, createPrivateServer, refreshServerPlayers, gems, t } =
+  const { currentServer, servers, switchServer, createPrivateServer, refreshServerPlayers, isSwitchingServer, gems, t } =
     useGame();
   const [newIslandName, setNewIslandName] = useState<string>("");
   const [customCodeInput, setCustomCodeInput] = useState<string>("");
@@ -86,16 +86,17 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
                 const isCurrent = s.code === currentServer.code;
 
                 return (
-                  <div
+                  <button
                     key={s.code}
+                    disabled={isSwitchingServer}
                     onClick={() => switchServer(s.code)}
-                    className={`p-3 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
+                    className={`w-full p-3 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
                       isCurrent
                         ? "bg-[#2b1d19] border-[#facc15] shadow-lg"
                         : "bg-[#2b1d19] border-[#b45309] hover:border-[#fde68a]"
-                    }`}
+                    } ${isSwitchingServer ? "opacity-60 cursor-not-allowed" : ""}`}
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 text-left">
                       {s.type === "global" ? (
                         <div className="p-2 bg-[#1e1b4b] border-2 border-[#4338ca] rounded-lg text-sky-300">
                           <Globe className="w-4 h-4" />
@@ -127,11 +128,11 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
                         </span>
                       ) : (
                         <span className="text-xs font-bold text-[#fde68a] bg-[#4a2c17] px-2.5 py-1 rounded-lg border border-[#b45309]">
-                          {t("switch")}
+                          {isSwitchingServer ? "..." : t("switch")}
                         </span>
                       )}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
