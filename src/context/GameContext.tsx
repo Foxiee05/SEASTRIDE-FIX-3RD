@@ -912,32 +912,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else if (eventType === 'UPDATE' && newRecord) {
         if (newRecord.account_id !== currentAccount.id) {
-          setCurrentServer((prev) => ({
-            ...prev,
-            players: prev.players.map((p) => {
-              if (p.id === newRecord.account_id) {
-                const updatedShipLevel = Number(newRecord.ship_level) || p.shipLevel;
-                const updatedMaxHp = Number(newRecord.max_hp) || (5000 + (updatedShipLevel - 1) * 5000);
-                const updatedCondition = newRecord.ship_condition !== undefined ? Number(newRecord.ship_condition) : p.shipCondition;
-                const updatedCurrentHp = newRecord.current_hp !== undefined ? Number(newRecord.current_hp) : Math.round(updatedMaxHp * (updatedCondition / 100));
+          const updatedShipLevel = Number(newRecord.ship_level) || 1;
+          const updatedMaxHp = Number(newRecord.max_hp) || (5000 + (updatedShipLevel - 1) * 5000);
+          const updatedCondition = newRecord.ship_condition !== undefined ? Number(newRecord.ship_condition) : 100;
+          const updatedCurrentHp = newRecord.current_hp !== undefined ? Number(newRecord.current_hp) : Math.round(updatedMaxHp * (updatedCondition / 100));
 
-                return {
-                  ...p,
-                  name: newRecord.username || p.name,
-                  shipLevel: updatedShipLevel,
-                  shipCondition: updatedCondition,
-                  currentHp: updatedCurrentHp,
-                  maxHp: updatedMaxHp,
-                  cannonLevel: Number(newRecord.cannon_level) || p.cannonLevel,
-                  cannonCount: Number(newRecord.cannon_count) || p.cannonCount,
-                  shieldLevel: newRecord.shield_level !== undefined ? Number(newRecord.shield_level) : p.shieldLevel,
-                  equippedDecorations: newRecord.equipped_decorations !== undefined ? newRecord.equipped_decorations : p.equippedDecorations,
-                  isOnline: newRecord.is_online !== undefined ? newRecord.is_online : p.isOnline,
-                };
-              }
-              return p;
-            }),
-          }));
+          const incomingPlayer: Player = {
+            id: newRecord.account_id,
+            name: newRecord.username || 'Rival Captain',
+            title: updatedShipLevel >= 5 ? 'Fleet Commander' : 'Sea Strider',
+            avatarUrl: newRecord.avatar_url || PIRATE_AVATARS[0].url,
+            shipLevel: updatedShipLevel,
+            shipCondition: updatedCondition,
+            currentHp: updatedCurrentHp,
+            maxHp: updatedMaxHp,
+            cannonLevel: Number(newRecord.cannon_level) || 1,
+            cannonCount: Number(newRecord.cannon_count) || 1,
+            shieldLevel: newRecord.shield_level !== undefined ? Number(newRecord.shield_level) : 0,
+            equippedDecorations: newRecord.equipped_decorations || [],
+            isOnline: newRecord.is_online !== undefined ? newRecord.is_online : true,
+          };
+
+          setCurrentServer((prev) => {
+            const exists = prev.players.some((p) => p.id === newRecord.account_id);
+            const nextList = exists
+              ? prev.players.map((p) => (p.id === newRecord.account_id ? incomingPlayer : p))
+              : [...prev.players, incomingPlayer];
+            return {
+              ...prev,
+              playerCount: nextList.length + 1,
+              players: nextList,
+            };
+          });
         } else {
           // If we receive an update about OURSELVES from the server
           // (e.g. another player bombed us, reducing our HP)

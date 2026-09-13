@@ -3,34 +3,65 @@ import { ServerInfo, ServerType } from '../types';
 import { INITIAL_SERVERS } from '../data/mockPlayers';
 
 // Configuration constants
-export const SUPABASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) ||
-  (typeof process !== 'undefined' && process.env?.SUPABASE_URL) ||
-  'https://sgjcjojycwnrnnjjfvnq.supabase.co';
+export const getSupabaseUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('seastride_supabase_url');
+    if (custom && custom.trim().startsWith('http')) return custom.trim();
+  }
+  return (
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env as any)?.NEXT_PUBLIC_SUPABASE_URL) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env as any)?.SUPABASE_URL) ||
+    (typeof process !== 'undefined' && process.env?.SUPABASE_URL) ||
+    'https://sgjcjojycwnrnnjjfvnq.supabase.co'
+  );
+};
 
-export const SUPABASE_ANON_KEY =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
-  (typeof process !== 'undefined' && process.env?.SUPABASE_ANON_KEY) ||
-  '';
+export const getSupabaseAnonKey = (): string => {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('seastride_supabase_anon_key');
+    if (custom && custom.trim().length > 20) return custom.trim();
+  }
+  return (
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env as any)?.VITE_SUPABASE_KEY) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env as any)?.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env as any)?.SUPABASE_ANON_KEY) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env as any)?.SUPABASE_KEY) ||
+    (typeof process !== 'undefined' && process.env?.SUPABASE_ANON_KEY) ||
+    ''
+  );
+};
+
+export const SUPABASE_URL = getSupabaseUrl();
+export const SUPABASE_ANON_KEY = getSupabaseAnonKey();
 
 // Check if credentials have been provided
 export const isSupabaseConfigured = (): boolean => {
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
   return Boolean(
-    SUPABASE_URL &&
-    SUPABASE_ANON_KEY &&
-    SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY' &&
-    SUPABASE_ANON_KEY.length > 20
+    url &&
+    key &&
+    key !== 'YOUR_SUPABASE_ANON_KEY' &&
+    key.length > 20
   );
 };
 
 let clientInstance: SupabaseClient | null = null;
+let currentClientKey = '';
 
 export const getSupabase = (): SupabaseClient | null => {
   if (!isSupabaseConfigured()) {
     return null;
   }
-  if (!clientInstance) {
-    clientInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
+  const signature = `${url}::${key}`;
+
+  if (!clientInstance || currentClientKey !== signature) {
+    currentClientKey = signature;
+    clientInstance = createClient(url, key, {
       realtime: {
         params: {
           eventsPerSecond: 10,
@@ -39,6 +70,89 @@ export const getSupabase = (): SupabaseClient | null => {
     });
   }
   return clientInstance;
+};
+
+export const setCustomSupabaseConfig = (url: string, key: string) => {
+  if (typeof window !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('seastride_supabase_url', url.trim());
+    } else {
+      localStorage.removeItem('seastride_supabase_url');
+    }
+    if (key && key.trim()) {
+      localStorage.setItem('seastride_supabase_anon_key', key.trim());
+    } else {
+      localStorage.removeItem('seastride_supabase_anon_key');
+    }
+    clientInstance = null;
+    currentClientKey = '';
+  }
+};
+
+export const testSupabaseConnection = async (): Promise<{
+  success: boolean;
+  message: string;
+  serversCount?: number;
+  playersCount?: number;
+  accountsCount?: number;
+  url: string;
+}> => {
+  const url = getSupabaseUrl();
+  const configured = isSupabaseConfigured();
+  if (!configured) {
+    return {
+      success: false,
+      message: 'Supabase Anon Key is missing or empty in browser environment (VITE_SUPABASE_ANON_KEY).',
+      url,
+    };
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    return {
+      success: false,
+      message: 'Failed to initialize Supabase client instance.',
+      url,
+    };
+  }
+
+  try {
+    const { data: servers, error: serverErr } = await supabase
+      .from('global_servers')
+      .select('id, code, name')
+      .limit(10);
+
+    if (serverErr) {
+      return {
+        success: false,
+        message: `Database query error: ${serverErr.message || JSON.stringify(serverErr)}`,
+        url,
+      };
+    }
+
+    const { count: playerCount, error: playerErr } = await supabase
+      .from('global_server_players')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: accCount } = await supabase
+      .from('accounts')
+      .select('*', { count: 'exact', head: true });
+
+    return {
+      success: true,
+      message: `Connected successfully! Found ${servers?.length || 0} server rooms, ${playerCount ?? 0} active ships, and ${accCount ?? 0} accounts in database.`,
+      serversCount: servers?.length || 0,
+      playersCount: playerCount ?? 0,
+      accountsCount: accCount ?? 0,
+      url,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Connection failed: ${err?.message || 'Network error'}`,
+      url,
+    };
+  }
 };
 
 // Account validation rules: 3–24 characters; letters, numbers, and underscores only

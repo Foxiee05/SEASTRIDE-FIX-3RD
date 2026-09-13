@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TheSeaView } from "./TheSeaView";
 import { Player } from "../types";
 import { ASSETS } from "../assets";
@@ -20,9 +20,13 @@ export const TheSeaScreen: React.FC<TheSeaScreenProps> = ({
   pendingAttackTarget,
   onClearPendingAttackTarget,
 }) => {
-  const { seaGameMode, setSeaGameMode, t } = useGame();
+  const { seaGameMode, setSeaGameMode, t, refreshServerPlayers } = useGame();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState<boolean>(false);
   const [isMinigameActive, setIsMinigameActive] = useState<boolean>(false);
+
+  useEffect(() => {
+    refreshServerPlayers();
+  }, [refreshServerPlayers]);
 
   return (
     <div className="relative h-full w-full flex flex-col overflow-hidden select-none pb-[env(safe-area-inset-bottom)]">
