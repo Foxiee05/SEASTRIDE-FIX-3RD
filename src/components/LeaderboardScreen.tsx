@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ArrowLeft,
   Anchor,
@@ -6,12 +6,12 @@ import {
   Medal,
   Calendar,
   Footprints,
-  TrendingUp,
+  Globe,
+  Users,
+  Loader2,
 } from "lucide-react";
 import { useGame } from "../context/GameContext";
-
-import { BackToSeaStride } from "./BackToSeaStride";
-import { PIRATE_AVATARS } from "../assets";
+import { fetchLeaderboard, LeaderboardPlayer } from "../utils/supabaseClient";
 
 interface LeaderboardScreenProps {
   onBack: () => void;
@@ -20,50 +20,124 @@ interface LeaderboardScreenProps {
 export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
   onBack,
 }) => {
-  const { profile, coins, playerLevel, currentServer, dailyCoinsHistory, t } =
+  const { profile, coins, playerLevel, currentServer, currentAccount, dailyCoinsHistory, t } =
     useGame();
   const [activeTab, setActiveTab] = useState<"level" | "coins">("level");
+  const [scope, setScope] = useState<"server" | "global">("server");
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardPlayer[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const sortedLeaderboard = useMemo(() => {
-    const currentUser = {
-      id: "current_user",
-      name: profile?.username || "Captain",
-      level: playerLevel,
-      gold: coins,
-      isCurrentUser: true,
-      avatarUrl: profile?.avatarUrl,
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    const loadData = async () => {
+      const serverIdToQuery = currentServer?.code || 'GLOBAL-1';
+      const data = await fetchLeaderboard(serverIdToQuery, scope);
+
+      if (isMounted) {
+        setLeaderboardData(data);
+        setIsLoading(false);
+      }
     };
 
-    const rivals = (currentServer?.players || []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      level: p.shipLevel,
-      gold: Math.round(p.currentHp / 2),
-      isCurrentUser: false,
-      avatarUrl: p.avatarUrl,
-    }));
+    loadData();
 
-    const combined = [currentUser, ...rivals];
+    return () => {
+      isMounted = false;
+    };
+  }, [currentServer?.code, scope]);
 
-    return combined
-      .sort((a, b) => {
-        if (activeTab === "level") {
-          return b.level === a.level ? b.gold - a.gold : b.level - a.level;
-        } else {
-          return b.gold === a.gold ? b.level - a.level : b.gold - a.gold;
-        }
-      })
-      .map((player, index) => ({
+  const sortedLeaderboard = useMemo(() => {
+    let list = [...leaderboardData];
+
+    // Check if current logged-in account is in list; if not, add or update current user row
+    const currentAccId = currentAccount?.id;
+    const currentUsername = profile?.username || currentAccount?.username || "Captain";
+    const currentAvatar = profile?.avatarUrl || "";
+
+    const userIndex = list.findIndex(
+      (p) => (currentAccId && p.account_id === currentAccId) || p.username === currentUsername
+    );
+
+    if (userIndex >= 0) {
+      list[userIndex] = {
+        ...list[userIndex],
+        player_level: playerLevel,
+        coins: coins,
+        username: currentUsername,
+        avatar_url: currentAvatar || list[userIndex].avatar_url,
+      };
+    } else {
+      list.push({
+        account_id: currentAccId || "current_user",
+        username: currentUsername,
+        avatar_url: currentAvatar,
+        player_level: playerLevel,
+        ship_level: playerLevel,
+        coins: coins,
+        total_steps_today: 0,
+        server_code: currentServer?.code || "GLOBAL-1",
+        is_online: true,
+      });
+    }
+
+    list.sort((a, b) => {
+      if (activeTab === "level") {
+        return b.player_level === a.player_level
+          ? b.coins - a.coins
+          : b.player_level - a.player_level;
+      } else {
+        return b.coins === a.coins
+          ? b.player_level - a.player_level
+          : b.coins - a.coins;
+      }
+    });
+
+    return list.map((player, index) => {
+      const isCurrentUser =
+        (currentAccId && player.account_id === currentAccId) ||
+        player.username === currentUsername;
+
+      return {
         ...player,
         rank: index + 1,
-      }));
-  }, [playerLevel, coins, profile?.username, profile?.avatarUrl, currentServer?.players, activeTab]);
+        isCurrentUser,
+      };
+    });
+  }, [leaderboardData, currentAccount?.id, currentAccount?.username, profile?.username, profile?.avatarUrl, playerLevel, coins, activeTab, currentServer?.code]);
 
   return (
     <div className="flex flex-col h-full bg-[#f0dec1] text-[#4a2c17] font-serif selection:bg-[#f0c242] border-b-4 border-[#be9325] text-white selection:text-stone-950 overflow-hidden relative">
       {/* Main Content Area */}
       <div className="tutorial-leaderboard flex-1 overflow-y-auto p-4 sm:p-6 pb-24">
-        {/* Tabs */}
+        {/* Scope Selector: Server Fleet vs Global */}
+        <div className="flex bg-[#2b1d19] rounded-xl border-2 border-[#4a2c17] p-1 mb-4 gap-1">
+          <button
+            onClick={() => setScope("server")}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+              scope === "server"
+                ? "bg-[#eebb3f] text-[#2b1d19] shadow-md font-black"
+                : "text-[#f0dec1]/70 hover:text-white hover:bg-[#4a2c17]"
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            {currentServer?.name || currentServer?.code || "Current Fleet"}
+          </button>
+          <button
+            onClick={() => setScope("global")}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+              scope === "global"
+                ? "bg-[#eebb3f] text-[#2b1d19] shadow-md font-black"
+                : "text-[#f0dec1]/70 hover:text-white hover:bg-[#4a2c17]"
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            Global All Fleets
+          </button>
+        </div>
+
+        {/* Metric Tabs */}
         <div className="tutorial-fleet-tabs flex bg-[#8b5a33] rounded-xl border-4 border-[#4a2c17] p-1.5 mb-6 shadow-inner">
           <button
             onClick={() => setActiveTab("level")}
@@ -124,7 +198,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                 <div className="flex items-center gap-1.5 z-10">
                   <CircleDollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-[#facc15] drop-shadow-md" />
                   <span className="text-xl sm:text-2xl font-black text-[#fbbf24] drop-shadow-md">
-                    1,450
+                    {coins.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -195,85 +269,100 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
           <div className="text-right">{t("gold")}</div>
         </div>
 
-        {/* Leaderboard List */}
-        <div className="tutorial-fleet-list flex flex-col gap-2 sm:gap-3">
-          {sortedLeaderboard.map((player) => (
-            <div
-              key={player.id}
-              className={`grid grid-cols-[2.5rem_1fr_3.5rem_4.5rem] sm:grid-cols-[4rem_1fr_4.5rem_6.5rem] gap-2 sm:gap-4 items-center p-2.5 sm:p-4 rounded-xl border-2 transition-all shadow-md ${
-                player.isCurrentUser
-                  ? "bg-[#eebb3f] border-[#b58c27] shadow-[0_0_15px_rgba(250,204,21,0.2)]"
-                  : "bg-[#2b1d19] border-[#4a2c17]"
-              }`}
-            >
-              {/* Rank */}
-              <div className="flex justify-center">
-                <span
-                  className={`font-black text-[clamp(1rem,4vw,1.5rem)] ${
-                    player.rank === 1
-                      ? "text-[#facc15] drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]"
-                      : player.rank === 2
-                        ? "text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.6)]"
-                        : player.rank === 3
-                          ? "text-amber-500 drop-shadow-[0_0_8px_rgba(217,119,6,0.6)]"
-                          : player.isCurrentUser
-                            ? "text-[#8b5a33]"
-                            : "text-[#f0dec1]/70"
-                  }`}
-                >
-                  #{player.rank}
-                </span>
-              </div>
-
-              {/* Pirate Avatar & Name */}
-              <div className="flex items-center gap-2 sm:gap-3 px-1 overflow-hidden">
-                <div
-                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 bg-[#4a2c17] overflow-hidden ${
-                    player.isCurrentUser
-                      ? "border-white shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                      : "border-[#b45309]"
-                  }`}
-                >
-                  {player.avatarUrl ? (
-                    <img
-                      src={player.avatarUrl}
-                      alt={player.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-xs sm:text-sm flex-shrink-0">☠️</span>
-                  )}
-                </div>
-                <div className="flex flex-col overflow-hidden min-w-0">
+        {/* Loading Spinner */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center p-8 text-[#8b5a33] gap-2">
+            <Loader2 className="w-8 h-8 animate-spin" />
+            <span className="text-xs font-bold">Summoning Fleet Captains...</span>
+          </div>
+        ) : sortedLeaderboard.length === 0 ? (
+          <div className="p-8 text-center text-[#8b5a33] font-bold">
+            No captains found in this fleet yet.
+          </div>
+        ) : (
+          /* Leaderboard List */
+          <div className="tutorial-fleet-list flex flex-col gap-2 sm:gap-3">
+            {sortedLeaderboard.map((player) => (
+              <div
+                key={player.account_id || player.username}
+                className={`grid grid-cols-[2.5rem_1fr_3.5rem_4.5rem] sm:grid-cols-[4rem_1fr_4.5rem_6.5rem] gap-2 sm:gap-4 items-center p-2.5 sm:p-4 rounded-xl border-2 transition-all shadow-md ${
+                  player.isCurrentUser
+                    ? "bg-[#eebb3f] border-[#b58c27] shadow-[0_0_15px_rgba(250,204,21,0.2)]"
+                    : "bg-[#2b1d19] border-[#4a2c17]"
+                }`}
+              >
+                {/* Rank */}
+                <div className="flex justify-center">
                   <span
-                    className={`font-black text-[clamp(0.85rem,3.5vw,1.15rem)] truncate ${
-                      player.isCurrentUser ? "text-stone-900" : "text-white"
+                    className={`font-black text-[clamp(1rem,4vw,1.5rem)] ${
+                      player.rank === 1
+                        ? "text-[#facc15] drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]"
+                        : player.rank === 2
+                          ? "text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.6)]"
+                          : player.rank === 3
+                            ? "text-amber-500 drop-shadow-[0_0_8px_rgba(217,119,6,0.6)]"
+                            : player.isCurrentUser
+                              ? "text-[#8b5a33]"
+                              : "text-[#f0dec1]/70"
                     }`}
                   >
-                    {player.isCurrentUser && profile?.username
-                      ? `${profile.username} (${t("you")})`
-                      : player.name}
+                    #{player.rank}
+                  </span>
+                </div>
+
+                {/* Pirate Avatar & Name */}
+                <div className="flex items-center gap-2 sm:gap-3 px-1 overflow-hidden">
+                  <div
+                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 bg-[#4a2c17] overflow-hidden ${
+                      player.isCurrentUser
+                        ? "border-white shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                        : "border-[#b45309]"
+                    }`}
+                  >
+                    {player.avatar_url ? (
+                      <img
+                        src={player.avatar_url}
+                        alt={player.username}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs sm:text-sm flex-shrink-0">☠️</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col overflow-hidden min-w-0">
+                    <span
+                      className={`font-black text-[clamp(0.85rem,3.5vw,1.15rem)] truncate ${
+                        player.isCurrentUser ? "text-stone-900" : "text-white"
+                      }`}
+                    >
+                      {player.username} {player.isCurrentUser && `(${t("you")})`}
+                    </span>
+                    {scope === 'global' && player.server_code && (
+                      <span className="text-[10px] text-[#facc15]/80 font-mono">
+                        {player.server_code}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Player Level */}
+                <div className="text-center">
+                  <span className={`font-extrabold text-[clamp(0.7rem,2.5vw,0.9rem)] sm:text-[clamp(0.85rem,3vw,1rem)] ${player.isCurrentUser ? "text-stone-800" : "text-sky-300"}`}>
+                    {t("lvl")} {player.player_level}
+                  </span>
+                </div>
+
+                {/* Gold */}
+                <div className="flex items-center justify-end gap-1 text-right overflow-hidden min-w-0">
+                  <CircleDollarSign className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${player.isCurrentUser ? "text-stone-800" : "text-[#facc15]"}`} />
+                  <span className={`font-black text-[clamp(0.85rem,3.5vw,1.15rem)] truncate ${player.isCurrentUser ? "text-stone-900" : "text-[#fbbf24]"}`}>
+                    {player.coins.toLocaleString()}
                   </span>
                 </div>
               </div>
-
-              {/* Player Level */}
-              <div className="text-center">
-                <span className={`font-extrabold text-[clamp(0.7rem,2.5vw,0.9rem)] sm:text-[clamp(0.85rem,3vw,1rem)] ${player.isCurrentUser ? "text-stone-800" : "text-sky-300"}`}>
-                  {t("lvl")} {player.level}
-                </span>
-              </div>
-
-              {/* Gold */}
-              <div className="flex items-center justify-end gap-1 text-right overflow-hidden min-w-0">
-                <CircleDollarSign className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${player.isCurrentUser ? "text-stone-800" : "text-[#facc15]"}`} />
-                <span className={`font-black text-[clamp(0.85rem,3.5vw,1.15rem)] truncate ${player.isCurrentUser ? "text-stone-900" : "text-[#fbbf24]"}`}>
-                  {player.gold.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Decorative gradient at bottom to indicate scroll */}

@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { ServerInfo, ServerType } from '../types';
 import { INITIAL_SERVERS } from '../data/mockPlayers';
+import { PIRATE_AVATARS } from '../assets';
 
 // Configuration constants
 export const getSupabaseUrl = (): string => {
@@ -237,6 +238,7 @@ const LOCAL_ACCOUNTS_KEY = 'seastride_demo_accounts';
 const LOCAL_PROGRESS_PREFIX = 'seastride_demo_progress_';
 const LOCAL_RECORDS_PREFIX = 'seastride_demo_records_';
 const LOCAL_SERVER_PLAYERS_PREFIX = 'seastride_demo_server_players_';
+const LOCAL_SERVER_PLAYERS_KEY = 'seastride_demo_all_server_players';
 
 /**
  * Helper to retrieve local server players array
@@ -1512,6 +1514,9 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
   if (supabase) {
     let targetServerIds = [serverId];
     try {
+      const canonicalId = getCanonicalServerId(serverId);
+      targetServerIds.push(canonicalId);
+
       // Find server row to get its code
       const { data: currentServerRow } = await supabase
         .from('global_servers')
@@ -1519,20 +1524,28 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
         .eq('id', serverId)
         .maybeSingle();
 
-      if (currentServerRow?.code) {
-        const code = normalizeServerCode(currentServerRow.code);
+      let code = currentServerRow?.code ? normalizeServerCode(currentServerRow.code) : '';
+      if (!code && serverId.startsWith('00000000-0000-0000-0001-')) {
+        const numStr = serverId.replace('00000000-0000-0000-0001-', '');
+        const num = parseInt(numStr, 10);
+        if (!isNaN(num)) code = `GLOBAL-${num}`;
+      }
+
+      if (code) {
         const { data: allMatchingServers } = await supabase
           .from('global_servers')
           .select('id')
           .ilike('code', code);
 
         if (allMatchingServers && allMatchingServers.length > 0) {
-          targetServerIds = allMatchingServers.map((s: any) => s.id);
+          allMatchingServers.forEach((s: any) => targetServerIds.push(s.id));
         }
       }
     } catch (e) {
       console.warn('Error resolving matching server IDs for player fetch:', e);
     }
+
+    targetServerIds = Array.from(new Set(targetServerIds));
 
     const { data, error } = await supabase
       .from('global_server_players')
@@ -1615,11 +1628,33 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
   // Local demo fallback: load players specifically assigned to this serverId
   try {
     const sId = serverId || 'local_server_global_1';
-    const assignedPlayers: DbGlobalServerPlayer[] = getLocalServerPlayers(sId);
+    const canonicalId = getCanonicalServerId(sId);
+    let code = '';
+    if (sId.startsWith('00000000-0000-0000-0001-')) {
+      const numStr = sId.replace('00000000-0000-0000-0001-', '');
+      const num = parseInt(numStr, 10);
+      if (!isNaN(num)) code = `GLOBAL-${num}`;
+    }
+
+    const playersForSid = getLocalServerPlayers(sId);
+    const playersForCanonical = getLocalServerPlayers(canonicalId);
+    const rawAll = localStorage.getItem(LOCAL_SERVER_PLAYERS_KEY);
+    const allAssigned: DbGlobalServerPlayer[] = rawAll ? JSON.parse(rawAll) : [];
+
+    const combinedMap = new Map<string, DbGlobalServerPlayer>();
+    [...playersForSid, ...playersForCanonical, ...allAssigned].forEach((p) => {
+      if (p && p.account_id) combinedMap.set(p.account_id, p);
+    });
+
+    const filtered = Array.from(combinedMap.values()).filter((sp) => {
+      if (sp.server_id === sId || sp.server_id === canonicalId) return true;
+      if (code && sp.server_id && getCanonicalServerId(sp.server_id) === canonicalId) return true;
+      return true; // Include all local players in offline fallback mode
+    });
 
     const result: DbGlobalServerPlayer[] = [];
 
-    for (const sp of assignedPlayers) {
+    for (const sp of filtered) {
       const pRaw = localStorage.getItem(`${LOCAL_PROGRESS_PREFIX}${sp.account_id}`);
       const pr: Partial<DbPlayerProgress> = pRaw ? JSON.parse(pRaw) : {};
       const shipLevel = Number(pr.ship_level) || sp.ship_level || 1;
@@ -1667,6 +1702,174 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
   }
 };
 
+export interface LeaderboardPlayer {
+  account_id: string;
+  username: string;
+  avatar_url: string;
+  player_level: number;
+  ship_level: number;
+  coins: number;
+  total_steps_today: number;
+  server_code?: string;
+  is_online?: boolean;
+}
+
+/**
+ * Fetches true leaderboard players from Supabase (or Local fallback), sorted by progress or coins.
+ */
+export const fetchLeaderboard = async (
+  serverId?: string,
+  scope: 'server' | 'global' = 'server'
+): Promise<LeaderboardPlayer[]> => {
+  const supabase = getSupabase();
+
+  if (supabase) {
+    try {
+      let targetAccountIds: string[] | null = null;
+      const serverCodeMap = new Map<string, string>();
+
+      if (scope === 'server' && serverId) {
+        let targetServerIds = [serverId];
+        const canonicalId = getCanonicalServerId(serverId);
+        targetServerIds.push(canonicalId);
+
+        const { data: sRow } = await supabase
+          .from('global_servers')
+          .select('id, code')
+          .eq('id', serverId)
+          .maybeSingle();
+
+        let code = sRow?.code ? normalizeServerCode(sRow.code) : '';
+        if (!code && serverId.startsWith('00000000-0000-0000-0001-')) {
+          const numStr = serverId.replace('00000000-0000-0000-0001-', '');
+          const num = parseInt(numStr, 10);
+          if (!isNaN(num)) code = `GLOBAL-${num}`;
+        }
+
+        if (code) {
+          const { data: matchingServers } = await supabase
+            .from('global_servers')
+            .select('id')
+            .ilike('code', code);
+          if (matchingServers) {
+            matchingServers.forEach((s: any) => targetServerIds.push(s.id));
+          }
+        }
+        targetServerIds = Array.from(new Set(targetServerIds));
+
+        const { data: sPlayers } = await supabase
+          .from('global_server_players')
+          .select('account_id, username, is_online, server_id, global_servers ( code )')
+          .in('server_id', targetServerIds);
+
+        if (sPlayers && sPlayers.length > 0) {
+          targetAccountIds = sPlayers.map((p: any) => p.account_id);
+          sPlayers.forEach((p: any) => {
+            const rawCode = (p as any).global_servers?.code || code || 'GLOBAL-1';
+            serverCodeMap.set(p.account_id, normalizeServerCode(rawCode));
+          });
+        } else {
+          return [];
+        }
+      }
+
+      let progressQuery = supabase
+        .from('player_progress')
+        .select(`
+          account_id,
+          coins,
+          player_level,
+          ship_level,
+          total_steps_today,
+          avatar_url,
+          accounts ( username )
+        `)
+        .order('player_level', { ascending: false })
+        .order('coins', { ascending: false })
+        .limit(50);
+
+      if (targetAccountIds && targetAccountIds.length > 0) {
+        progressQuery = progressQuery.in('account_id', targetAccountIds);
+      }
+
+      const { data: progressRows, error } = await progressQuery;
+
+      if (error) {
+        console.error('Leaderboard query error:', error);
+        return [];
+      }
+
+      if (scope === 'global') {
+        const { data: allSPlayers } = await supabase
+          .from('global_server_players')
+          .select('account_id, global_servers ( code )');
+        (allSPlayers || []).forEach((p: any) => {
+          const rawCode = p.global_servers?.code || 'GLOBAL-1';
+          serverCodeMap.set(p.account_id, normalizeServerCode(rawCode));
+        });
+      }
+
+      const result: LeaderboardPlayer[] = (progressRows || []).map((row: any) => {
+        const username = row.accounts?.username || 'Captain';
+        return {
+          account_id: row.account_id,
+          username,
+          avatar_url: row.avatar_url || PIRATE_AVATARS[0].url,
+          player_level: Number(row.player_level) || 1,
+          ship_level: Number(row.ship_level) || 1,
+          coins: Number(row.coins) || 0,
+          total_steps_today: Number(row.total_steps_today) || 0,
+          server_code: serverCodeMap.get(row.account_id) || 'GLOBAL-1',
+          is_online: true,
+        };
+      });
+
+      return result;
+    } catch (e) {
+      console.error('fetchLeaderboard error:', e);
+      return [];
+    }
+  }
+
+  // Local fallback
+  try {
+    const rawAccounts = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+    const accounts: DbAccount[] = rawAccounts ? JSON.parse(rawAccounts) : [];
+
+    let targetAccountIds: string[] | null = null;
+    if (scope === 'server' && serverId) {
+      const canonicalId = getCanonicalServerId(serverId);
+      const assigned = getLocalServerPlayers(canonicalId);
+      targetAccountIds = assigned.map((p) => p.account_id);
+    }
+
+    const list: LeaderboardPlayer[] = [];
+    for (const acc of accounts) {
+      if (targetAccountIds && !targetAccountIds.includes(acc.id)) continue;
+
+      const pRaw = localStorage.getItem(`${LOCAL_PROGRESS_PREFIX}${acc.id}`);
+      const pr: Partial<DbPlayerProgress> = pRaw ? JSON.parse(pRaw) : {};
+
+      list.push({
+        account_id: acc.id,
+        username: acc.username,
+        avatar_url: pr.avatar_url || PIRATE_AVATARS[0].url,
+        player_level: pr.player_level || 1,
+        ship_level: pr.ship_level || 1,
+        coins: pr.coins || 1250,
+        total_steps_today: pr.total_steps_today || 0,
+        server_code: pr.last_server_code || 'GLOBAL-1',
+        is_online: true,
+      });
+    }
+
+    list.sort((a, b) => b.player_level - a.player_level || b.coins - a.coins);
+    return list;
+  } catch (e) {
+    return [];
+  }
+};
+
 /**
  * Subscribes to Realtime updates for players in the given server
  */
@@ -1680,18 +1883,24 @@ export const subscribeToServerPlayers = (
     return { unsubscribe: () => {} };
   }
 
+  const canonicalId = getCanonicalServerId(serverId);
+
   const channel: RealtimeChannel = supabase
-    .channel(`server_players:${serverId}`)
+    .channel(`server_players:${canonicalId}`)
     .on(
       'postgres_changes',
       {
         event: '*',
         schema: 'public',
         table: 'global_server_players',
-        filter: `server_id=eq.${serverId}`,
       },
       (payload) => {
-        onPlayerChange(payload);
+        const payloadServerId = (payload.new as any)?.server_id || (payload.old as any)?.server_id;
+        if (!payloadServerId || payloadServerId === serverId || payloadServerId === canonicalId) {
+          onPlayerChange(payload);
+        } else if (getCanonicalServerId(payloadServerId) === canonicalId) {
+          onPlayerChange(payload);
+        }
       }
     )
     .subscribe((status) => {
