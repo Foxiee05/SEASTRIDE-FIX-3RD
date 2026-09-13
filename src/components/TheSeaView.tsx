@@ -164,7 +164,9 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
         cannonLevel: selectedTargetPlayer.cannonLevel,
         cannonCount: selectedTargetPlayer.cannonCount,
         shieldLevel: selectedTargetPlayer.shieldLevel,
-        equippedDecorations: ["dec_jolly_roger"],
+        equippedDecorations: Array.isArray(selectedTargetPlayer.equippedDecorations)
+          ? selectedTargetPlayer.equippedDecorations
+          : [],
       };
       setSelectedShip(null);
       setMinigameTarget(targetShip);
@@ -178,15 +180,16 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
     const list: SailingShip[] = [];
 
     // 1. Add Player's own flagship
+    const existingPlayer = shipsRef.current.find((s) => s.isPlayer);
     list.push({
       id: "player_flagship",
       name: t("your_flagship"),
       title: "Captain",
       isPlayer: true,
-      x: 45 + (Math.random() * 10 - 5),
-      y: 50 + (Math.random() * 10 - 5),
-      vx: (Math.random() - 0.5) * 0.08,
-      vy: (Math.random() - 0.5) * 0.08,
+      x: existingPlayer ? existingPlayer.x : 45 + (Math.random() * 10 - 5),
+      y: existingPlayer ? existingPlayer.y : 50 + (Math.random() * 10 - 5),
+      vx: existingPlayer ? existingPlayer.vx : (Math.random() - 0.5) * 0.08,
+      vy: existingPlayer ? existingPlayer.vy : (Math.random() - 0.5) * 0.08,
       shipLevel,
       shipCondition,
       currentHp: shipCurrentHp,
@@ -194,11 +197,12 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
       cannonLevel,
       cannonCount,
       shieldLevel,
-      equippedDecorations,
+      equippedDecorations: Array.isArray(equippedDecorations) ? [...equippedDecorations] : [],
     });
 
     // 2. Add server opponent ships
     currentServer.players.forEach((p, idx) => {
+      const existingOpponent = shipsRef.current.find((s) => s.id === p.id);
       const col = idx % 4;
       const row = Math.floor(idx / 4);
       const startX = 15 + col * 22 + (Math.random() * 8 - 4);
@@ -207,11 +211,9 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.03 + Math.random() * 0.04;
 
-      const decs: string[] = [];
-      if (idx % 2 === 0) decs.push("dec_jolly_roger");
-      if (idx % 3 === 0) decs.push("dec_kraken_figurehead");
-      if (p.shipCondition < 30) decs.push("dec_ghost_glow");
-      if (idx === 1) decs.push("dec_golden_cannons");
+      const decs: string[] = Array.isArray(p.equippedDecorations)
+        ? p.equippedDecorations
+        : [];
 
       list.push({
         id: p.id,
@@ -219,10 +221,10 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
         title: p.title,
         isPlayer: false,
         playerData: p,
-        x: Math.max(10, Math.min(85, startX)),
-        y: Math.max(10, Math.min(80, startY)),
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
+        x: existingOpponent ? existingOpponent.x : Math.max(10, Math.min(85, startX)),
+        y: existingOpponent ? existingOpponent.y : Math.max(10, Math.min(80, startY)),
+        vx: existingOpponent ? existingOpponent.vx : Math.cos(angle) * speed,
+        vy: existingOpponent ? existingOpponent.vy : Math.sin(angle) * speed,
         shipLevel: p.shipLevel,
         shipCondition: p.shipCondition,
         currentHp: p.currentHp,
@@ -248,13 +250,12 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
     equippedDecorations,
   ]);
 
-  // Optimized Physics loop with throttled React state flushing (12 FPS state update + CSS interpolation = 60 FPS silky smooth visuals with 80% lower CPU load)
+  // Silky smooth 60 FPS physics animation loop without flickering or jitter
   useEffect(() => {
     let lastTime = performance.now();
-    let lastRenderTime = 0;
 
     const animate = (time: number) => {
-      const dt = Math.min(50, time - lastTime);
+      const dt = Math.min(32, time - lastTime);
       lastTime = time;
 
       if (shipsRef.current.length > 0) {
@@ -290,12 +291,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
         });
 
         shipsRef.current = nextShips;
-
-        // Flush React state every 80ms (~12 FPS)
-        if (time - lastRenderTime > 80) {
-          lastRenderTime = time;
-          setShips(nextShips);
-        }
+        setShips(nextShips);
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -326,9 +322,9 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
       alert("Not enough Energy! You need 1 Energy to launch a Bomb raid.");
       return;
     }
-    if (shipCondition <= 50) {
+    if (shipCondition <= 0) {
       alert(
-        "Ship condition is too low (<= 50%)! Repair your ship before entering battle.",
+        "Ship is destroyed (0% condition)! Repair or rebuild your ship before entering battle.",
       );
       return;
     }
@@ -643,8 +639,8 @@ const ShipOnSeaItem = React.memo(
         style={{
           left: `${ship.x}%`,
           top: `${ship.y}%`,
-          transform: "translate(-50%, -50%)",
-          transition: "left 80ms linear, top 80ms linear",
+          transform: "translate3d(-50%, -50%, 0)",
+          willChange: "left, top",
         }}
         className={`absolute cursor-pointer transition-transform duration-300 group z-20 ${
           isSelected ? "scale-110 z-30" : "hover:scale-105"
@@ -713,31 +709,75 @@ const ShipOnSeaItem = React.memo(
             <div className="absolute -inset-2 rounded-full border-2 border-cyan-400 bg-cyan-400/20 shadow-[0_0_12px_rgba(0,210,255,0.6)] animate-pulse pointer-events-none z-10" />
           )}
 
-          {/* Decorations Overlays */}
-          {ship.equippedDecorations.includes("dec_jolly_roger") && (
-            <span className="absolute top-0 right-1 text-[10px] sm:text-xs z-30">
-              🏴‍☠️
-            </span>
-          )}
-          {ship.equippedDecorations.includes("dec_kraken_figurehead") && (
-            <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] sm:text-xs z-30">
-              🦑
-            </span>
-          )}
-          {ship.equippedDecorations.includes("dec_ghost_glow") && (
-            <div className="absolute inset-0 bg-emerald-400/30 rounded-full blur-sm pointer-events-none" />
-          )}
-          {ship.equippedDecorations.includes("dec_golden_cannons") && (
-            <Sparkles className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#facc15] animate-spin" />
-          )}
-
           {/* Completely Opaque Cutout Ship Image */}
           <img
             src={shipImg}
             alt={ship.name}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)]"
+            className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] relative z-10"
           />
+
+          {/* Decorations Overlays (Rendered with z-30 on top of the ship image) */}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("dec_jolly_roger") && (
+            <span className="absolute top-0 right-1 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              🏴‍☠️
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("dec_spectral_sails") && (
+            <span className="absolute top-0 left-1 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              🚩
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && (ship.equippedDecorations.includes("dec_kraken_figurehead") || ship.equippedDecorations.includes("secret_kraken_figurehead")) && (
+            <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              🦑
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && (ship.equippedDecorations.includes("dec_parrot_perch") || ship.equippedDecorations.includes("secret_pet_perch")) && (
+            <span className="absolute bottom-1 right-1 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              🦜
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("secret_ghost_lanterns") && (
+            <span className="absolute bottom-0 left-0 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              🏮
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("secret_rune_helm") && (
+            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              ☸️
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("secret_mythic_banners") && (
+            <span className="absolute -top-2 right-0 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              🚩
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("secret_bronze_bell") && (
+            <span className="absolute -top-1 right-0 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              🔔
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("secret_celestial_globe") && (
+            <span className="absolute bottom-0 right-1 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              🧭
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("secret_loot_pile") && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] sm:text-xs z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+              👑
+            </span>
+          )}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("dec_ghost_glow") && (
+            <div className="absolute -inset-1 bg-emerald-400/35 rounded-full blur-sm pointer-events-none animate-pulse z-0" />
+          )}
+          {/* Polished Brass Trim: Golden trim shimmer & sparkles across ship deck */}
+          {Array.isArray(ship.equippedDecorations) && ship.equippedDecorations.includes("dec_golden_cannons") && (
+            <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-between px-1">
+              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#facc15] animate-spin drop-shadow-[0_0_6px_rgba(250,204,21,1)]" />
+              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#facc15] animate-bounce drop-shadow-[0_0_6px_rgba(250,204,21,1)]" />
+            </div>
+          )}
 
           {/* Mounted Cannon badges */}
           {ship.cannonCount > 0 && (

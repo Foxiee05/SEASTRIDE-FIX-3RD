@@ -41,6 +41,7 @@ export interface Player {
   cannonLevel: number; // We might want to remove this and replace with total damage, but let's just keep as average or max for display.
   cannonCount: number; // For backward compatibility in Player type if needed, or update to show damage.
   shieldLevel: number;
+  equippedDecorations?: string[];
   isOnline: boolean;
 }
 
@@ -72,12 +73,14 @@ export interface BattleResult {
 export interface RaidLog {
   id: string;
   timestamp: string;
+  createdAt?: number;
   type: "attack" | "defense";
   opponentName: string;
   outcome: "victory" | "defeat" | "defended";
   coinsChange: number;
   damage: number;
   cannonLostOrWon?: string;
+  viewed?: boolean;
 }
 
 export interface Decoration {

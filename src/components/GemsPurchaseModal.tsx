@@ -88,7 +88,7 @@ export const GemsPurchaseModal: React.FC<GemsPurchaseModalProps> = ({
       setIsWatchingAd(false);
       const ok = watchAdForGems();
       if (ok) {
-        setPurchaseSuccessMessage(t("free_gems_added", "+5 Free Gems added to your balance!"));
+        setPurchaseSuccessMessage(t("free_gems_added", "+1 Free Gem added to your balance!"));
         if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         toastTimeoutRef.current = setTimeout(() => setPurchaseSuccessMessage(null), 3500);
       }

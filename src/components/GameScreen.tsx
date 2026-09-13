@@ -35,7 +35,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   openModal,
   onSelectTargetForAttack,
 }) => {
-  const { energy, currentServer, shipCondition, raidLogs, t } = useGame();
+  const { energy, currentServer, shipCondition, unreadDefenseCount, t } = useGame();
 
   const [activeTab, setActiveTab] = useState<"build" | "sea">("build");
 
@@ -139,9 +139,9 @@ export const GameScreen: React.FC<GameScreenProps> = ({
                   <span className="text-[9px] sm:text-[10px] truncate w-full">
                     Raid Log
                   </span>
-                  {raidLogs.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] sm:text-[9px] font-black w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center border border-white">
-                      {raidLogs.length}
+                  {unreadDefenseCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] sm:text-[9px] font-black w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center border border-white z-10 animate-pulse">
+                      {unreadDefenseCount}
                     </span>
                   )}
                 </button>

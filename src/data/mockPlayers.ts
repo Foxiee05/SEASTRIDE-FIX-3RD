@@ -13,7 +13,7 @@ export const getPlayerCurrentHp = (shipLevel: number, shipCondition: number): nu
   return Math.round(getPlayerMaxHp(shipLevel) * (shipCondition / 100));
 };
 
-// Placeholder/Mock players removed in favor of real Supabase accounts
+export const SEED_RIVAL_PLAYERS: Player[] = [];
 export const MOCK_PLAYERS_GLOBAL: Player[] = [];
 export const MOCK_PLAYERS_PRIVATE: Player[] = [];
 

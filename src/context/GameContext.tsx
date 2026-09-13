@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Player, ServerInfo, BattleResult, RaidLog, StepRecord, StepStats, DailyCoinRecord, CannonItem, ShieldItem, ServerRaidState, SeaMonsterConfig, SeaMonsterId, RaidParticipant, ServerTreasure, TreasureActivityLog, TreasureRewardType, Decoration, UserTodayLoot, SeaGameMode, RaidMilestoneBounty } from '../types';
 import { INITIAL_SERVERS } from '../data/mockPlayers';
 import { SEA_MONSTERS, getMonsterMilestones } from '../data/monsters';
@@ -20,11 +20,15 @@ import {
   getAccountByUsername,
   savePlayerProgress,
   addGameRecord,
+  applyDamageToPlayer,
   joinOrAssignGlobalServer,
+  joinSpecificServer,
+  fetchAvailableServers,
   leaveGlobalServer,
   updateShipState,
   fetchServerPlayers,
   subscribeToServerPlayers,
+  subscribeToAllServersMembership,
 } from '../utils/supabaseClient';
 
 export interface PlayerProfile {
@@ -78,8 +82,9 @@ interface GameContextType {
   // Servers
   currentServer: ServerInfo;
   servers: ServerInfo[];
-  switchServer: (serverCode: string) => void;
-  createPrivateServer: (serverName: string) => string;
+  switchServer: (serverCode: string) => Promise<void> | void;
+  createPrivateServer: (serverName: string) => Promise<string> | string;
+  refreshServerPlayers: () => Promise<void>;
   
   // Steps & Activity
   totalStepsToday: number;
@@ -164,6 +169,8 @@ interface GameContextType {
   
   // Logs
   raidLogs: RaidLog[];
+  unreadDefenseCount: number;
+  markDefenseLogsAsRead: () => void;
   
   // Audio state
   isMuted: boolean;
@@ -547,7 +554,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     changeLanguage(next);
   };
 
-  const t = (key: string, fallback?: string): string => {
+  const t = useCallback((key: string, fallback?: string): string => {
     if (!key) return fallback || "";
     const langDict = TRANSLATIONS[language];
     if (langDict && langDict[key]) {
@@ -561,11 +568,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (fallback && langDict?.[fallback]) return langDict[fallback];
     }
     return fallback || key;
-  };
+  }, [language]);
 
   // Player Level & XP (500 XP per level, grants 200 coins on every level up)
   const [playerLevel, setPlayerLevel] = useState<number>(1);
-  const [playerXp, setPlayerXp] = useState<number>(250);
+  const [playerXp, setPlayerXp] = useState<number>(0);
 
   const gainXp = (amount: number) => {
     if (amount <= 0) return;
@@ -607,13 +614,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cannon_count: number;
       shield_level: number;
       avatar_url: string;
-    }
+    },
+    preferredServerCode?: string
   ) => {
     try {
-      const assignment = await joinOrAssignGlobalServer(acc.id, acc.username, stats);
+      const assignment = preferredServerCode
+        ? await joinSpecificServer(acc.id, acc.username, stats, preferredServerCode)
+        : await joinOrAssignGlobalServer(acc.id, acc.username, stats);
+
       if (assignment && assignment.server_code) {
         setAssignedServerId(assignment.server_id);
-        const dbPlayers = await fetchServerPlayers(assignment.server_id);
+        const [dbPlayers, allServers] = await Promise.all([
+          fetchServerPlayers(assignment.server_id),
+          fetchAvailableServers(),
+        ]);
+
         const mappedPlayers: Player[] = dbPlayers
           .filter((p) => p.account_id !== acc.id)
           .map((p) => ({
@@ -628,23 +643,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cannonLevel: p.cannon_level,
             cannonCount: p.cannon_count,
             shieldLevel: p.shield_level,
+            equippedDecorations: p.equipped_decorations || [],
             isOnline: p.is_online,
           }));
 
+        const isPriv = assignment.server_code.startsWith('PRIV-');
+        const assignAny = assignment as any;
         const newServer: ServerInfo = {
           code: assignment.server_code,
-          type: 'global',
-          name: `Global Fleet ${assignment.server_code.split('-')[1] || '1'}`,
-          playerCount: mappedPlayers.length + 1,
-          maxPlayers: 30, // 30 ships max!
+          type: assignAny.server_type || (isPriv ? 'private' : 'global'),
+          name:
+            assignAny.server_name ||
+            (isPriv
+              ? `Private Island (${assignment.server_code})`
+              : `Global Fleet ${assignment.server_code.split('-')[1] || '1'}`),
+          playerCount: dbPlayers.length,
+          maxPlayers: assignAny.max_players || 30, // 30 ships max!
           players: mappedPlayers,
         };
 
         setCurrentServer(newServer);
-        setServers((prev) => {
-          const others = prev.filter((s) => s.code !== assignment.server_code);
-          return [newServer, ...others];
-        });
+        if (allServers && allServers.length > 0) {
+          setServers(allServers);
+        } else {
+          setServers((prev) => {
+            const others = prev.filter((s) => s.code !== assignment.server_code);
+            return [newServer, ...others];
+          });
+        }
       }
     } catch (err: any) {
       console.error('Server allocation error:', err);
@@ -678,7 +704,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalStepsTodayRef.current = 0;
       setStepRecords([]);
       setPlayerLevel(progress.player_level || 1);
-      setPlayerXp(progress.player_xp || 250);
+      setPlayerXp(progress.player_xp ?? 0);
       setQuestIndex(0);
       setQuestXp(0);
       setClaimedQuests(new Set());
@@ -735,31 +761,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTotalStepsToday(progress.total_steps_today ?? 0);
         setStepRecords(progress.step_records || []);
         setPlayerLevel(progress.player_level ?? 1);
-        setPlayerXp(progress.player_xp ?? 250);
+        setPlayerXp(progress.player_xp ?? 0);
         setQuestIndex(progress.quest_index ?? 0);
         setQuestXp(progress.quest_xp ?? 0);
         setClaimedQuests(new Set(progress.claimed_quests || []));
 
-        if (records && records.length > 0) {
-          const mappedLogs: RaidLog[] = records
-            .filter((r) => r.record_type === 'battle_log' || r.record_type === 'raid_log')
-            .map((r) => ({
+        const now = Date.now();
+        const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+        const mappedLogs: RaidLog[] = (records || [])
+          .filter((r) => r.record_type === 'battle_log' || r.record_type === 'raid_log')
+          .filter((r) => {
+            const createdTime = r.created_at ? new Date(r.created_at).getTime() : (r.details?.createdAt || 0);
+            if (!createdTime) return true;
+            return now - createdTime < THREE_DAYS_MS;
+          })
+          .map((r) => {
+            const createdTime = r.created_at ? new Date(r.created_at).getTime() : (r.details?.createdAt || Date.now());
+            return {
               id: r.id,
-              timestamp: new Date(r.created_at).toLocaleTimeString([], {
+              timestamp: new Date(createdTime).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
               }),
+              createdAt: createdTime,
               type: r.details?.type || 'attack',
               opponentName: r.details?.opponentName || 'Rival Captain',
               outcome: r.details?.outcome || 'victory',
               coinsChange: r.details?.coinsChange || 0,
               damage: r.details?.damage || 0,
               cannonLostOrWon: r.details?.cannonLostOrWon,
-            }));
-          if (mappedLogs.length > 0) {
-            setRaidLogs(mappedLogs);
-          }
-        }
+              viewed: r.details?.viewed ?? true,
+            };
+          });
+        setRaidLogs(mappedLogs);
       }
 
       try {
@@ -790,16 +824,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const eligibleStepCoins = Math.floor(stepsToday / 100) * 10;
       setStepCoinsAwardedToday(eligibleStepCoins);
 
-      await syncAndAssignServer(account, {
-        ship_level: accShipLevel,
-        ship_condition: accCondition,
-        current_hp: accCurrentHp,
-        max_hp: accMaxHp,
-        cannon_level: computedCannonLvl,
-        cannon_count: Math.max(1, computedCannonCnt),
-        shield_level: computedShieldLvl,
-        avatar_url: progress?.avatar_url || profile.avatarUrl,
-      });
+      await syncAndAssignServer(
+        account,
+        {
+          ship_level: accShipLevel,
+          ship_condition: accCondition,
+          current_hp: accCurrentHp,
+          max_hp: accMaxHp,
+          cannon_level: computedCannonLvl,
+          cannon_count: Math.max(1, computedCannonCnt),
+          shield_level: computedShieldLvl,
+          avatar_url: progress?.avatar_url || profile.avatarUrl,
+        },
+        progress?.last_server_code
+      );
 
       soundFx.playClick();
     } catch (err: any) {
@@ -815,6 +853,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setAssignedServerId(null);
     setCurrentAccount(null);
+    setRaidLogs([]);
     try {
       localStorage.removeItem('seastride_active_username');
     } catch (e) {}
@@ -855,6 +894,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cannonLevel: newRecord.cannon_level,
             cannonCount: newRecord.cannon_count,
             shieldLevel: newRecord.shield_level,
+            equippedDecorations: newRecord.equipped_decorations || [],
             isOnline: newRecord.is_online,
           };
 
@@ -891,12 +931,55 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   cannonLevel: Number(newRecord.cannon_level) || p.cannonLevel,
                   cannonCount: Number(newRecord.cannon_count) || p.cannonCount,
                   shieldLevel: newRecord.shield_level !== undefined ? Number(newRecord.shield_level) : p.shieldLevel,
+                  equippedDecorations: newRecord.equipped_decorations !== undefined ? newRecord.equipped_decorations : p.equippedDecorations,
                   isOnline: newRecord.is_online !== undefined ? newRecord.is_online : p.isOnline,
                 };
               }
               return p;
             }),
           }));
+        } else {
+          // If we receive an update about OURSELVES from the server
+          // (e.g. another player bombed us, reducing our HP)
+          if (newRecord.ship_condition !== undefined) {
+            setShipCondition(prev => {
+              if (newRecord.ship_condition < prev) {
+                // We were damaged by someone! Fetch the new raid logs so the red dot appears.
+                getAccountByUsername(currentAccount.username).then(res => {
+                  const now = Date.now();
+                  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+                  const mappedLogs = (res.records || [])
+                    .filter((r: any) => r.record_type === 'battle_log' || r.record_type === 'raid_log')
+                    .filter((r: any) => {
+                      const createdTime = r.created_at ? new Date(r.created_at).getTime() : (r.details?.createdAt || 0);
+                      if (!createdTime) return true;
+                      return now - createdTime < THREE_DAYS_MS;
+                    })
+                    .map((r: any) => {
+                      const createdTime = r.created_at ? new Date(r.created_at).getTime() : (r.details?.createdAt || Date.now());
+                      return {
+                        id: r.id,
+                        timestamp: new Date(createdTime).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }),
+                        createdAt: createdTime,
+                        type: r.details?.type || 'attack',
+                        opponentName: r.details?.opponentName || 'Rival Captain',
+                        outcome: r.details?.outcome || 'victory',
+                        coinsChange: r.details?.coinsChange || 0,
+                        damage: r.details?.damage || 0,
+                        cannonLostOrWon: r.details?.cannonLostOrWon,
+                        viewed: r.details?.viewed ?? true,
+                      };
+                    });
+                  setRaidLogs(mappedLogs);
+                }).catch(() => {});
+                return newRecord.ship_condition;
+              }
+              return prev;
+            });
+          }
         }
       } else if (eventType === 'DELETE' && oldRecord) {
         setCurrentServer((prev) => {
@@ -919,7 +1002,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshServerPlayers = useCallback(async () => {
     if (!assignedServerId || !currentAccount) return;
     try {
-      const dbPlayers = await fetchServerPlayers(assignedServerId);
+      const [dbPlayers, allServers] = await Promise.all([
+        fetchServerPlayers(assignedServerId),
+        fetchAvailableServers(),
+      ]);
+
       const mappedPlayers: Player[] = dbPlayers
         .filter((p) => p.account_id !== currentAccount.id)
         .map((p) => ({
@@ -934,26 +1021,59 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cannonLevel: p.cannon_level,
           cannonCount: p.cannon_count,
           shieldLevel: p.shield_level,
+          equippedDecorations: p.equipped_decorations || [],
           isOnline: p.is_online,
         }));
 
-      setCurrentServer((prev) => ({
-        ...prev,
-        playerCount: mappedPlayers.length + 1,
-        players: mappedPlayers,
-      }));
+      if (allServers && allServers.length > 0) {
+        setServers(allServers);
+        const currentInList = allServers.find((s) => s.code === currentServer.code);
+        setCurrentServer((prev) => ({
+          ...prev,
+          playerCount: currentInList ? currentInList.playerCount : dbPlayers.length,
+          players: mappedPlayers,
+        }));
+      } else {
+        setCurrentServer((prev) => ({
+          ...prev,
+          playerCount: dbPlayers.length,
+          players: mappedPlayers,
+        }));
+      }
     } catch (e) {
       console.warn('Error refreshing server players:', e);
     }
-  }, [assignedServerId, currentAccount?.id]);
+  }, [assignedServerId, currentAccount?.id, currentServer.code]);
 
   useEffect(() => {
     if (!assignedServerId || !currentAccount) return;
+    refreshServerPlayers();
     const interval = setInterval(() => {
       refreshServerPlayers();
     }, 5000);
     return () => clearInterval(interval);
   }, [assignedServerId, currentAccount?.id, refreshServerPlayers]);
+
+  // Realtime subscription across all servers to keep server list counts updated live
+  useEffect(() => {
+    const sub = subscribeToAllServersMembership(() => {
+      fetchAvailableServers().then((allServers) => {
+        if (allServers && allServers.length > 0) {
+          setServers(allServers);
+          const curr = allServers.find((s) => s.code === currentServer.code);
+          if (curr) {
+            setCurrentServer((prev) => ({
+              ...prev,
+              playerCount: curr.playerCount,
+            }));
+          }
+        }
+      });
+    });
+    return () => {
+      sub.unsubscribe();
+    };
+  }, [currentServer.code]);
 
   // Clean up server player presence on beforeunload
   useEffect(() => {
@@ -1412,19 +1532,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     soundFx.playPrizeFanfare();
 
-    setRaidLogs(prev => [
-      {
-        id: `raid_prize_${Date.now()}`,
-        timestamp: 'Just now',
-        type: 'attack',
-        opponentName: currentMonster.shortName,
-        outcome: 'victory',
-        coinsChange: coinsWon,
-        damage: userDamage,
-        cannonLostOrWon: `Claimed ${(pct * 100).toFixed(1)}% Prize Pool: +${coinsWon} Coins & +${gemsWon} Gems!`,
-      },
-      ...prev,
-    ]);
+    const newLog: RaidLog = {
+      id: `raid_prize_${Date.now()}`,
+      timestamp: 'Just now',
+      createdAt: Date.now(),
+      type: 'attack',
+      opponentName: currentMonster.shortName,
+      outcome: 'victory',
+      coinsChange: coinsWon,
+      damage: userDamage,
+      cannonLostOrWon: `Claimed ${(pct * 100).toFixed(1)}% Prize Pool: +${coinsWon} Coins & +${gemsWon} Gems!`,
+    };
+    setRaidLogs(prev => [newLog, ...prev]);
+    if (currentAccount) {
+      addGameRecord(currentAccount.id, 'raid_log', newLog);
+    }
 
     return {
       coinsWon,
@@ -1490,19 +1612,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     soundFx.playPrizeFanfare();
 
-    setRaidLogs(prev => [
-      {
-        id: `milestone_${hpThreshold}_${Date.now()}`,
-        timestamp: 'Just now',
-        type: 'attack',
-        opponentName: currentMonster.shortName,
-        outcome: 'victory',
-        coinsChange: coinsWon,
-        damage: 0,
-        cannonLostOrWon: `Claimed ${(pct * 100).toFixed(1)}% Share of ${hpThreshold}% HP Reward: +${coinsWon.toLocaleString()} Coins & +${gemsWon} Gems!`,
-      },
-      ...prev,
-    ]);
+    const newLog: RaidLog = {
+      id: `milestone_${hpThreshold}_${Date.now()}`,
+      timestamp: 'Just now',
+      createdAt: Date.now(),
+      type: 'attack',
+      opponentName: currentMonster.shortName,
+      outcome: 'victory',
+      coinsChange: coinsWon,
+      damage: 0,
+      cannonLostOrWon: `Claimed ${(pct * 100).toFixed(1)}% Share of ${hpThreshold}% HP Reward: +${coinsWon.toLocaleString()} Coins & +${gemsWon} Gems!`,
+    };
+    setRaidLogs(prev => [newLog, ...prev]);
+    if (currentAccount) {
+      addGameRecord(currentAccount.id, 'raid_log', newLog);
+    }
 
     return {
       bounty: targetBounty,
@@ -1591,8 +1715,46 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(npcInterval);
   }, [currentServer.code, currentRaidState.isDefeated]);
 
-  // Logs
+  // Logs and unread defense tracking
   const [raidLogs, setRaidLogs] = useState<RaidLog[]>([]);
+
+  // Auto-prune raid logs older than 3 days (continuous 3-day countdown from appearance)
+  useEffect(() => {
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    const pruneExpiredLogs = () => {
+      const now = Date.now();
+      setRaidLogs(prev => {
+        const filtered = prev.filter(log => {
+          if (!log.createdAt) return true;
+          return now - log.createdAt < THREE_DAYS_MS;
+        });
+        return filtered.length !== prev.length ? filtered : prev;
+      });
+    };
+
+    pruneExpiredLogs();
+    const interval = setInterval(pruneExpiredLogs, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Unread enemy assaults on my ship (defense logs only)
+  const unreadDefenseCount = useMemo(() => {
+    return raidLogs.filter(log => log.type === 'defense' && !log.viewed).length;
+  }, [raidLogs]);
+
+  const markDefenseLogsAsRead = useCallback(() => {
+    setRaidLogs(prev => {
+      let hasUnread = false;
+      const updated = prev.map(log => {
+        if (log.type === 'defense' && !log.viewed) {
+          hasUnread = true;
+          return { ...log, viewed: true };
+        }
+        return log;
+      });
+      return hasUnread ? updated : prev;
+    });
+  }, []);
 
   // ==================== SEA GAME MODE SELECTION ====================
   const [seaGameMode, setSeaGameMode] = useState<SeaGameMode>(() => {
@@ -2009,32 +2171,101 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Switch server
-  const switchServer = (serverCode: string) => {
-    const target = servers.find(s => s.code === serverCode);
-    if (target) {
-      setCurrentServer(target);
-      soundFx.playClick();
+  const switchServer = async (serverCode: string, customServerName?: string) => {
+    if (!currentAccount) {
+      const target = servers.find((s) => s.code === serverCode);
+      if (target) {
+        setCurrentServer(target);
+        soundFx.playClick();
+      }
+      return;
+    }
+
+    const stats = {
+      ship_level: shipLevel,
+      ship_condition: shipCondition,
+      current_hp: shipCurrentHp,
+      max_hp: shipMaxHp,
+      cannon_level: cannonLevel,
+      cannon_count: cannonCount,
+      shield_level: shieldLevel,
+      avatar_url: profile?.avatarUrl || '',
+    };
+
+    try {
+      const res = await joinSpecificServer(
+        currentAccount.id,
+        currentAccount.username,
+        stats,
+        serverCode,
+        customServerName
+      );
+
+      if (res && res.success) {
+        setAssignedServerId(res.server_id);
+        const [dbPlayers, allServers] = await Promise.all([
+          fetchServerPlayers(res.server_id),
+          fetchAvailableServers(),
+        ]);
+
+        const mappedPlayers: Player[] = dbPlayers
+          .filter((p) => p.account_id !== currentAccount.id)
+          .map((p) => ({
+            id: p.account_id,
+            name: p.username,
+            title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+            avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
+            shipLevel: p.ship_level,
+            shipCondition: p.ship_condition,
+            currentHp: p.current_hp,
+            maxHp: p.max_hp,
+            cannonLevel: p.cannon_level,
+            cannonCount: p.cannon_count,
+            shieldLevel: p.shield_level,
+            equippedDecorations: p.equipped_decorations || [],
+            isOnline: p.is_online,
+          }));
+
+        const isPriv = res.server_code.startsWith('PRIV-');
+        const newServer: ServerInfo = {
+          code: res.server_code,
+          type: res.server_type || (isPriv ? 'private' : 'global'),
+          name:
+            res.server_name ||
+            (isPriv
+              ? `Private Island (${res.server_code})`
+              : `Global Fleet ${res.server_code.split('-')[1] || '1'}`),
+          playerCount: mappedPlayers.length + 1,
+          maxPlayers: res.max_players || 30,
+          players: mappedPlayers,
+        };
+
+        setCurrentServer(newServer);
+        if (allServers && allServers.length > 0) {
+          setServers(allServers);
+        }
+
+        // Persist preferred server choice
+        savePlayerProgress(currentAccount.id, {
+          last_server_code: res.server_code,
+        });
+
+        soundFx.playClick();
+      }
+    } catch (e) {
+      console.error('Failed to switch server:', e);
     }
   };
 
   // Create private beach server
-  const createPrivateServer = (serverName: string): string => {
+  const createPrivateServer = async (serverName: string): Promise<string> => {
     if (gems < 10) {
       alert('Not enough gems! Creating a Private Beach costs 10 gems.');
       return '';
     }
-    setGems(g => g - 10);
+    setGems((g) => g - 10);
     const newCode = `PRIV-${Math.floor(100 + Math.random() * 900)}`;
-    const newServer: ServerInfo = {
-      code: newCode,
-      type: 'private',
-      name: serverName || 'My Private Island Cove',
-      playerCount: 1,
-      maxPlayers: 20,
-      players: INITIAL_SERVERS[1].players.slice(0, 10),
-    };
-    setServers(prev => [...prev, newServer]);
-    setCurrentServer(newServer);
+    await switchServer(newCode, serverName.trim());
     soundFx.playVictory();
     return newCode;
   };
@@ -2045,8 +2276,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       alert('Not enough Energy! You need 1 Energy to launch a Bomb raid. Energy refills daily!');
       return null;
     }
-    if (shipCondition <= 50) {
-      alert('Ship condition is too low (<= 50%)! Repair your ship before entering battle.');
+    if (shipCondition <= 0) {
+      alert('Ship is destroyed (0% condition)! Repair or rebuild your ship before entering battle.');
       return null;
     }
 
@@ -2156,6 +2387,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       condition: enemyHpPercent,
       cannon_count: updatedTargetPlayer.cannonCount,
     });
+    applyDamageToPlayer(target.id, enemyRemainingHp, enemyHpPercent);
 
     setServers(prevServers =>
       prevServers.map(srv => {
@@ -2174,18 +2406,58 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       players: prev.players.map(p => (p.id === target.id ? updatedTargetPlayer : p)),
     }));
 
-    // Log the raid
+    // Log the raid (My Strikes)
     const newLog: RaidLog = {
       id: `log_${Date.now()}`,
       timestamp: 'Just now',
+      createdAt: Date.now(),
       type: 'attack',
       opponentName: target.name,
       outcome: 'victory',
       coinsChange: coinsEarned,
       damage: finalDamage,
       cannonLostOrWon: cannonLooted ? `Looted Lv${lootedCannonLevel} Cannon!` : undefined,
+      viewed: true,
     };
     setRaidLogs(prev => [newLog, ...prev]);
+    if (currentAccount) { addGameRecord(currentAccount.id, 'raid_log', newLog); }
+
+    // Add defense log for the target player
+    const targetDefenseLog: RaidLog = {
+      id: `defense_${Date.now()}`,
+      timestamp: 'Just now',
+      createdAt: Date.now(),
+      type: 'defense',
+      opponentName: currentAccount ? currentAccount.username : 'Unknown Captain',
+      outcome: 'defended',
+      coinsChange: -coinsEarned, // Target loses what you earned? (Actually we can just say 0 or negative)
+      damage: finalDamage,
+      viewed: false,
+    };
+    addGameRecord(target.id, 'raid_log', targetDefenseLog);
+
+    // 40% chance of an enemy assault retaliation after attacking
+    if (Math.random() <= 0.4) {
+      setTimeout(() => {
+        const incomingDamage = Math.floor(40 + Math.random() * 80);
+        const coinsLost = Math.floor(10 + Math.random() * 25);
+        setShipCondition(sc => Math.max(10, sc - Math.floor(incomingDamage / 25)));
+        const counterAssaultLog: RaidLog = {
+          id: `defense_${Date.now()}`,
+          timestamp: 'Just now',
+          createdAt: Date.now(),
+          type: 'defense',
+          opponentName: target.name,
+          outcome: 'defended',
+          coinsChange: -coinsLost,
+          damage: incomingDamage,
+          viewed: false,
+        };
+        setRaidLogs(prev => [counterAssaultLog, ...prev]);
+        if (currentAccount) { addGameRecord(currentAccount.id, 'raid_log', counterAssaultLog); }
+        soundFx.playCannonBomb();
+      }, 4000);
+    }
 
     return {
       targetPlayer: updatedTargetPlayer,
@@ -2222,7 +2494,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  // Rebuild ship from 0% to 5% (costs 100 coins)
+  // Rebuild ship from 0% to 50% (costs 100 coins)
   const rebuildShip = (): boolean => {
     if (shipCondition > 0) {
       alert('Ship is not destroyed (condition > 0%). Use Repair instead!');
@@ -2234,7 +2506,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setCoins(c => c - 100);
-    setShipCondition(5);
+    setShipCondition(50);
     soundFx.playUpgrade();
     return true;
   };
@@ -2392,7 +2664,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     soundFx.playClick();
   };
 
-  // Watch Ad for Gems (+5 gems, maximum 3 times a day)
+  // Watch Ad for Gems (+1 gem, maximum 3 times a day)
   const watchAdForGems = (): boolean => {
     const today = new Date().toISOString().split('T')[0];
     const savedDate = localStorage.getItem('pirate_ad_date');
@@ -2413,7 +2685,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('pirate_ad_count', nextCount.toString());
     } catch (e) {}
 
-    setGems(g => g + 5);
+    setGems(g => g + 1);
     soundFx.playVictory();
     return true;
   };
@@ -2463,6 +2735,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         servers,
         switchServer,
         createPrivateServer,
+        refreshServerPlayers,
         totalStepsToday,
         stepRecords,
         dailyCoinsHistory,
@@ -2525,6 +2798,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         openShopModal,
         closeShopModal,
         raidLogs,
+        unreadDefenseCount,
+        markDefenseLogsAsRead,
         isMuted,
         toggleMute,
         language,

@@ -27,7 +27,7 @@ interface ShipBuildScreenProps {
 export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
   openModal,
 }) => {
-  const { shipCondition, raidLogs, t } = useGame();
+  const { shipCondition, unreadDefenseCount, t } = useGame();
 
   return (
     <div className="relative h-full w-full flex flex-col overflow-hidden select-none bg-sky-950">
@@ -84,9 +84,9 @@ export const ShipBuildScreen: React.FC<ShipBuildScreenProps> = ({
               onClick={() => openModal("raids")}
               className="tutorial-raids relative group bg-rose-500 hover:bg-rose-400 active:scale-95 transition-all border-b-[4px] border-rose-700 py-2.5 sm:py-3.5 rounded-2xl flex flex-col items-center justify-center gap-1 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
             >
-              {raidLogs.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-950 text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md border border-rose-600 z-10">
-                  {raidLogs.length}
+              {unreadDefenseCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md border border-white z-10 animate-pulse">
+                  {unreadDefenseCount}
                 </span>
               )}
               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-2xl pointer-events-none" />

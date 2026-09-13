@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useGame } from "../context/GameContext";
 import { Globe, Lock, Plus, Check, X } from "lucide-react";
 
@@ -7,10 +7,15 @@ interface ServerModalProps {
 }
 
 export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
-  const { currentServer, servers, switchServer, createPrivateServer, gems, t } =
+  const { currentServer, servers, switchServer, createPrivateServer, refreshServerPlayers, gems, t } =
     useGame();
   const [newIslandName, setNewIslandName] = useState<string>("");
   const [customCodeInput, setCustomCodeInput] = useState<string>("");
+
+  // Refresh authoritative counts on mount
+  useEffect(() => {
+    refreshServerPlayers?.();
+  }, [refreshServerPlayers]);
 
   const handleCreateServer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,8 +110,12 @@ export const ServerModal: React.FC<ServerModalProps> = ({ onClose }) => {
                         <div className="text-xs font-black text-white font-serif">
                           {s.name}
                         </div>
-                        <div className="text-[10px] text-[#fde68a]/80 font-mono">
-                          {t("server_code")}: {s.code} • {s.playerCount}/{s.maxPlayers} {t("ships")}
+                        <div className="text-[10px] text-[#fde68a]/80 font-mono flex items-center gap-1.5 mt-0.5">
+                          <span>{t("server_code")}: <span className="text-white font-bold">{s.code}</span></span>
+                          <span>•</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-black/40 text-[#fbbf24] font-bold border border-[#b45309]/50">
+                            {s.playerCount}/{s.maxPlayers} {t("ships")}
+                          </span>
                         </div>
                       </div>
                     </div>

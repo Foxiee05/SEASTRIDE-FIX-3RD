@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS public.player_progress (
   energy INTEGER NOT NULL DEFAULT 5,
   max_energy INTEGER NOT NULL DEFAULT 5,
   player_level INTEGER NOT NULL DEFAULT 1,
-  player_xp INTEGER NOT NULL DEFAULT 250,
+  player_xp INTEGER NOT NULL DEFAULT 0,
   ship_level INTEGER NOT NULL DEFAULT 1,
   ship_condition INTEGER NOT NULL DEFAULT 75,
   ship_current_hp INTEGER NOT NULL DEFAULT 3750,
@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS public.global_servers (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_global_servers_code_upper ON public.global_servers (UPPER(code));
 CREATE INDEX IF NOT EXISTS idx_global_servers_code ON public.global_servers(code);
 
 -- Seed initial global-1 if not exists
@@ -291,7 +292,7 @@ BEGIN
 END;
 $$;
 
--- RPC: Leave global server on logout or disconnect
+-- RPC: Leave global server on logout or disconnect (mark offline instead of delete)
 CREATE OR REPLACE FUNCTION public.leave_global_server(
   p_account_id UUID
 )
@@ -299,18 +300,11 @@ RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
-DECLARE
-  v_server_id UUID;
 BEGIN
-  DELETE FROM public.global_server_players
-  WHERE account_id = p_account_id
-  RETURNING server_id INTO v_server_id;
-
-  IF v_server_id IS NOT NULL THEN
-    UPDATE public.global_servers
-    SET status = 'active'
-    WHERE id = v_server_id AND status = 'full';
-  END IF;
+  UPDATE public.global_server_players
+  SET is_online = false,
+      last_seen_at = now()
+  WHERE account_id = p_account_id;
 
   RETURN jsonb_build_object('success', true);
 END;

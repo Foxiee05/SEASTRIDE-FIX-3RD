@@ -245,6 +245,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const hasAutoStartedRef = useRef(false);
+  const lastProcessedTriggerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleAdvance = () => {
@@ -271,6 +272,10 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
   // Explicit Trigger (When user clicks "?" help button on HUD)
   useEffect(() => {
     if (!tutorialTrigger) return;
+    if (lastProcessedTriggerRef.current === tutorialTrigger.timestamp) {
+      return;
+    }
+    lastProcessedTriggerRef.current = tutorialTrigger.timestamp;
 
     const currentTab = tutorialTrigger.tab || activeTab;
 
@@ -288,14 +293,24 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     const step = globalSteps[targetIndex];
     if (!step) return;
 
-    // Stop current run first to cleanly reset Floating UI calculations
-    setRun(false);
-
     if (step._tab !== activeTab) {
       setActiveTab(step._tab as any);
-    }
-
-    const timer = setTimeout(() => {
+      const timer = setTimeout(() => {
+        if (step.target !== "body") {
+          const el = document.querySelector(step.target as string);
+          if (el) {
+            el.scrollIntoView({
+              behavior: "auto",
+              block: "nearest",
+              inline: "nearest",
+            });
+          }
+        }
+        setStepIndex(targetIndex);
+        setRun(true);
+      }, 80);
+      return () => clearTimeout(timer);
+    } else {
       if (step.target !== "body") {
         const el = document.querySelector(step.target as string);
         if (el) {
@@ -307,14 +322,9 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         }
       }
       setStepIndex(targetIndex);
-
-      setTimeout(() => {
-        setRun(true);
-      }, 50);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [tutorialTrigger, globalSteps]);
+      setRun(true);
+    }
+  }, [tutorialTrigger, globalSteps, activeTab, setActiveTab]);
 
   // Instant scroll alignment to current tutorial target whenever step or tab changes
   useEffect(() => {
@@ -330,7 +340,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         inline: "nearest",
       });
     }
-  }, [stepIndex, run, activeTab, globalSteps]);
+  }, [stepIndex, run, activeTab]);
 
   const handleJoyrideCallback = (data: any) => {
     const { action, index, status, type, step } = data;
@@ -357,6 +367,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
       finishedStatuses.includes(status as any)
     ) {
       setRun(false);
+      lastProcessedTriggerRef.current = null;
       localStorage.setItem("seastride_has_seen_global_tutorial_v7", "true");
       if (onTutorialEnd) onTutorialEnd();
       return;
@@ -365,11 +376,6 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
     if (type === EVENTS.TOOLTIP || type === EVENTS.STEP_BEFORE) {
       const targetEl = document.querySelector(step.target as string);
       if (targetEl && step.target !== "body") {
-        targetEl.scrollIntoView({
-          behavior: "auto",
-          block: "nearest",
-          inline: "nearest",
-        });
         targetEl.classList.add("tutorial-active-target");
       }
     }
@@ -457,6 +463,7 @@ export const TutorialOverlay: React.FC<TutorialProps> = ({
         overlayClickAction: false,
         dismissKeyAction: false,
         skipBeacon: true,
+        skipScroll: true,
       }}
       floatingOptions={{
         shiftOptions: {

@@ -73,8 +73,8 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose, onSelectTarge
       alert("Not enough Energy! You need 1 Energy to launch a Bomb raid.");
       return;
     }
-    if (shipCondition <= 50) {
-      alert("Ship condition is too low (<= 50%)! Repair your ship before entering battle.");
+    if (shipCondition <= 0) {
+      alert("Ship is destroyed (0% condition)! Repair or rebuild your ship before entering battle.");
       return;
     }
     if (onSelectTargetForAttack) {

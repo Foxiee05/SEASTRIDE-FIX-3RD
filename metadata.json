@@ -1,6 +1,12 @@
 {
-  "name": "SeaStride",
+  "name": "Remix Remix SeaStride",
   "description": "Pirate ship step tracker and battle game with upgrades, raids, and footstep resource management.",
-  "requestFramePermissions": ["accelerometer", "gyroscope", "geolocation"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "requestFramePermissions": [
+    "accelerometer",
+    "gyroscope",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
