@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useGame } from "../context/GameContext";
-import { Anchor, ShieldAlert, UserPlus, LogIn, AlertCircle, Sparkles, Check, Database, X, Keyboard } from "lucide-react";
-import { isSupabaseConfigured, validateUsername } from "../utils/supabaseClient";
+import { Anchor, ShieldAlert, UserPlus, LogIn, AlertCircle, Sparkles, Check, X } from "lucide-react";
+import { validateUsername } from "../utils/supabaseClient";
 import { NameTypingOverlay } from "./NameTypingOverlay";
 
 interface AccountAuthModalProps {
@@ -26,8 +26,6 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
   const [isTypingOverlayOpen, setIsTypingOverlayOpen] = useState<boolean>(false);
 
   if (!isOpen) return null;
-
-  const isConfigured = isSupabaseConfigured();
 
   const updateUsernameValue = (val: string) => {
     setUsernameInput(val);
@@ -111,9 +109,6 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
           <h1 className="text-xl font-serif font-black uppercase text-[#fde68a] tracking-wider drop-shadow-md">
             SeaStride Pirates
           </h1>
-          <p className="text-xs text-[#fde68a]/80 font-serif italic mt-0.5">
-            Step Tracker & Naval Warfare
-          </p>
         </div>
 
         {/* Body Content */}
@@ -130,16 +125,6 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
               </p>
             </div>
           </div>
-
-          {/* Database Connection Status Info */}
-          {!isConfigured && (
-            <div className="bg-[#1e1b4b]/80 border border-sky-600/40 rounded-xl p-2.5 text-[11px] text-sky-200 flex items-center gap-2">
-              <Database className="w-4 h-4 text-sky-400 shrink-0" />
-              <span>
-                Operating with persistent local demo storage. Add <code className="text-amber-300">SUPABASE_ANON_KEY</code> to enable live Supabase cloud sync.
-              </span>
-            </div>
-          )}
 
           {/* MODE: Choose Choice */}
           {mode === "choose" && (
@@ -229,10 +214,6 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
                         Tap here to type name...
                       </span>
                     )}
-                  </span>
-                  <span className="flex items-center gap-1 text-[10px] bg-[#4a2c17] group-hover:bg-[#b45309] text-amber-200 border border-amber-600/50 px-2 py-0.5 rounded font-mono shrink-0 ml-2 transition-colors">
-                    <Keyboard className="w-3 h-3 text-[#facc15]" />
-                    <span>Type</span>
                   </span>
                 </div>
                 <p className="text-[10px] text-[#fde68a]/70 font-mono mt-1">
@@ -329,10 +310,6 @@ export const AccountAuthModal: React.FC<AccountAuthModalProps> = ({
                         Tap here to type name...
                       </span>
                     )}
-                  </span>
-                  <span className="flex items-center gap-1 text-[10px] bg-[#4a2c17] group-hover:bg-[#b45309] text-amber-200 border border-amber-600/50 px-2 py-0.5 rounded font-mono shrink-0 ml-2 transition-colors">
-                    <Keyboard className="w-3 h-3 text-[#facc15]" />
-                    <span>Type</span>
                   </span>
                 </div>
                 <p className="text-[10px] text-[#fde68a]/70 font-mono mt-1">

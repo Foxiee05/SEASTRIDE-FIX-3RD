@@ -100,29 +100,9 @@ export const NameTypingOverlay: React.FC<NameTypingOverlayProps> = ({
           </button>
         </div>
 
-        {/* Large Text Display Box - Displays every typed word largely */}
-        <div className="bg-[#140b0a] border-2 border-[#facc15] rounded-2xl p-3.5 sm:p-4 min-h-[76px] sm:min-h-[88px] flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
-          <span className="text-[10px] font-mono text-amber-400/70 uppercase tracking-widest mb-1">
-            Display Preview
-          </span>
-          <div className="text-2xl sm:text-3xl font-mono font-black text-[#fde68a] tracking-wider text-center break-all leading-tight flex items-center justify-center">
-            {value ? (
-              <span>
-                {value}
-                <span className="inline-block w-1.5 h-6 bg-[#facc15] ml-1 animate-pulse align-middle" />
-              </span>
-            ) : (
-              <span className="text-stone-500 font-normal italic text-base sm:text-xl">
-                {placeholder}
-              </span>
-            )}
-          </div>
-        </div>
-
         {/* Direct Input Field placed at the top safe zone so keyboard won't move screen */}
         <div className="space-y-1">
-          <div className="flex justify-between items-center text-[10px] font-mono text-[#fde68a]/80 px-1">
-            <span>Type with phone keyboard:</span>
+          <div className="flex justify-end items-center text-[10px] font-mono text-[#fde68a]/80 px-1">
             <span>
               {value.length}/{maxLength}
             </span>
