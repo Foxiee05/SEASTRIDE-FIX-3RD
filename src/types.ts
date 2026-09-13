@@ -30,7 +30,8 @@ export interface ShieldItem {
 }
 
 export interface Player {
-  id: string;
+  id: string; // account_id UUID
+  account_id: string; // stable Supabase account_id UUID
   name: string;
   title: string;
   avatarUrl: string;

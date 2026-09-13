@@ -14,7 +14,7 @@ interface AttackModalProps {
 }
 
 export const AttackModal: React.FC<AttackModalProps> = ({ onClose, onSelectTargetForAttack }) => {
-  const { currentServer, attackPlayer, energy, t, shipCondition } = useGame();
+  const { currentServer, currentAccount, attackPlayer, energy, t, shipCondition } = useGame();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [minigameTarget, setMinigameTarget] = useState<Player | null>(null);
   const [isAttacking, setIsAttacking] = useState<boolean>(false);
@@ -22,7 +22,10 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose, onSelectTarge
   const [isShaking, setIsShaking] = useState<boolean>(false);
   const bombCutout = useCutoutImage(ASSETS.bombBtn);
 
-  const players = currentServer.players;
+  // Authoritative rival targets: exclude the logged-in player from bomb targets
+  const players = currentServer.players.filter(
+    (p) => (p.account_id || p.id) !== currentAccount?.id
+  );
 
   // Trigger fireworks and shake effect on WIN / PERFECT HIT
   useEffect(() => {
@@ -271,14 +274,20 @@ export const AttackModal: React.FC<AttackModalProps> = ({ onClose, onSelectTarge
 
               {/* Player list */}
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {players.map((p) => (
-                  <PlayerTargetItem
-                    key={p.id}
-                    player={p}
-                    isSelected={selectedPlayer?.id === p.id}
-                    onSelect={() => setSelectedPlayer(p)}
-                  />
-                ))}
+                {players.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-[#fde68a]/70 font-mono">
+                    {t("no_rival_ships_in_fleet", "No other pirate ships in this fleet yet.")}
+                  </div>
+                ) : (
+                  players.map((p) => (
+                    <PlayerTargetItem
+                      key={p.account_id || p.id}
+                      player={p}
+                      isSelected={(selectedPlayer?.account_id || selectedPlayer?.id) === (p.account_id || p.id)}
+                      onSelect={() => setSelectedPlayer(p)}
+                    />
+                  ))
+                )}
               </div>
 
               {/* Selected Target Summary & Fire Button */}

@@ -30,6 +30,7 @@ import { soundFx } from "../utils/audio";
 
 interface SailingShip {
   id: string;
+  account_id: string;
   name: string;
   title: string;
   isPlayer: boolean;
@@ -67,6 +68,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
 }) => {
   const {
     currentServer,
+    currentAccount,
     shipLevel,
     shipCondition,
     shipCurrentHp,
@@ -147,9 +149,13 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
   // Handle attack target passed from AttackModal or parent
   useEffect(() => {
     if (selectedTargetPlayer) {
-      const existing = ships.find((s) => s.id === selectedTargetPlayer.id);
+      const targetAccountId = selectedTargetPlayer.account_id || selectedTargetPlayer.id;
+      const existing = ships.find(
+        (s) => s.account_id === targetAccountId || s.id === targetAccountId
+      );
       const targetShip: SailingShip = existing || {
-        id: selectedTargetPlayer.id,
+        id: targetAccountId,
+        account_id: targetAccountId,
         name: selectedTargetPlayer.name,
         title: selectedTargetPlayer.title,
         isPlayer: false,
@@ -176,71 +182,111 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
     }
   }, [selectedTargetPlayer, ships, onMinigameActive, onClearSelectedTarget]);
 
-  // Create initial fleet
+  // Authoritative fleet rendering: each account in the server renders strictly once.
+  // The logged-in account renders as the player-controlled ship, and all other accounts render as rival ships.
   useEffect(() => {
     const list: SailingShip[] = [];
+    const myAccountId = currentAccount?.id;
+    let playerFlagshipAdded = false;
 
-    // 1. Add Player's own flagship
-    const existingPlayer = shipsRef.current.find((s) => s.isPlayer);
-    list.push({
-      id: "player_flagship",
-      name: t("your_flagship"),
-      title: "Captain",
-      isPlayer: true,
-      x: existingPlayer ? existingPlayer.x : 45 + (Math.random() * 10 - 5),
-      y: existingPlayer ? existingPlayer.y : 50 + (Math.random() * 10 - 5),
-      vx: existingPlayer ? existingPlayer.vx : (Math.random() - 0.5) * 0.08,
-      vy: existingPlayer ? existingPlayer.vy : (Math.random() - 0.5) * 0.08,
-      shipLevel,
-      shipCondition,
-      currentHp: shipCurrentHp,
-      maxHp: shipMaxHp,
-      cannonLevel,
-      cannonCount,
-      shieldLevel,
-      equippedDecorations: Array.isArray(equippedDecorations) ? [...equippedDecorations] : [],
-    });
-
-    // 2. Add server opponent ships
     currentServer.players.forEach((p, idx) => {
-      const existingOpponent = shipsRef.current.find((s) => s.id === p.id);
+      const pAccountId = p.account_id || p.id;
+      const isMe = Boolean(myAccountId && pAccountId === myAccountId);
+
+      const existingShip = shipsRef.current.find(
+        (s) => (s.account_id || s.id) === pAccountId
+      );
+
       const col = idx % 4;
       const row = Math.floor(idx / 4);
       const startX = 15 + col * 22 + (Math.random() * 8 - 4);
       const startY = 15 + row * 22 + (Math.random() * 8 - 4);
 
       const angle = Math.random() * Math.PI * 2;
-      const speed = 0.03 + Math.random() * 0.04;
+      const speed = isMe ? 0.04 : 0.03 + Math.random() * 0.04;
 
-      const decs: string[] = Array.isArray(p.equippedDecorations)
-        ? p.equippedDecorations
-        : [];
+      if (isMe) {
+        playerFlagshipAdded = true;
+        list.push({
+          id: pAccountId,
+          account_id: pAccountId,
+          name: t("your_flagship"),
+          title: "Captain",
+          isPlayer: true,
+          playerData: p,
+          x: existingShip ? existingShip.x : 45 + (Math.random() * 10 - 5),
+          y: existingShip ? existingShip.y : 50 + (Math.random() * 10 - 5),
+          vx: existingShip ? existingShip.vx : (Math.random() - 0.5) * 0.08,
+          vy: existingShip ? existingShip.vy : (Math.random() - 0.5) * 0.08,
+          shipLevel,
+          shipCondition,
+          currentHp: shipCurrentHp,
+          maxHp: shipMaxHp,
+          cannonLevel,
+          cannonCount,
+          shieldLevel,
+          equippedDecorations: Array.isArray(equippedDecorations) ? [...equippedDecorations] : [],
+        });
+      } else {
+        const decs: string[] = Array.isArray(p.equippedDecorations)
+          ? p.equippedDecorations
+          : [];
 
-      list.push({
-        id: p.id,
-        name: p.name,
-        title: p.title,
-        isPlayer: false,
-        playerData: p,
-        x: existingOpponent ? existingOpponent.x : Math.max(10, Math.min(85, startX)),
-        y: existingOpponent ? existingOpponent.y : Math.max(10, Math.min(80, startY)),
-        vx: existingOpponent ? existingOpponent.vx : Math.cos(angle) * speed,
-        vy: existingOpponent ? existingOpponent.vy : Math.sin(angle) * speed,
-        shipLevel: p.shipLevel,
-        shipCondition: p.shipCondition,
-        currentHp: p.currentHp,
-        maxHp: p.maxHp,
-        cannonLevel: p.cannonLevel,
-        cannonCount: p.cannonCount,
-        shieldLevel: p.shieldLevel,
-        equippedDecorations: decs,
-      });
+        list.push({
+          id: pAccountId,
+          account_id: pAccountId,
+          name: p.name,
+          title: p.title,
+          isPlayer: false,
+          playerData: p,
+          x: existingShip ? existingShip.x : Math.max(10, Math.min(85, startX)),
+          y: existingShip ? existingShip.y : Math.max(10, Math.min(80, startY)),
+          vx: existingShip ? existingShip.vx : Math.cos(angle) * speed,
+          vy: existingShip ? existingShip.vy : Math.sin(angle) * speed,
+          shipLevel: p.shipLevel,
+          shipCondition: p.shipCondition,
+          currentHp: p.currentHp,
+          maxHp: p.maxHp,
+          cannonLevel: p.cannonLevel,
+          cannonCount: p.cannonCount,
+          shieldLevel: p.shieldLevel,
+          equippedDecorations: decs,
+        });
+      }
     });
+
+    // Fallback: If currentServer.players has not yet loaded the account, ensure the player's flagship
+    // is rendered locally without creating a duplicate.
+    if (!playerFlagshipAdded && myAccountId) {
+      const existingPlayer = shipsRef.current.find(
+        (s) => s.isPlayer || (s.account_id || s.id) === myAccountId
+      );
+      list.unshift({
+        id: myAccountId,
+        account_id: myAccountId,
+        name: t("your_flagship"),
+        title: "Captain",
+        isPlayer: true,
+        x: existingPlayer ? existingPlayer.x : 45 + (Math.random() * 10 - 5),
+        y: existingPlayer ? existingPlayer.y : 50 + (Math.random() * 10 - 5),
+        vx: existingPlayer ? existingPlayer.vx : (Math.random() - 0.5) * 0.08,
+        vy: existingPlayer ? existingPlayer.vy : (Math.random() - 0.5) * 0.08,
+        shipLevel,
+        shipCondition,
+        currentHp: shipCurrentHp,
+        maxHp: shipMaxHp,
+        cannonLevel,
+        cannonCount,
+        shieldLevel,
+        equippedDecorations: Array.isArray(equippedDecorations) ? [...equippedDecorations] : [],
+      });
+    }
 
     setShips(list);
     shipsRef.current = list;
   }, [
-    currentServer,
+    currentServer.players,
+    currentAccount?.id,
     shipLevel,
     shipCondition,
     shipCurrentHp,
@@ -249,6 +295,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
     cannonCount,
     shieldLevel,
     equippedDecorations,
+    t,
   ]);
 
   // Silky smooth 60 FPS physics animation loop using direct DOM transforms for 0-lag rendering
@@ -287,7 +334,7 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
           ship.vx = nvx;
           ship.vy = nvy;
 
-          const el = shipDOMRefs.current[ship.id];
+          const el = shipDOMRefs.current[ship.account_id || ship.id];
           if (el) {
             el.style.left = `${nx}%`;
             el.style.top = `${ny}%`;
@@ -310,7 +357,10 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
   // Handler for Bomb Random Ship
   const handleBombRandomShip = () => {
     const enemyShips = ships.filter((s) => !s.isPlayer && s.playerData);
-    if (enemyShips.length === 0) return;
+    if (enemyShips.length === 0) {
+      alert("No other pirate ships in this fleet yet!");
+      return;
+    }
     const randomIndex = Math.floor(Math.random() * enemyShips.length);
     const target = enemyShips[randomIndex];
     setSelectedShip(target);
@@ -399,18 +449,21 @@ export const TheSeaView: React.FC<TheSeaViewProps> = ({
 
       {/* Sailing Ships Container */}
       <div className="absolute inset-0 z-10 overflow-hidden">
-        {ships.map((ship) => (
-          <ShipOnSeaItem
-            key={ship.id}
-            ship={ship}
-            domRef={(el) => {
-              shipDOMRefs.current[ship.id] = el;
-            }}
-            isSelected={selectedShip?.id === ship.id}
-            onClick={() => setSelectedShip(ship)}
-            onFireBomb={() => handleFireBombOnShip(ship)}
-          />
-        ))}
+        {ships.map((ship) => {
+          const shipKey = ship.account_id || ship.id;
+          return (
+            <ShipOnSeaItem
+              key={shipKey}
+              ship={ship}
+              domRef={(el) => {
+                shipDOMRefs.current[shipKey] = el;
+              }}
+              isSelected={Boolean(selectedShip && (selectedShip.account_id || selectedShip.id) === shipKey)}
+              onClick={() => setSelectedShip(ship)}
+              onFireBomb={() => handleFireBombOnShip(ship)}
+            />
+          );
+        })}
       </div>
 
       {minigameTarget && (

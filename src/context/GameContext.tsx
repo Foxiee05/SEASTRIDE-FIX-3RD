@@ -637,23 +637,42 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fetchAvailableServers(),
         ]);
 
-        const mappedPlayers: Player[] = dbPlayers
-          .filter((p) => p.account_id !== acc.id)
-          .map((p) => ({
-            id: p.account_id,
-            name: p.username,
-            title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
-            avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
-            shipLevel: p.ship_level,
-            shipCondition: p.ship_condition,
-            currentHp: p.current_hp,
-            maxHp: p.max_hp,
-            cannonLevel: p.cannon_level,
-            cannonCount: p.cannon_count,
-            shieldLevel: p.shield_level,
-            equippedDecorations: p.equipped_decorations || [],
-            isOnline: p.is_online,
-          }));
+        const mappedPlayers: Player[] = dbPlayers.map((p) => ({
+          id: p.account_id,
+          account_id: p.account_id,
+          name: p.username,
+          title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+          avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
+          shipLevel: p.ship_level,
+          shipCondition: p.ship_condition,
+          currentHp: p.current_hp,
+          maxHp: p.max_hp,
+          cannonLevel: p.cannon_level,
+          cannonCount: p.cannon_count,
+          shieldLevel: p.shield_level,
+          equippedDecorations: p.equipped_decorations || [],
+          isOnline: p.is_online,
+        }));
+
+        // Authoritative membership: guarantee the logged-in account is present exactly once
+        if (!mappedPlayers.some((p) => p.account_id === acc.id)) {
+          mappedPlayers.unshift({
+            id: acc.id,
+            account_id: acc.id,
+            name: acc.username,
+            title: stats.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+            avatarUrl: stats.avatar_url || PIRATE_AVATARS[0].url,
+            shipLevel: stats.ship_level,
+            shipCondition: stats.ship_condition,
+            currentHp: stats.current_hp,
+            maxHp: stats.max_hp,
+            cannonLevel: stats.cannon_level,
+            cannonCount: stats.cannon_count,
+            shieldLevel: stats.shield_level,
+            equippedDecorations: Array.isArray(equippedDecorations) ? [...equippedDecorations] : [],
+            isOnline: true,
+          });
+        }
 
         const isPriv = assignment.server_code.startsWith('PRIV-');
         const assignAny = assignment as any;
@@ -665,7 +684,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             (isPriv
               ? `Private Island (${assignment.server_code})`
               : `Global Fleet ${assignment.server_code.split('-')[1] || '1'}`),
-          playerCount: dbPlayers.length,
+          playerCount: mappedPlayers.length,
           maxPlayers: assignAny.max_players || 30, // 30 ships max!
           players: mappedPlayers,
         };
@@ -889,70 +908,70 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { eventType, new: newRecord, old: oldRecord } = payload;
 
       if (eventType === 'INSERT' && newRecord) {
-        if (newRecord.account_id !== currentAccount.id) {
-          const newPlayer: Player = {
-            id: newRecord.account_id,
-            name: newRecord.username,
-            title: newRecord.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
-            avatarUrl: newRecord.avatar_url || PIRATE_AVATARS[0].url,
-            shipLevel: newRecord.ship_level,
-            shipCondition: newRecord.ship_condition,
-            currentHp: newRecord.current_hp,
-            maxHp: newRecord.max_hp,
-            cannonLevel: newRecord.cannon_level,
-            cannonCount: newRecord.cannon_count,
-            shieldLevel: newRecord.shield_level,
-            equippedDecorations: newRecord.equipped_decorations || [],
-            isOnline: newRecord.is_online,
-          };
+        const newPlayer: Player = {
+          id: newRecord.account_id,
+          account_id: newRecord.account_id,
+          name: newRecord.username,
+          title: newRecord.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+          avatarUrl: newRecord.avatar_url || PIRATE_AVATARS[0].url,
+          shipLevel: newRecord.ship_level,
+          shipCondition: newRecord.ship_condition,
+          currentHp: newRecord.current_hp,
+          maxHp: newRecord.max_hp,
+          cannonLevel: newRecord.cannon_level,
+          cannonCount: newRecord.cannon_count,
+          shieldLevel: newRecord.shield_level,
+          equippedDecorations: newRecord.equipped_decorations || [],
+          isOnline: newRecord.is_online,
+        };
 
-          setCurrentServer((prev) => {
-            const exists = prev.players.some((p) => p.id === newPlayer.id);
-            const updated = exists
-              ? prev.players.map((p) => (p.id === newPlayer.id ? newPlayer : p))
-              : [...prev.players, newPlayer];
-            return {
-              ...prev,
-              playerCount: updated.length + 1,
-              players: updated,
-            };
-          });
-        }
+        setCurrentServer((prev) => {
+          const exists = prev.players.some((p) => (p.account_id || p.id) === newPlayer.account_id);
+          const updated = exists
+            ? prev.players.map((p) => ((p.account_id || p.id) === newPlayer.account_id ? newPlayer : p))
+            : [...prev.players, newPlayer];
+          return {
+            ...prev,
+            playerCount: updated.length,
+            players: updated,
+          };
+        });
       } else if (eventType === 'UPDATE' && newRecord) {
-        if (newRecord.account_id !== currentAccount.id) {
-          const updatedShipLevel = Number(newRecord.ship_level) || 1;
-          const updatedMaxHp = Number(newRecord.max_hp) || (5000 + (updatedShipLevel - 1) * 5000);
-          const updatedCondition = newRecord.ship_condition !== undefined ? Number(newRecord.ship_condition) : 100;
-          const updatedCurrentHp = newRecord.current_hp !== undefined ? Number(newRecord.current_hp) : Math.round(updatedMaxHp * (updatedCondition / 100));
+        const updatedShipLevel = Number(newRecord.ship_level) || 1;
+        const updatedMaxHp = Number(newRecord.max_hp) || (5000 + (updatedShipLevel - 1) * 5000);
+        const updatedCondition = newRecord.ship_condition !== undefined ? Number(newRecord.ship_condition) : 100;
+        const updatedCurrentHp = newRecord.current_hp !== undefined ? Number(newRecord.current_hp) : Math.round(updatedMaxHp * (updatedCondition / 100));
 
-          const incomingPlayer: Player = {
-            id: newRecord.account_id,
-            name: newRecord.username || 'Rival Captain',
-            title: updatedShipLevel >= 5 ? 'Fleet Commander' : 'Sea Strider',
-            avatarUrl: newRecord.avatar_url || PIRATE_AVATARS[0].url,
-            shipLevel: updatedShipLevel,
-            shipCondition: updatedCondition,
-            currentHp: updatedCurrentHp,
-            maxHp: updatedMaxHp,
-            cannonLevel: Number(newRecord.cannon_level) || 1,
-            cannonCount: Number(newRecord.cannon_count) || 1,
-            shieldLevel: newRecord.shield_level !== undefined ? Number(newRecord.shield_level) : 0,
-            equippedDecorations: newRecord.equipped_decorations || [],
-            isOnline: newRecord.is_online !== undefined ? newRecord.is_online : true,
+        const incomingPlayer: Player = {
+          id: newRecord.account_id,
+          account_id: newRecord.account_id,
+          name: newRecord.username || 'Rival Captain',
+          title: updatedShipLevel >= 5 ? 'Fleet Commander' : 'Sea Strider',
+          avatarUrl: newRecord.avatar_url || PIRATE_AVATARS[0].url,
+          shipLevel: updatedShipLevel,
+          shipCondition: updatedCondition,
+          currentHp: updatedCurrentHp,
+          maxHp: updatedMaxHp,
+          cannonLevel: Number(newRecord.cannon_level) || 1,
+          cannonCount: Number(newRecord.cannon_count) || 1,
+          shieldLevel: newRecord.shield_level !== undefined ? Number(newRecord.shield_level) : 0,
+          equippedDecorations: newRecord.equipped_decorations || [],
+          isOnline: newRecord.is_online !== undefined ? newRecord.is_online : true,
+        };
+
+        setCurrentServer((prev) => {
+          const exists = prev.players.some((p) => (p.account_id || p.id) === newRecord.account_id);
+          const nextList = exists
+            ? prev.players.map((p) => ((p.account_id || p.id) === newRecord.account_id ? incomingPlayer : p))
+            : [...prev.players, incomingPlayer];
+          return {
+            ...prev,
+            playerCount: nextList.length,
+            players: nextList,
           };
+        });
 
-          setCurrentServer((prev) => {
-            const exists = prev.players.some((p) => p.id === newRecord.account_id);
-            const nextList = exists
-              ? prev.players.map((p) => (p.id === newRecord.account_id ? incomingPlayer : p))
-              : [...prev.players, incomingPlayer];
-            return {
-              ...prev,
-              playerCount: nextList.length + 1,
-              players: nextList,
-            };
-          });
-        } else {
+        if (newRecord.account_id === currentAccount.id) {
           // If we receive an update about OURSELVES from the server
           // (e.g. another player bombed us, reducing our HP)
           if (newRecord.ship_condition !== undefined) {
@@ -997,10 +1016,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else if (eventType === 'DELETE' && oldRecord) {
         setCurrentServer((prev) => {
-          const filtered = prev.players.filter((p) => p.id !== oldRecord.account_id);
+          const filtered = prev.players.filter((p) => (p.account_id || p.id) !== oldRecord.account_id);
           return {
             ...prev,
-            playerCount: filtered.length + 1,
+            playerCount: filtered.length,
             players: filtered,
           };
         });
@@ -1016,48 +1035,65 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshServerPlayers = useCallback(async () => {
     if (!assignedServerId || !currentAccount) return;
     try {
-      const [dbPlayers, allServers] = await Promise.all([
-        fetchServerPlayers(assignedServerId),
-        fetchAvailableServers(),
-      ]);
+      const dbPlayers = await fetchServerPlayers(assignedServerId);
 
-      const mappedPlayers: Player[] = dbPlayers
-        .filter((p) => p.account_id !== currentAccount.id)
-        .map((p) => ({
-          id: p.account_id,
-          name: p.username,
-          title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
-          avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
-          shipLevel: p.ship_level,
-          shipCondition: p.ship_condition,
-          currentHp: p.current_hp,
-          maxHp: p.max_hp,
-          cannonLevel: p.cannon_level,
-          cannonCount: p.cannon_count,
-          shieldLevel: p.shield_level,
-          equippedDecorations: p.equipped_decorations || [],
-          isOnline: p.is_online,
-        }));
+      const mappedPlayers: Player[] = dbPlayers.map((p) => ({
+        id: p.account_id,
+        account_id: p.account_id,
+        name: p.username,
+        title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+        avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
+        shipLevel: p.ship_level,
+        shipCondition: p.ship_condition,
+        currentHp: p.current_hp,
+        maxHp: p.max_hp,
+        cannonLevel: p.cannon_level,
+        cannonCount: p.cannon_count,
+        shieldLevel: p.shield_level,
+        equippedDecorations: p.equipped_decorations || [],
+        isOnline: p.is_online,
+      }));
 
-      if (allServers && allServers.length > 0) {
-        setServers(allServers);
-        const currentInList = allServers.find((s) => s.code === currentServer.code);
-        setCurrentServer((prev) => ({
-          ...prev,
-          playerCount: currentInList ? currentInList.playerCount : dbPlayers.length,
-          players: mappedPlayers,
-        }));
-      } else {
-        setCurrentServer((prev) => ({
-          ...prev,
-          playerCount: dbPlayers.length,
-          players: mappedPlayers,
-        }));
+      // Authoritative: ensure the logged-in account is present exactly once
+      if (!mappedPlayers.some((p) => p.account_id === currentAccount.id)) {
+        mappedPlayers.unshift({
+          id: currentAccount.id,
+          account_id: currentAccount.id,
+          name: currentAccount.username,
+          title: shipLevel >= 5 ? 'Fleet Commander' : 'Sea Strider',
+          avatarUrl: PIRATE_AVATARS[0].url,
+          shipLevel,
+          shipCondition,
+          currentHp: shipCurrentHp,
+          maxHp: shipMaxHp,
+          cannonLevel,
+          cannonCount,
+          shieldLevel,
+          equippedDecorations: Array.isArray(equippedDecorations) ? [...equippedDecorations] : [],
+          isOnline: true,
+        });
       }
+
+      setCurrentServer((prev) => ({
+        ...prev,
+        playerCount: mappedPlayers.length,
+        players: mappedPlayers,
+      }));
     } catch (e) {
       console.warn('Error refreshing server players:', e);
     }
-  }, [assignedServerId, currentAccount?.id, currentServer.code]);
+  }, [
+    assignedServerId,
+    currentAccount,
+    shipLevel,
+    shipCondition,
+    shipCurrentHp,
+    shipMaxHp,
+    cannonLevel,
+    cannonCount,
+    shieldLevel,
+    equippedDecorations,
+  ]);
 
   useEffect(() => {
     if (!assignedServerId || !currentAccount) return;
@@ -2175,26 +2211,45 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fetchAvailableServers(),
         ]);
 
-        const mappedPlayers: Player[] = dbPlayers
-          .filter((p) => p.account_id !== currentAccount.id)
-          .map((p) => ({
-            id: p.account_id,
-            name: p.username,
-            title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
-            avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
-            shipLevel: p.ship_level,
-            shipCondition: p.ship_condition,
-            currentHp: p.current_hp,
-            maxHp: p.max_hp,
-            cannonLevel: p.cannon_level,
-            cannonCount: p.cannon_count,
-            shieldLevel: p.shield_level,
-            equippedDecorations: p.equipped_decorations || [],
-            isOnline: p.is_online,
-          }));
+        const mappedPlayers: Player[] = dbPlayers.map((p) => ({
+          id: p.account_id,
+          account_id: p.account_id,
+          name: p.username,
+          title: p.ship_level >= 5 ? 'Fleet Commander' : 'Sea Strider',
+          avatarUrl: p.avatar_url || PIRATE_AVATARS[0].url,
+          shipLevel: p.ship_level,
+          shipCondition: p.ship_condition,
+          currentHp: p.current_hp,
+          maxHp: p.max_hp,
+          cannonLevel: p.cannon_level,
+          cannonCount: p.cannon_count,
+          shieldLevel: p.shield_level,
+          equippedDecorations: p.equipped_decorations || [],
+          isOnline: p.is_online,
+        }));
+
+        // Authoritative: ensure the logged-in account is present exactly once
+        if (!mappedPlayers.some((p) => p.account_id === currentAccount.id)) {
+          mappedPlayers.unshift({
+            id: currentAccount.id,
+            account_id: currentAccount.id,
+            name: currentAccount.username,
+            title: shipLevel >= 5 ? 'Fleet Commander' : 'Sea Strider',
+            avatarUrl: profile?.avatarUrl || PIRATE_AVATARS[0].url,
+            shipLevel,
+            shipCondition,
+            currentHp: shipCurrentHp,
+            maxHp: shipMaxHp,
+            cannonLevel,
+            cannonCount,
+            shieldLevel,
+            equippedDecorations: Array.isArray(equippedDecorations) ? [...equippedDecorations] : [],
+            isOnline: true,
+          });
+        }
 
         const isPriv = res.server_code.startsWith('PRIV-');
-        const authoritativeCount = dbPlayers.length;
+        const authoritativeCount = mappedPlayers.length;
 
         const newServer: ServerInfo = {
           code: res.server_code,

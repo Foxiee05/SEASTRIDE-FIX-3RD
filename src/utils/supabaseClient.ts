@@ -437,46 +437,28 @@ export const getAccountByUsername = async (
       throw new Error(`Account "${username}" was not found. Please check spelling or create a new account.`);
     }
 
-    // Touch last_seen_at
-    await supabase.from('accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', account.id);
+    // Touch last_seen_at asynchronously without blocking the user
+    supabase.from('accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', account.id).then();
 
-    // Fetch progress
-    const { data: progress } = await supabase
-      .from('player_progress')
-      .select('*')
-      .eq('account_id', account.id)
-      .maybeSingle();
-
-    // Check last server assignment from global_server_players
-    let lastServerCode = progress?.last_server_code;
-    try {
-      const { data: serverPlayer } = await supabase
-        .from('global_server_players')
-        .select('server_id, global_servers ( code )')
+    // Fetch progress and game records in parallel for instant loading
+    const [progressResult, recordsResult] = await Promise.all([
+      supabase
+        .from('player_progress')
+        .select('*')
         .eq('account_id', account.id)
-        .maybeSingle();
-
-      if (serverPlayer && (serverPlayer as any).global_servers?.code) {
-        lastServerCode = (serverPlayer as any).global_servers.code;
-      }
-    } catch (e) {}
-
-    const progressWithServer: DbPlayerProgress | null = progress
-      ? { ...progress, last_server_code: lastServerCode || progress.last_server_code }
-      : null;
-
-    // Fetch game records
-    const { data: records } = await supabase
-      .from('game_records')
-      .select('*')
-      .eq('account_id', account.id)
-      .order('created_at', { ascending: false })
-      .limit(30);
+        .maybeSingle(),
+      supabase
+        .from('game_records')
+        .select('*')
+        .eq('account_id', account.id)
+        .order('created_at', { ascending: false })
+        .limit(30),
+    ]);
 
     return {
       account,
-      progress: progressWithServer,
-      records: records || [],
+      progress: progressResult.data || null,
+      records: recordsResult.data || [],
     };
   } else {
     // Local demo storage fallback
@@ -533,10 +515,17 @@ export const getAccountByUsername = async (
 export const applyDamageToPlayer = async (accountId: string, newHp: number, newCondition: number): Promise<void> => {
   const supabase = getSupabase();
   if (supabase) {
-    await supabase.from('player_progress').update({
-      ship_current_hp: newHp,
-      ship_condition: newCondition,
-    }).eq('account_id', accountId);
+    await Promise.all([
+      supabase.from('player_progress').update({
+        ship_current_hp: newHp,
+        ship_condition: newCondition,
+      }).eq('account_id', accountId),
+      supabase.from('global_server_players').update({
+        current_hp: newHp,
+        ship_condition: newCondition,
+        last_seen_at: new Date().toISOString(),
+      }).eq('account_id', accountId),
+    ]);
   } else {
     try {
       const raw = localStorage.getItem(`${LOCAL_PROGRESS_PREFIX}${accountId}`);
@@ -557,15 +546,26 @@ export const savePlayerProgress = async (
   const supabase = getSupabase();
 
   if (supabase) {
-    const { error } = await supabase
-      .from('player_progress')
-      .upsert({
-        account_id: accountId,
-        ...progressData,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'account_id' });
+    try {
+      const { data: updated, error: updateErr } = await supabase
+        .from('player_progress')
+        .update({
+          ...progressData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('account_id', accountId)
+        .select('account_id');
 
-    if (error) {
+      if (!updateErr && (!updated || updated.length === 0)) {
+        await supabase
+          .from('player_progress')
+          .insert({
+            account_id: accountId,
+            ...progressData,
+            updated_at: new Date().toISOString(),
+          });
+      }
+    } catch (error) {
       console.error('Failed to save player progress:', error);
     }
   } else {
@@ -644,8 +644,12 @@ export const normalizeServerCode = (code: string): string => {
  * Returns a deterministic, stable canonical UUID for any server code.
  * Ensures GLOBAL-1 always maps to '00000000-0000-0000-0001-000000000001', etc.
  */
+// Cache in-memory to prevent repeated redundant queries for canonical servers
+const canonicalServerCache = new Map<string, { id: string; code: string; name: string; type: 'global' | 'private'; capacity: number }>();
+
 /**
- * Retrieves a server by code, or inserts it safely without forcing an ID
+ * Retrieves a server by code, or inserts it safely without forcing an ID.
+ * Caches in memory for zero-latency retrieval.
  */
 export const getOrCreateCanonicalServer = async (
   rawCode: string,
@@ -655,81 +659,111 @@ export const getOrCreateCanonicalServer = async (
   const code = normalizeServerCode(rawCode);
   const isPriv = code.startsWith('PRIV-');
   const type = serverType || (isPriv ? 'private' : 'global');
-  const defaultName = isPriv
+  const defaultName = serverName || (isPriv
     ? `Private Island (${code})`
-    : `Global Fleet ${code.split('-')[1] || '1'}`;
-  const name = serverName || defaultName;
+    : `Global Fleet ${code.split('-')[1] || '1'}`);
   const capacity = 30;
+
+  if (canonicalServerCache.has(code)) {
+    const cached = canonicalServerCache.get(code)!;
+    if (serverName && cached.name !== serverName) {
+      cached.name = serverName;
+    }
+    return cached;
+  }
 
   const supabase = getSupabase();
   if (!supabase) {
-    return { id: '', code, name, type, capacity };
+    const localObj = {
+      id: `local_srv_${code.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+      code,
+      name: defaultName,
+      type,
+      capacity,
+    };
+    canonicalServerCache.set(code, localObj);
+    return localObj;
   }
 
   try {
     const { data: existing } = await supabase
       .from('global_servers')
-      .select('*')
+      .select('id, code, name, type, capacity')
       .eq('code', code)
       .maybeSingle();
 
-    if (existing) {
-      return {
+    if (existing && existing.id) {
+      const serverObj = {
         id: existing.id,
         code: existing.code,
-        name: existing.name,
-        type: existing.type as 'global' | 'private',
-        capacity: existing.capacity,
+        name: existing.name || defaultName,
+        type: (existing.type as 'global' | 'private') || type,
+        capacity: existing.capacity || capacity,
       };
+      canonicalServerCache.set(code, serverObj);
+      return serverObj;
     }
 
-    const { data: created, error: insertErr } = await supabase
+    const { data: created } = await supabase
       .from('global_servers')
       .insert({
         code,
-        name,
+        name: defaultName,
         type,
         capacity,
         status: 'active',
       })
-      .select()
+      .select('id, code, name, type, capacity')
       .maybeSingle();
 
-    if (created) {
-      return {
+    if (created && created.id) {
+      const serverObj = {
         id: created.id,
         code: created.code,
-        name: created.name,
+        name: created.name || defaultName,
         type: created.type as 'global' | 'private',
-        capacity: created.capacity,
+        capacity: created.capacity || capacity,
       };
+      canonicalServerCache.set(code, serverObj);
+      return serverObj;
     }
 
-    // If constraint failed but maybeSingle returned null, query again
+    // In case another client created it simultaneously
     const { data: retry } = await supabase
       .from('global_servers')
-      .select('*')
+      .select('id, code, name, type, capacity')
       .eq('code', code)
       .maybeSingle();
 
-    if (retry) {
-      return {
+    if (retry && retry.id) {
+      const serverObj = {
         id: retry.id,
         code: retry.code,
-        name: retry.name,
+        name: retry.name || defaultName,
         type: retry.type as 'global' | 'private',
-        capacity: retry.capacity,
+        capacity: retry.capacity || capacity,
       };
+      canonicalServerCache.set(code, serverObj);
+      return serverObj;
     }
   } catch (err) {
     console.error('getOrCreateCanonicalServer error:', err);
   }
 
-  return { id: '', code, name, type, capacity };
+  const fallback = {
+    id: `srv_${code.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+    code,
+    name: defaultName,
+    type,
+    capacity,
+  };
+  canonicalServerCache.set(code, fallback);
+  return fallback;
 };
 
 /**
- * RPC / Direct: Join a specific server code (e.g. GLOBAL-1, GLOBAL-2, or custom/private code)
+ * Direct & Immediate: Join a specific server code (e.g. GLOBAL-1, GLOBAL-2, or custom/private code).
+ * Performs direct, resilient upsert into global_server_players without failing RPCs or fallback cascades.
  */
 export const joinSpecificServer = async (
   accountId: string,
@@ -755,64 +789,66 @@ export const joinSpecificServer = async (
   max_players?: number;
 }> => {
   const normalizedCode = normalizeServerCode(targetServerCode);
+  const canonical = await getOrCreateCanonicalServer(normalizedCode, customServerName);
   const supabase = getSupabase();
 
-  if (supabase) {
+  if (supabase && canonical.id) {
     try {
-      const { data, error } = await supabase.rpc('switch_or_join_server', {
-        p_account_id: accountId,
-        p_username: username,
-        p_ship_stats: shipStats,
-        p_target_server_code: normalizedCode,
-        p_custom_server_name: customServerName || null,
-      });
+      // 1. Check if player record already exists in global_server_players
+      const { data: existingPlayer } = await supabase
+        .from('global_server_players')
+        .select('id')
+        .eq('account_id', accountId)
+        .maybeSingle();
 
-      if (error) throw error;
+      const playerData = {
+        server_id: canonical.id,
+        username,
+        ship_level: shipStats.ship_level,
+        ship_condition: shipStats.ship_condition,
+        current_hp: shipStats.current_hp,
+        max_hp: shipStats.max_hp,
+        cannon_level: shipStats.cannon_level,
+        cannon_count: shipStats.cannon_count,
+        shield_level: shipStats.shield_level,
+        avatar_url: shipStats.avatar_url,
+        is_online: true,
+        last_seen_at: new Date().toISOString(),
+      };
 
-      if (data && data.success) {
-        return {
-          success: true,
-          server_code: data.server_code,
-          server_id: data.server_id,
-          server_name: data.server_name,
-          server_type: data.server_type,
-          max_players: data.capacity || 30,
-        };
-      }
-      
-      throw new Error(data?.error || 'Failed to switch server via RPC');
-    } catch (rpcErr) {
-      console.warn('RPC switch_or_join_server failed:', rpcErr);
-      const canonical = await getOrCreateCanonicalServer(normalizedCode, customServerName);
-
-      // Direct fallback if RPC is not deployed yet or fails
-      try {
+      if (existingPlayer) {
         await supabase
           .from('global_server_players')
-          .upsert(
-            {
-              server_id: canonical.id,
-              account_id: accountId,
-              username,
-              ship_level: shipStats.ship_level,
-              ship_condition: shipStats.ship_condition,
-              current_hp: shipStats.current_hp,
-              max_hp: shipStats.max_hp,
-              cannon_level: shipStats.cannon_level,
-              cannon_count: shipStats.cannon_count,
-              shield_level: shipStats.shield_level,
-              avatar_url: shipStats.avatar_url,
-              x_pos: 15.0 + Math.random() * 70.0,
-              y_pos: 15.0 + Math.random() * 65.0,
-              is_online: true,
-              last_seen_at: new Date().toISOString(),
-            },
-            { onConflict: 'account_id' }
-          );
-      } catch (upsertErr) {
-        console.warn('Fallback upsert failed:', upsertErr);
+          .update(playerData)
+          .eq('account_id', accountId);
+      } else {
+        await supabase
+          .from('global_server_players')
+          .insert({
+            ...playerData,
+            account_id: accountId,
+            x_pos: 15.0 + Math.random() * 70.0,
+            y_pos: 15.0 + Math.random() * 65.0,
+          });
       }
 
+      // 2. Non-blocking update of player_progress last_server_code
+      supabase
+        .from('player_progress')
+        .update({ last_server_code: canonical.code })
+        .eq('account_id', accountId)
+        .then();
+
+      return {
+        success: true,
+        server_code: canonical.code,
+        server_id: canonical.id,
+        server_name: canonical.name,
+        server_type: canonical.type,
+        max_players: canonical.capacity,
+      };
+    } catch (err) {
+      console.warn('joinSpecificServer error:', err);
       return {
         success: true,
         server_code: canonical.code,
@@ -823,18 +859,16 @@ export const joinSpecificServer = async (
       };
     }
   } else {
-    const canonical = await getOrCreateCanonicalServer(normalizedCode, customServerName);
+    // Local demo mode
     const targetId = canonical.id;
-
-    // Remove account from any other local servers
     try {
       const allKeys = Object.keys(localStorage).filter((k) =>
         k.startsWith(LOCAL_SERVER_PLAYERS_PREFIX)
       );
       for (const key of allKeys) {
-        const r = localStorage.getItem(key);
-        if (r) {
-          const list: DbGlobalServerPlayer[] = JSON.parse(r);
+        if (key !== `${LOCAL_SERVER_PLAYERS_PREFIX}${targetId}`) {
+          const sId = key.replace(LOCAL_SERVER_PLAYERS_PREFIX, '');
+          const list: DbGlobalServerPlayer[] = getLocalServerPlayers(sId);
           const filtered = list.filter((p) => p.account_id !== accountId);
           localStorage.setItem(key, JSON.stringify(filtered));
         }
@@ -843,7 +877,9 @@ export const joinSpecificServer = async (
       // Add to target server
       const targetKey = `${LOCAL_SERVER_PLAYERS_PREFIX}${targetId}`;
       const r = localStorage.getItem(targetKey);
-      const list: DbGlobalServerPlayer[] = r ? JSON.parse(r) : [];
+      let list: DbGlobalServerPlayer[] = r ? JSON.parse(r) : [];
+      list = list.filter((p) => p.account_id !== accountId);
+
       const playerItem: DbGlobalServerPlayer = {
         id: `local_p_${accountId}`,
         server_id: targetId,
@@ -891,38 +927,53 @@ export const joinSpecificServer = async (
 };
 
 /**
- * Fetches all available servers with their authoritative membership/ship counts from global_server_players using unique server_id
+ * Fetches all available servers with their authoritative membership counts from global_server_players in a single fast parallel query.
  */
 export const fetchAvailableServers = async (): Promise<ServerInfo[]> => {
   const supabase = getSupabase();
 
   if (supabase) {
     try {
-      // Ensure canonical rooms for standard global servers exist
-      await Promise.all([
-        getOrCreateCanonicalServer('GLOBAL-1'),
-        getOrCreateCanonicalServer('GLOBAL-2'),
+      const [serversRes, membershipRes] = await Promise.all([
+        supabase
+          .from('global_servers')
+          .select('id, code, name, type, capacity')
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('global_server_players')
+          .select('server_id, account_id'),
       ]);
 
-      const { data: serverRows, error: sErr } = await supabase
-        .from('global_servers')
-        .select('*')
-        .order('created_at', { ascending: true });
+      let serverRows = serversRes.data || [];
+      const membershipRows = membershipRes.data || [];
 
-      if (sErr) {
-        console.warn('Error querying global_servers:', sErr);
+      // If no servers exist at all, ensure GLOBAL-1 is created
+      if (serverRows.length === 0) {
+        const g1 = await getOrCreateCanonicalServer('GLOBAL-1');
+        serverRows = [{
+          id: g1.id,
+          code: g1.code,
+          name: g1.name,
+          type: g1.type,
+          capacity: g1.capacity,
+        } as any];
       }
 
-      const { data: membershipRows, error: mErr } = await supabase
-        .from('global_server_players')
-        .select('server_id, account_id');
-
-      if (mErr) {
-        console.warn('Error querying global_server_players memberships:', mErr);
-      }
+      // Populate in-memory cache for all servers
+      serverRows.forEach(row => {
+        if (row.code) {
+          canonicalServerCache.set(normalizeServerCode(row.code), {
+            id: row.id,
+            code: row.code,
+            name: row.name || row.code,
+            type: (row.type as any) || 'global',
+            capacity: row.capacity || 30,
+          });
+        }
+      });
 
       const serverMembershipMap = new Map<string, Set<string>>();
-      (membershipRows || []).forEach((row: any) => {
+      membershipRows.forEach((row: any) => {
         if (!row.server_id || !row.account_id) return;
         if (!serverMembershipMap.has(row.server_id)) {
           serverMembershipMap.set(row.server_id, new Set());
@@ -930,7 +981,7 @@ export const fetchAvailableServers = async (): Promise<ServerInfo[]> => {
         serverMembershipMap.get(row.server_id)!.add(row.account_id);
       });
 
-      const result: ServerInfo[] = (serverRows || []).map(row => {
+      const result: ServerInfo[] = serverRows.map(row => {
         const uniqueAccounts = serverMembershipMap.get(row.id);
         const playerCount = uniqueAccounts ? uniqueAccounts.size : 0;
         
@@ -962,7 +1013,8 @@ export const fetchAvailableServers = async (): Promise<ServerInfo[]> => {
 };
 
 /**
- * Subscribes to Realtime membership changes across all servers to keep server list counts updated live
+ * Subscribes to Realtime membership changes across all servers to keep server list counts updated live.
+ * Debounced to prevent thrashing.
  */
 export const subscribeToAllServersMembership = (
   onMembershipChange: () => void
@@ -973,31 +1025,47 @@ export const subscribeToAllServersMembership = (
     return { unsubscribe: () => {} };
   }
 
+  let debounceTimer: any = null;
+  const debouncedHandler = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      onMembershipChange();
+    }, 1500);
+  };
+
   const channel: RealtimeChannel = supabase
     .channel('all_server_memberships_feed')
     .on(
       'postgres_changes',
       {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'global_server_players',
       },
-      () => {
-        onMembershipChange();
-      }
+      debouncedHandler
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'global_server_players',
+      },
+      debouncedHandler
     )
     .subscribe();
 
   return {
     unsubscribe: () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     },
   };
 };
 
 /**
- * RPC / Direct: Join or automatically assign to GLOBAL-1 (up to 30 ships), then GLOBAL-2, GLOBAL-3, etc.
- * Guarantees strictly ONE server instance exists per server code.
+ * Join or automatically assign to GLOBAL-1 or player's existing server.
+ * Operates immediately without RPC failures or slow sequential fallbacks.
  */
 export const joinOrAssignGlobalServer = async (
   accountId: string,
@@ -1017,59 +1085,43 @@ export const joinOrAssignGlobalServer = async (
 
   if (supabase) {
     try {
-      // Use the new atomic RPC to assign server with exact lock handling
-      const { data, error } = await supabase.rpc('switch_or_join_server', {
-        p_account_id: accountId,
-        p_username: username,
-        p_ship_stats: shipStats,
-        p_target_server_code: 'GLOBAL-1', // It will overflow to GLOBAL-2 automatically if full
-        p_custom_server_name: null,
-      });
+      // 1. Check if user already has an assigned server in global_server_players
+      const { data: existingPlayer } = await supabase
+        .from('global_server_players')
+        .select('server_id')
+        .eq('account_id', accountId)
+        .maybeSingle();
 
-      if (error) throw error;
-      
-      if (data && data.success) {
-        return {
-          success: true,
-          server_code: data.server_code,
-          server_id: data.server_id,
-          reconnected: false,
-        };
+      let targetCode = 'GLOBAL-1';
+      if (existingPlayer?.server_id) {
+        for (const [code, srv] of canonicalServerCache.entries()) {
+          if (srv.id === existingPlayer.server_id) {
+            targetCode = code;
+            break;
+          }
+        }
+        if (targetCode === 'GLOBAL-1') {
+          const { data: srv } = await supabase
+            .from('global_servers')
+            .select('code')
+            .eq('id', existingPlayer.server_id)
+            .maybeSingle();
+          if (srv?.code) {
+            targetCode = srv.code;
+          }
+        }
       }
-      
-      throw new Error(data?.error || 'Failed to assign global server');
+
+      const res = await joinSpecificServer(accountId, username, shipStats, targetCode);
+      return {
+        success: res.success,
+        server_code: res.server_code,
+        server_id: res.server_id,
+        reconnected: !!existingPlayer,
+      };
     } catch (e) {
-      console.warn('Error in joinOrAssignGlobalServer RPC flow, falling back:', e);
+      console.warn('Error in joinOrAssignGlobalServer:', e);
       const canonical = await getOrCreateCanonicalServer('GLOBAL-1');
-      
-      // Fallback: manually upsert the player if RPC fails
-      try {
-        await supabase
-          .from('global_server_players')
-          .upsert(
-            {
-              server_id: canonical.id,
-              account_id: accountId,
-              username,
-              ship_level: shipStats.ship_level,
-              ship_condition: shipStats.ship_condition,
-              current_hp: shipStats.current_hp,
-              max_hp: shipStats.max_hp,
-              cannon_level: shipStats.cannon_level,
-              cannon_count: shipStats.cannon_count,
-              shield_level: shipStats.shield_level,
-              avatar_url: shipStats.avatar_url,
-              x_pos: 15.0 + Math.random() * 70.0,
-              y_pos: 15.0 + Math.random() * 65.0,
-              is_online: true,
-              last_seen_at: new Date().toISOString(),
-            },
-            { onConflict: 'account_id' }
-          );
-      } catch (upsertErr) {
-        console.warn('Fallback upsert failed:', upsertErr);
-      }
-
       return {
         success: true,
         server_code: 'GLOBAL-1',
@@ -1078,12 +1130,9 @@ export const joinOrAssignGlobalServer = async (
       };
     }
   } else {
-    // Local demo allocation (sequential rooms of 30)
+    // Local demo allocation
     try {
       let targetServerCode = 'GLOBAL-1';
-      let canonical = await getOrCreateCanonicalServer('GLOBAL-1');
-
-      // Check if player is already assigned to a server
       const allKeys = Object.keys(localStorage).filter((k) =>
         k.startsWith(LOCAL_SERVER_PLAYERS_PREFIX)
       );
@@ -1100,75 +1149,14 @@ export const joinOrAssignGlobalServer = async (
       }
 
       if (alreadyAssignedId) {
-        // If already assigned, use that canonical server
-        canonical = await getOrCreateCanonicalServer(targetServerCode);
-        canonical.id = alreadyAssignedId;
-      } else {
-        // Sequential search starting at GLOBAL-1 up to 30 capacity
-        for (let num = 1; num <= 50; num++) {
-          const cCode = `GLOBAL-${num}`;
-          const cServer = await getOrCreateCanonicalServer(cCode);
-          const players = getLocalServerPlayers(cServer.id);
-          if (players.length < 30 || players.some((p) => p.account_id === accountId)) {
-            canonical = cServer;
-            targetServerCode = cCode;
-            break;
-          }
-        }
+        targetServerCode = alreadyAssignedId.includes('global_2') ? 'GLOBAL-2' : 'GLOBAL-1';
       }
 
-      const targetId = canonical.id;
-
-      // Ensure player is not duplicated in other local servers
-      for (const k of allKeys) {
-        if (k !== `${LOCAL_SERVER_PLAYERS_PREFIX}${targetId}`) {
-          const sId = k.replace(LOCAL_SERVER_PLAYERS_PREFIX, '');
-          const list: DbGlobalServerPlayer[] = getLocalServerPlayers(sId);
-          const filtered = list.filter((p) => p.account_id !== accountId);
-          localStorage.setItem(k, JSON.stringify(filtered));
-        }
-      }
-
-      const existing: DbGlobalServerPlayer[] = getLocalServerPlayers(targetId);
-      const idx = existing.findIndex((p) => p.account_id === accountId);
-      const playerItem: DbGlobalServerPlayer = {
-        id: `local_p_${accountId}`,
-        server_id: targetId,
-        account_id: accountId,
-        username,
-        ship_level: shipStats.ship_level,
-        ship_condition: shipStats.ship_condition,
-        current_hp: shipStats.current_hp,
-        max_hp: shipStats.max_hp,
-        cannon_level: shipStats.cannon_level,
-        cannon_count: shipStats.cannon_count,
-        shield_level: shipStats.shield_level,
-        avatar_url: shipStats.avatar_url,
-        x_pos: 20 + (existing.length % 5) * 15,
-        y_pos: 20 + Math.floor(existing.length / 5) * 15,
-        is_online: true,
-        last_seen_at: new Date().toISOString(),
-      };
-
-      if (idx >= 0) {
-        existing[idx] = playerItem;
-      } else {
-        existing.push(playerItem);
-      }
-      localStorage.setItem(`${LOCAL_SERVER_PLAYERS_PREFIX}${targetId}`, JSON.stringify(existing));
-
-      // Persist to local progress
-      const pRaw = localStorage.getItem(`${LOCAL_PROGRESS_PREFIX}${accountId}`);
-      if (pRaw) {
-        const pr = JSON.parse(pRaw);
-        pr.last_server_code = canonical.code;
-        localStorage.setItem(`${LOCAL_PROGRESS_PREFIX}${accountId}`, JSON.stringify(pr));
-      }
-
+      const res = await joinSpecificServer(accountId, username, shipStats, targetServerCode);
       return {
         success: true,
-        server_code: canonical.code,
-        server_id: canonical.id,
+        server_code: res.server_code,
+        server_id: res.server_id,
         reconnected: !!alreadyAssignedId,
       };
     } catch (e) {
@@ -1185,17 +1173,19 @@ export const joinOrAssignGlobalServer = async (
 };
 
 /**
- * RPC: Leave current server on logout or disconnect
+ * Leave current server on logout or disconnect
  */
 export const leaveGlobalServer = async (accountId: string): Promise<void> => {
   const supabase = getSupabase();
 
   if (supabase) {
-    const { error } = await supabase.rpc('leave_global_server', {
-      p_account_id: accountId,
-    });
-    if (error) {
-      console.warn('Error in leave_global_server RPC:', error);
+    try {
+      await supabase
+        .from('global_server_players')
+        .delete()
+        .eq('account_id', accountId);
+    } catch (err) {
+      console.warn('leaveGlobalServer error:', err);
     }
   } else {
     try {
@@ -1206,12 +1196,8 @@ export const leaveGlobalServer = async (accountId: string): Promise<void> => {
         const raw = localStorage.getItem(k);
         if (raw) {
           const players: DbGlobalServerPlayer[] = JSON.parse(raw);
-          const idx = players.findIndex((p) => p.account_id === accountId);
-          if (idx !== -1) {
-            players[idx].is_online = false;
-            players[idx].last_seen_at = new Date().toISOString();
-            localStorage.setItem(k, JSON.stringify(players));
-          }
+          const filtered = players.filter((p) => p.account_id !== accountId);
+          localStorage.setItem(k, JSON.stringify(filtered));
         }
       }
     } catch (e) {}
@@ -1219,7 +1205,7 @@ export const leaveGlobalServer = async (accountId: string): Promise<void> => {
 };
 
 /**
- * RPC + Table update: Update ship battle condition, position, and upgraded stats
+ * Direct & fast: Update ship battle condition, position, and upgraded stats
  */
 export const updateShipState = async (
   accountId: string,
@@ -1239,19 +1225,6 @@ export const updateShipState = async (
   const supabase = getSupabase();
 
   if (supabase) {
-    try {
-      await supabase.rpc('update_ship_state', {
-        p_account_id: accountId,
-        p_x: params.x,
-        p_y: params.y,
-        p_hp: params.hp,
-        p_condition: params.condition,
-      });
-    } catch (e) {
-      console.warn('RPC update_ship_state warning:', e);
-    }
-
-    // Directly update global_server_players table so all ship upgrades and battle condition are reflected in real-time
     const updateData: Record<string, any> = {
       last_seen_at: new Date().toISOString(),
     };
@@ -1266,14 +1239,11 @@ export const updateShipState = async (
     if (params.x !== undefined) updateData.x_pos = params.x;
     if (params.y !== undefined) updateData.y_pos = params.y;
 
-    const { error } = await supabase
+    supabase
       .from('global_server_players')
       .update(updateData)
-      .eq('account_id', accountId);
-
-    if (error) {
-      console.warn('Error updating global_server_players table:', error);
-    }
+      .eq('account_id', accountId)
+      .then();
   } else {
     // Local demo mode: update local server player record across all local servers
     try {
@@ -1325,7 +1295,7 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
 
     if (error) {
       console.error('Error fetching server players:', error);
-      return [];
+      return getLocalServerPlayers(serverId);
     }
 
     // Deduplicate by account_id
@@ -1392,7 +1362,7 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
 
     return serverPlayers;
   }
-  return [];
+  return getLocalServerPlayers(serverId);
 };
 
 
