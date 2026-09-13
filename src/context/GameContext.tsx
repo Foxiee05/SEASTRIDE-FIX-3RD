@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Player, ServerInfo, BattleResult, RaidLog, StepRecord, StepStats, DailyCoinRecord, CannonItem, ShieldItem, ServerRaidState, SeaMonsterConfig, SeaMonsterId, RaidParticipant, ServerTreasure, TreasureActivityLog, TreasureRewardType, Decoration, UserTodayLoot, SeaGameMode, RaidMilestoneBounty } from '../types';
-import { INITIAL_SERVERS } from '../data/mockPlayers';
 import { SEA_MONSTERS, getMonsterMilestones } from '../data/monsters';
 import { soundFx } from '../utils/audio';
 import { PIRATE_AVATARS } from '../assets';
@@ -467,8 +466,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [equippedDecorations, setEquippedDecorations] = useState<string[]>(['dec_jolly_roger']);
 
   // Servers
-  const [servers, setServers] = useState<ServerInfo[]>(INITIAL_SERVERS);
-  const [currentServer, setCurrentServer] = useState<ServerInfo>(INITIAL_SERVERS[0]);
+  const [servers, setServers] = useState<ServerInfo[]>([]);
+  const [currentServer, setCurrentServer] = useState<ServerInfo>({
+    code: 'LOADING',
+    type: 'global',
+    name: 'Connecting...',
+    playerCount: 0,
+    maxPlayers: 30,
+    players: [],
+  });
 
   // Steps
   const [totalStepsToday, setTotalStepsToday] = useState<number>(4250);
@@ -1217,42 +1223,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initialMap: Record<string, ServerRaidState> = {};
 
-    INITIAL_SERVERS.forEach((server) => {
-      const participants: RaidParticipant[] = server.players.slice(0, 8).map((p, idx) => {
-        const damage = Math.round(monster.maxHp * (0.02 + ((8 - idx) / 8) * 0.03));
-        return {
-          id: p.id,
-          name: p.name,
-          title: p.title,
-          avatarUrl: p.avatarUrl,
-          damage,
-          isUser: false,
-          shipLevel: p.shipLevel,
-        };
-      });
-
-      // Add user
-      participants.push({
-        id: 'user_player',
-        name: 'Captain Blackbeard',
-        title: 'Dread Navigator',
-        avatarUrl: PIRATE_AVATARS[0]?.url || '',
-        damage: 0,
-        isUser: true,
-        shipLevel: 1,
-      });
-
-      const totalDmg = participants.reduce((sum, p) => sum + p.damage, 0);
-      const currentHp = Math.max(0, monster.maxHp - totalDmg);
-
-      initialMap[server.code] = {
-        serverCode: server.code,
+    ["GLOBAL-1", "GLOBAL-2"].forEach((server_code) => {
+      initialMap[server_code] = {
+        serverCode: server_code,
         sessionId: session.sessionId,
         bossId: sessionBossId,
-        currentHp,
+        currentHp: monster.maxHp,
         maxHp: monster.maxHp,
-        participants,
-        isDefeated: currentHp <= 0,
+        participants: [],
+        isDefeated: false,
         dailyPrizeClaimed: false,
         claimedMilestones: [],
         expiresAt: session.sessionEndTime,
@@ -1283,38 +1262,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const monster = SEA_MONSTERS[newBossId];
           const newMap: Record<string, ServerRaidState> = {};
 
-          INITIAL_SERVERS.forEach(server => {
-            const participants: RaidParticipant[] = server.players.slice(0, 8).map((p, idx) => ({
-              id: p.id,
-              name: p.name,
-              title: p.title,
-              avatarUrl: p.avatarUrl,
-              damage: Math.round(monster.maxHp * (0.02 + ((8 - idx) / 8) * 0.03)),
-              isUser: false,
-              shipLevel: p.shipLevel,
-            }));
-
-            participants.push({
-              id: 'user_player',
-              name: profile.username || 'Captain Blackbeard',
-              title: 'Dread Navigator',
-              avatarUrl: profile.avatarUrl || PIRATE_AVATARS[0]?.url || '',
-              damage: 0,
-              isUser: true,
-              shipLevel: 1,
-            });
-
-            const totalDmg = participants.reduce((sum, p) => sum + p.damage, 0);
-            const currentHp = Math.max(0, monster.maxHp - totalDmg);
-
-            newMap[server.code] = {
-              serverCode: server.code,
+          ["GLOBAL-1", "GLOBAL-2"].forEach(server_code => {
+            newMap[server_code] = {
+              serverCode: server_code,
               sessionId: currentInfo.sessionId,
               bossId: newBossId,
-              currentHp,
+              currentHp: monster.maxHp,
               maxHp: monster.maxHp,
-              participants,
-              isDefeated: currentHp <= 0,
+              participants: [],
+              isDefeated: false,
               dailyPrizeClaimed: false,
               claimedMilestones: [],
               expiresAt: currentInfo.sessionEndTime,
@@ -1379,9 +1335,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Join Raid Function
   const joinRaid = (targetServerCode?: string) => {
-    const code = targetServerCode || currentServer.code;
+    const server_code = targetServerCode || currentServer.code;
     setRaidStates(prev => {
-      const serverState = prev[code] || currentRaidState;
+      const serverState = prev[server_code] || currentRaidState;
       if (serverState.hasJoined) return prev;
 
       const currentHpPercent = Math.max(0, Math.min(100, (serverState.currentHp / serverState.maxHp) * 100));
@@ -1404,7 +1360,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return {
         ...prev,
-        [code]: {
+        [server_code]: {
           ...serverState,
           hasJoined: true,
           joinedHpPercent: Math.round(currentHpPercent * 10) / 10,
@@ -1844,9 +1800,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Initialize distinct daily treasures for each server
     const initialMap: Record<string, ServerTreasure[]> = {};
-    INITIAL_SERVERS.forEach((server) => {
-      initialMap[server.code] = generateDailyTreasures(
-        server.code,
+    ["GLOBAL-1", "GLOBAL-2"].forEach((server_code) => {
+      initialMap[server_code] = generateDailyTreasures(
+        server_code,
         DEFAULT_COORDS.lat,
         DEFAULT_COORDS.lng,
         undefined,
@@ -1882,8 +1838,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {}
 
     const initialMap: Record<string, TreasureActivityLog[]> = {};
-    INITIAL_SERVERS.forEach((server) => {
-      initialMap[server.code] = [];
+    ["GLOBAL-1", "GLOBAL-2"].forEach((server_code) => {
+      initialMap[server_code] = [];
     });
     return initialMap;
   });
@@ -1896,13 +1852,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Ensure active server always has treasures populated
   useEffect(() => {
-    const code = currentServer.code;
+    const server_code = currentServer.code;
     setServerTreasuresMap(prev => {
-      if (!prev[code] || prev[code].length === 0) {
+      if (!prev[server_code] || prev[server_code].length === 0) {
         return {
           ...prev,
-          [code]: generateDailyTreasures(
-            code,
+          [server_code]: generateDailyTreasures(
+            server_code,
             DEFAULT_COORDS.lat,
             DEFAULT_COORDS.lng,
             undefined,

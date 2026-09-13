@@ -1,6 +1,5 @@
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { ServerInfo, ServerType } from '../types';
-import { INITIAL_SERVERS } from '../data/mockPlayers';
 import { PIRATE_AVATARS } from '../assets';
 
 // Configuration constants
@@ -645,27 +644,8 @@ export const normalizeServerCode = (code: string): string => {
  * Returns a deterministic, stable canonical UUID for any server code.
  * Ensures GLOBAL-1 always maps to '00000000-0000-0000-0001-000000000001', etc.
  */
-export const getCanonicalServerId = (rawCode: string): string => {
-  const code = normalizeServerCode(rawCode);
-  const globalMatch = code.match(/^GLOBAL-(\d+)$/i);
-  if (globalMatch) {
-    const num = parseInt(globalMatch[1], 10) || 1;
-    return `00000000-0000-0000-0001-${String(num).padStart(12, '0')}`;
-  }
-  // For private servers (e.g. PRIV-123), derive a deterministic 12-char hex string
-  let hash = 0;
-  for (let i = 0; i < code.length; i++) {
-    hash = (hash << 5) - hash + code.charCodeAt(i);
-    hash |= 0;
-  }
-  const hexPart = Math.abs(hash).toString(16).padStart(12, '0').slice(-12);
-  return `00000000-0000-0000-0002-${hexPart}`;
-};
-
 /**
- * Ensures there is exactly ONE canonical database row in global_servers with a stable UUID for a given server code.
- * If duplicate rows exist (e.g. from case differences or previous duplicate server inserts),
- * it migrates all players assigned to duplicate server IDs into the canonical server UUID and deletes the duplicate server rows.
+ * Retrieves a server by code, or inserts it safely without forcing an ID
  */
 export const getOrCreateCanonicalServer = async (
   rawCode: string,
@@ -673,7 +653,6 @@ export const getOrCreateCanonicalServer = async (
   serverType?: 'global' | 'private'
 ): Promise<{ id: string; code: string; name: string; type: 'global' | 'private'; capacity: number }> => {
   const code = normalizeServerCode(rawCode);
-  const canonicalId = getCanonicalServerId(code);
   const isPriv = code.startsWith('PRIV-');
   const type = serverType || (isPriv ? 'private' : 'global');
   const defaultName = isPriv
@@ -684,123 +663,69 @@ export const getOrCreateCanonicalServer = async (
 
   const supabase = getSupabase();
   if (!supabase) {
-    // In local demo mode, also ensure any legacy local storage keys are migrated to the canonical ID
-    try {
-      const legacyKey = `${LOCAL_SERVER_PLAYERS_PREFIX}local_server_${code.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
-      const canonicalKey = `${LOCAL_SERVER_PLAYERS_PREFIX}${canonicalId}`;
-      const legacyRaw = localStorage.getItem(legacyKey);
-      if (legacyRaw && !localStorage.getItem(canonicalKey)) {
-        localStorage.setItem(canonicalKey, legacyRaw);
-        localStorage.removeItem(legacyKey);
-      }
-    } catch (e) {}
-
-    return { id: canonicalId, code, name, type, capacity };
+    return { id: '', code, name, type, capacity };
   }
 
   try {
-    // 1. Check if the server row with the stable canonical ID exists
-    const { data: canonicalRow, error: fetchErr } = await supabase
+    const { data: existing } = await supabase
       .from('global_servers')
       .select('*')
-      .eq('id', canonicalId)
+      .eq('code', code)
       .maybeSingle();
 
-    // 2. Query any duplicate rows matching this code with a different ID
-    const { data: duplicateRows } = await supabase
-      .from('global_servers')
-      .select('id')
-      .ilike('code', code)
-      .neq('id', canonicalId);
-
-    if (!fetchErr && canonicalRow) {
-      // Canonical row exists! Reassign players from any duplicate rows and delete them
-      if (duplicateRows && duplicateRows.length > 0) {
-        const duplicateIds = duplicateRows.map((s: any) => s.id);
-        try {
-          await supabase
-            .from('global_server_players')
-            .update({ server_id: canonicalId })
-            .in('server_id', duplicateIds);
-
-          await supabase
-            .from('global_servers')
-            .delete()
-            .in('id', duplicateIds);
-        } catch (cleanupErr) {
-          console.warn('Duplicate server cleanup notice:', cleanupErr);
-        }
-      }
-
-      // Update name/code if needed
-      if (canonicalRow.code !== code || (serverName && canonicalRow.name !== name)) {
-        try {
-          await supabase
-            .from('global_servers')
-            .update({ code, name })
-            .eq('id', canonicalId);
-        } catch (e) {}
-      }
-
+    if (existing) {
       return {
-        id: canonicalId,
-        code,
-        name: canonicalRow.name || name,
-        type: (canonicalRow.type as 'global' | 'private') || type,
-        capacity: canonicalRow.capacity || capacity,
+        id: existing.id,
+        code: existing.code,
+        name: existing.name,
+        type: existing.type as 'global' | 'private',
+        capacity: existing.capacity,
       };
     }
 
-    // 3. Canonical row does not exist yet: upsert it with the exact stable canonical UUID
     const { data: created, error: insertErr } = await supabase
       .from('global_servers')
-      .upsert(
-        {
-          id: canonicalId,
-          code,
-          name,
-          type,
-          capacity,
-          status: 'active',
-        },
-        { onConflict: 'id' }
-      )
+      .insert({
+        code,
+        name,
+        type,
+        capacity,
+        status: 'active',
+      })
       .select()
-      .single();
+      .maybeSingle();
 
-    // Reassign players from any old duplicate rows to the canonical ID
-    if (duplicateRows && duplicateRows.length > 0) {
-      const duplicateIds = duplicateRows.map((s: any) => s.id);
-      try {
-        await supabase
-          .from('global_server_players')
-          .update({ server_id: canonicalId })
-          .in('server_id', duplicateIds);
-
-        await supabase
-          .from('global_servers')
-          .delete()
-          .in('id', duplicateIds);
-      } catch (cleanupErr) {
-        console.warn('Duplicate server cleanup notice:', cleanupErr);
-      }
+    if (created) {
+      return {
+        id: created.id,
+        code: created.code,
+        name: created.name,
+        type: created.type as 'global' | 'private',
+        capacity: created.capacity,
+      };
     }
 
-    if (insertErr || !created) {
-      console.warn('Upsert canonical server notice:', insertErr?.message);
-    }
+    // If constraint failed but maybeSingle returned null, query again
+    const { data: retry } = await supabase
+      .from('global_servers')
+      .select('*')
+      .eq('code', code)
+      .maybeSingle();
 
-    return {
-      id: canonicalId,
-      code,
-      name: created?.name || name,
-      type: (created?.type as 'global' | 'private') || type,
-      capacity: created?.capacity || capacity,
-    };
+    if (retry) {
+      return {
+        id: retry.id,
+        code: retry.code,
+        name: retry.name,
+        type: retry.type as 'global' | 'private',
+        capacity: retry.capacity,
+      };
+    }
   } catch (err) {
     console.error('getOrCreateCanonicalServer error:', err);
-    return { id: canonicalId, code, name, type, capacity };
   }
+
+  return { id: '', code, name, type, capacity };
 };
 
 /**
@@ -988,7 +913,6 @@ export const fetchAvailableServers = async (): Promise<ServerInfo[]> => {
         console.warn('Error querying global_servers:', sErr);
       }
 
-      // Query authoritative server membership rows directly from global_server_players
       const { data: membershipRows, error: mErr } = await supabase
         .from('global_server_players')
         .select('server_id, account_id');
@@ -997,7 +921,6 @@ export const fetchAvailableServers = async (): Promise<ServerInfo[]> => {
         console.warn('Error querying global_server_players memberships:', mErr);
       }
 
-      // Map server_id (UUID) -> Set of unique account_ids (ships/players)
       const serverMembershipMap = new Map<string, Set<string>>();
       (membershipRows || []).forEach((row: any) => {
         if (!row.server_id || !row.account_id) return;
@@ -1007,55 +930,19 @@ export const fetchAvailableServers = async (): Promise<ServerInfo[]> => {
         serverMembershipMap.get(row.server_id)!.add(row.account_id);
       });
 
-      // Group server rows by normalized uppercase code
-      const codeGroupMap = new Map<string, any[]>();
-      (serverRows || []).forEach((s: any) => {
-        const code = normalizeServerCode(s.code);
-        if (!codeGroupMap.has(code)) {
-          codeGroupMap.set(code, []);
-        }
-        codeGroupMap.get(code)!.push(s);
-      });
-
-      // Guarantee GLOBAL-1 and GLOBAL-2 exist in the list
-      if (!codeGroupMap.has('GLOBAL-1')) {
-        const canonical = await getOrCreateCanonicalServer('GLOBAL-1');
-        codeGroupMap.set('GLOBAL-1', [canonical]);
-      }
-      if (!codeGroupMap.has('GLOBAL-2')) {
-        const canonical = await getOrCreateCanonicalServer('GLOBAL-2');
-        codeGroupMap.set('GLOBAL-2', [canonical]);
-      }
-
-      const result: ServerInfo[] = [];
-      for (const [code, group] of codeGroupMap.entries()) {
-        const canonical = group[0];
-        const canonicalId = getCanonicalServerId(code);
-        const allIdsForCode = new Set(group.map((g: any) => g.id));
-        allIdsForCode.add(canonicalId);
-
-        // Calculate authoritative count(*) where server_id matches this canonical server
-        const uniqueAccounts = new Set<string>();
-        for (const sId of allIdsForCode) {
-          const accounts = serverMembershipMap.get(sId);
-          if (accounts) {
-            accounts.forEach((accId) => uniqueAccounts.add(accId));
-          }
-        }
-        const playerCount = uniqueAccounts.size;
-
-        const isPriv = code.startsWith('PRIV-');
-        result.push({
-          code,
-          name:
-            canonical.name ||
-            (isPriv ? `Private Island (${code})` : `Global Fleet ${code.split('-')[1] || '1'}`),
-          type: (canonical.type as ServerType) || (isPriv ? 'private' : 'global'),
+      const result: ServerInfo[] = (serverRows || []).map(row => {
+        const uniqueAccounts = serverMembershipMap.get(row.id);
+        const playerCount = uniqueAccounts ? uniqueAccounts.size : 0;
+        
+        return {
+          code: row.code,
+          name: row.name || row.code,
+          type: (row.type as ServerType) || 'global',
           playerCount,
-          maxPlayers: canonical.capacity || 30,
+          maxPlayers: row.capacity || 30,
           players: [],
-        });
-      }
+        };
+      });
 
       result.sort((a, b) => {
         if (a.code === 'GLOBAL-1') return -1;
@@ -1071,53 +958,7 @@ export const fetchAvailableServers = async (): Promise<ServerInfo[]> => {
     }
   }
 
-  // Local demo mode fallback
-  try {
-    const defaultList: ServerInfo[] = [
-      {
-        code: 'GLOBAL-1',
-        name: 'Global Fleet 1',
-        type: 'global',
-        playerCount: 0,
-        maxPlayers: 30,
-        players: [],
-      },
-      {
-        code: 'GLOBAL-2',
-        name: 'Global Fleet 2',
-        type: 'global',
-        playerCount: 0,
-        maxPlayers: 30,
-        players: [],
-      },
-    ];
-
-    // Load any custom/private servers created locally
-    const rawLocal = localStorage.getItem('seastride_local_servers');
-    const localSaved: ServerInfo[] = rawLocal ? JSON.parse(rawLocal) : [];
-
-    const uniqueMap = new Map<string, ServerInfo>();
-    defaultList.forEach((s) => uniqueMap.set(normalizeServerCode(s.code), s));
-
-    localSaved.forEach((s) => {
-      const key = normalizeServerCode(s.code);
-      if (!uniqueMap.has(key)) {
-        uniqueMap.set(key, { ...s, code: key });
-      }
-    });
-
-    return Array.from(uniqueMap.values()).map((s) => {
-      const canonicalId = getCanonicalServerId(s.code);
-      const players: DbGlobalServerPlayer[] = getLocalServerPlayers(canonicalId);
-      return {
-        ...s,
-        playerCount: players.length,
-        maxPlayers: s.maxPlayers || 30,
-      };
-    });
-  } catch (e) {
-    return INITIAL_SERVERS;
-  }
+  return [];
 };
 
 /**
@@ -1474,45 +1315,10 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
   const supabase = getSupabase();
 
   if (supabase) {
-    let targetServerIds = [serverId];
-    try {
-      const canonicalId = getCanonicalServerId(serverId);
-      targetServerIds.push(canonicalId);
-
-      // Find server row to get its code
-      const { data: currentServerRow } = await supabase
-        .from('global_servers')
-        .select('id, code')
-        .eq('id', serverId)
-        .maybeSingle();
-
-      let code = currentServerRow?.code ? normalizeServerCode(currentServerRow.code) : '';
-      if (!code && serverId.startsWith('00000000-0000-0000-0001-')) {
-        const numStr = serverId.replace('00000000-0000-0000-0001-', '');
-        const num = parseInt(numStr, 10);
-        if (!isNaN(num)) code = `GLOBAL-${num}`;
-      }
-
-      if (code) {
-        const { data: allMatchingServers } = await supabase
-          .from('global_servers')
-          .select('id')
-          .ilike('code', code);
-
-        if (allMatchingServers && allMatchingServers.length > 0) {
-          allMatchingServers.forEach((s: any) => targetServerIds.push(s.id));
-        }
-      }
-    } catch (e) {
-      console.warn('Error resolving matching server IDs for player fetch:', e);
-    }
-
-    targetServerIds = Array.from(new Set(targetServerIds));
-
     const { data, error } = await supabase
       .from('global_server_players')
       .select('*')
-      .in('server_id', targetServerIds)
+      .eq('server_id', serverId)
       .order('is_online', { ascending: false })
       .order('last_seen_at', { ascending: false })
       .limit(30);
@@ -1586,84 +1392,9 @@ export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServ
 
     return serverPlayers;
   }
-
-  // Local demo fallback: load players specifically assigned to this serverId
-  try {
-    const sId = serverId || 'local_server_global_1';
-    const canonicalId = getCanonicalServerId(sId);
-    let code = '';
-    if (sId.startsWith('00000000-0000-0000-0001-')) {
-      const numStr = sId.replace('00000000-0000-0000-0001-', '');
-      const num = parseInt(numStr, 10);
-      if (!isNaN(num)) code = `GLOBAL-${num}`;
-    }
-
-    const playersForSid = getLocalServerPlayers(sId);
-    const playersForCanonical = getLocalServerPlayers(canonicalId);
-    const rawAll = localStorage.getItem(LOCAL_SERVER_PLAYERS_KEY);
-    const allAssigned: DbGlobalServerPlayer[] = rawAll ? JSON.parse(rawAll) : [];
-
-    const combinedMap = new Map<string, DbGlobalServerPlayer>();
-    [...playersForSid, ...playersForCanonical, ...allAssigned].forEach((p) => {
-      if (p && p.account_id) combinedMap.set(p.account_id, p);
-    });
-
-    const filtered = Array.from(combinedMap.values()).filter((sp) => {
-      if (!sp || !sp.server_id) return false;
-      if (sp.server_id === sId || sp.server_id === canonicalId) return true;
-      if (code && sp.server_id && getCanonicalServerId(sp.server_id) === canonicalId) return true;
-      return false;
-    });
-
-    const result: DbGlobalServerPlayer[] = [];
-
-    for (const sp of filtered) {
-      const pRaw = localStorage.getItem(`${LOCAL_PROGRESS_PREFIX}${sp.account_id}`);
-      const pr: Partial<DbPlayerProgress> = pRaw ? JSON.parse(pRaw) : {};
-      const shipLevel = Number(pr.ship_level) || sp.ship_level || 1;
-      const maxHp = Number(pr.ship_max_hp) || (5000 + (shipLevel - 1) * 5000);
-      const condition = pr.ship_condition !== undefined ? Number(pr.ship_condition) : sp.ship_condition;
-      const currentHp = pr.ship_current_hp !== undefined ? Number(pr.ship_current_hp) : Math.round(maxHp * (condition / 100));
-
-      let maxCannonLvl = sp.cannon_level || 1;
-      if (Array.isArray(pr.owned_cannons) && pr.owned_cannons.length > 0) {
-        maxCannonLvl = Math.max(...pr.owned_cannons.map((c: any) => Number(c.level) || 1));
-      }
-      const cannonCount = Array.isArray(pr.equipped_cannons) ? pr.equipped_cannons.length : (sp.cannon_count || 1);
-
-      let shieldLvl = sp.shield_level || 0;
-      if (pr.equipped_shield && Array.isArray(pr.owned_shields)) {
-        const sObj = pr.owned_shields.find((s: any) => s.id === pr.equipped_shield);
-        if (sObj) shieldLvl = Number(sObj.level) || 1;
-      }
-
-      result.push({
-        id: sp.id || `local_player_${sp.account_id}`,
-        server_id: sId,
-        account_id: sp.account_id,
-        username: sp.username,
-        ship_level: shipLevel,
-        ship_condition: condition,
-        current_hp: currentHp,
-        max_hp: maxHp,
-        cannon_level: maxCannonLvl,
-        cannon_count: Math.max(1, cannonCount),
-        shield_level: shieldLvl,
-        equipped_decorations: Array.isArray(pr.equipped_decorations) ? pr.equipped_decorations : (sp.equipped_decorations || []),
-        avatar_url: pr.avatar_url || sp.avatar_url || '',
-        x_pos: sp.x_pos || 20,
-        y_pos: sp.y_pos || 20,
-        is_online: true,
-        last_seen_at: new Date().toISOString(),
-      });
-    }
-
-    return result;
-  } catch (e) {
-    console.error('Error fetching local server players:', e);
-    return [];
-  }
+  return [];
 };
+
 
 export interface LeaderboardPlayer {
   account_id: string;
@@ -1692,43 +1423,15 @@ export const fetchLeaderboard = async (
       const serverCodeMap = new Map<string, string>();
 
       if (scope === 'server' && serverId) {
-        let targetServerIds = [serverId];
-        const canonicalId = getCanonicalServerId(serverId);
-        targetServerIds.push(canonicalId);
-
-        const { data: sRow } = await supabase
-          .from('global_servers')
-          .select('id, code')
-          .eq('id', serverId)
-          .maybeSingle();
-
-        let code = sRow?.code ? normalizeServerCode(sRow.code) : '';
-        if (!code && serverId.startsWith('00000000-0000-0000-0001-')) {
-          const numStr = serverId.replace('00000000-0000-0000-0001-', '');
-          const num = parseInt(numStr, 10);
-          if (!isNaN(num)) code = `GLOBAL-${num}`;
-        }
-
-        if (code) {
-          const { data: matchingServers } = await supabase
-            .from('global_servers')
-            .select('id')
-            .ilike('code', code);
-          if (matchingServers) {
-            matchingServers.forEach((s: any) => targetServerIds.push(s.id));
-          }
-        }
-        targetServerIds = Array.from(new Set(targetServerIds));
-
         const { data: sPlayers } = await supabase
           .from('global_server_players')
           .select('account_id, username, is_online, server_id, global_servers ( code )')
-          .in('server_id', targetServerIds);
+          .eq('server_id', serverId);
 
         if (sPlayers && sPlayers.length > 0) {
           targetAccountIds = sPlayers.map((p: any) => p.account_id);
           sPlayers.forEach((p: any) => {
-            const rawCode = (p as any).global_servers?.code || code || 'GLOBAL-1';
+            const rawCode = (p as any).global_servers?.code || 'GLOBAL-1';
             serverCodeMap.set(p.account_id, normalizeServerCode(rawCode));
           });
         } else {
@@ -1801,8 +1504,7 @@ export const fetchLeaderboard = async (
 
     let targetAccountIds: string[] | null = null;
     if (scope === 'server' && serverId) {
-      const canonicalId = getCanonicalServerId(serverId);
-      const assigned = getLocalServerPlayers(canonicalId);
+      const assigned = getLocalServerPlayers(serverId);
       targetAccountIds = assigned.map((p) => p.account_id);
     }
 
@@ -1846,24 +1548,18 @@ export const subscribeToServerPlayers = (
     return { unsubscribe: () => {} };
   }
 
-  const canonicalId = getCanonicalServerId(serverId);
-
   const channel: RealtimeChannel = supabase
-    .channel(`server_players:${canonicalId}`)
+    .channel(`server_players:${serverId}`)
     .on(
       'postgres_changes',
       {
         event: '*',
         schema: 'public',
         table: 'global_server_players',
+        filter: `server_id=eq.${serverId}`
       },
       (payload) => {
-        const payloadServerId = (payload.new as any)?.server_id || (payload.old as any)?.server_id;
-        if (!payloadServerId || payloadServerId === serverId || payloadServerId === canonicalId) {
-          onPlayerChange(payload);
-        } else if (getCanonicalServerId(payloadServerId) === canonicalId) {
-          onPlayerChange(payload);
-        }
+        onPlayerChange(payload);
       }
     )
     .subscribe((status) => {
