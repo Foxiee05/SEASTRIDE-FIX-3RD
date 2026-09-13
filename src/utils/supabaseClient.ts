@@ -830,7 +830,6 @@ export const joinSpecificServer = async (
   max_players?: number;
 }> => {
   const normalizedCode = normalizeServerCode(targetServerCode);
-  const canonical = await getOrCreateCanonicalServer(normalizedCode, customServerName);
   const supabase = getSupabase();
 
   if (supabase) {
@@ -843,7 +842,9 @@ export const joinSpecificServer = async (
         p_custom_server_name: customServerName || null,
       });
 
-      if (!error && data && data.success) {
+      if (error) throw error;
+
+      if (data && data.success) {
         return {
           success: true,
           server_code: data.server_code,
@@ -853,56 +854,51 @@ export const joinSpecificServer = async (
           max_players: data.capacity || 30,
         };
       }
+      
+      throw new Error(data?.error || 'Failed to switch server via RPC');
     } catch (rpcErr) {
-      console.warn('RPC switch_or_join_server notice, falling back to direct upsert:', rpcErr);
+      console.warn('RPC switch_or_join_server failed:', rpcErr);
+      const canonical = await getOrCreateCanonicalServer(normalizedCode, customServerName);
+
+      // Direct fallback if RPC is not deployed yet or fails
+      try {
+        await supabase
+          .from('global_server_players')
+          .upsert(
+            {
+              server_id: canonical.id,
+              account_id: accountId,
+              username,
+              ship_level: shipStats.ship_level,
+              ship_condition: shipStats.ship_condition,
+              current_hp: shipStats.current_hp,
+              max_hp: shipStats.max_hp,
+              cannon_level: shipStats.cannon_level,
+              cannon_count: shipStats.cannon_count,
+              shield_level: shipStats.shield_level,
+              avatar_url: shipStats.avatar_url,
+              x_pos: 15.0 + Math.random() * 70.0,
+              y_pos: 15.0 + Math.random() * 65.0,
+              is_online: true,
+              last_seen_at: new Date().toISOString(),
+            },
+            { onConflict: 'account_id' }
+          );
+      } catch (upsertErr) {
+        console.warn('Fallback upsert failed:', upsertErr);
+      }
+
+      return {
+        success: true,
+        server_code: canonical.code,
+        server_id: canonical.id,
+        server_name: canonical.name,
+        server_type: canonical.type,
+        max_players: canonical.capacity,
+      };
     }
-
-    // Direct fallback if RPC is not deployed yet in current project
-    const { error: upsertErr } = await supabase
-      .from('global_server_players')
-      .upsert(
-        {
-          server_id: canonical.id,
-          account_id: accountId,
-          username,
-          ship_level: shipStats.ship_level,
-          ship_condition: shipStats.ship_condition,
-          current_hp: shipStats.current_hp,
-          max_hp: shipStats.max_hp,
-          cannon_level: shipStats.cannon_level,
-          cannon_count: shipStats.cannon_count,
-          shield_level: shipStats.shield_level,
-          avatar_url: shipStats.avatar_url,
-          x_pos: 15.0 + Math.random() * 70.0,
-          y_pos: 15.0 + Math.random() * 65.0,
-          is_online: true,
-          last_seen_at: new Date().toISOString(),
-        },
-        { onConflict: 'account_id' }
-      );
-
-    if (upsertErr) {
-      console.warn('Upsert error when joining specific server:', upsertErr);
-    }
-
-    // Persist preferred server choice
-    try {
-      await supabase
-        .from('player_progress')
-        .update({ last_server_code: canonical.code, updated_at: new Date().toISOString() })
-        .eq('account_id', accountId);
-    } catch (e) {}
-
-    return {
-      success: true,
-      server_code: canonical.code,
-      server_id: canonical.id,
-      server_name: canonical.name,
-      server_type: canonical.type,
-      max_players: canonical.capacity,
-    };
   } else {
-    // Local demo allocation using the stable canonical ID
+    const canonical = await getOrCreateCanonicalServer(normalizedCode, customServerName);
     const targetId = canonical.id;
 
     // Remove account from any other local servers
@@ -1180,120 +1176,62 @@ export const joinOrAssignGlobalServer = async (
 
   if (supabase) {
     try {
-      // 1. Check if player already has an assigned server
-      const { data: existingPlayer } = await supabase
-        .from('global_server_players')
-        .select('server_id, global_servers(id, code, name, type, capacity)')
-        .eq('account_id', accountId)
-        .maybeSingle();
+      // Use the new atomic RPC to assign server with exact lock handling
+      const { data, error } = await supabase.rpc('switch_or_join_server', {
+        p_account_id: accountId,
+        p_username: username,
+        p_ship_stats: shipStats,
+        p_target_server_code: 'GLOBAL-1', // It will overflow to GLOBAL-2 automatically if full
+        p_custom_server_name: null,
+      });
 
-      if (existingPlayer && existingPlayer.server_id) {
-        const assignedServer = (existingPlayer as any).global_servers;
-        const code = assignedServer?.code ? normalizeServerCode(assignedServer.code) : 'GLOBAL-1';
-        const canonical = await getOrCreateCanonicalServer(code);
-
-        await supabase
-          .from('global_server_players')
-          .update({
-            server_id: canonical.id,
-            is_online: true,
-            last_seen_at: new Date().toISOString(),
-            username,
-            ship_level: shipStats.ship_level,
-            ship_condition: shipStats.ship_condition,
-            current_hp: shipStats.current_hp,
-            max_hp: shipStats.max_hp,
-            cannon_level: shipStats.cannon_level,
-            cannon_count: shipStats.cannon_count,
-            shield_level: shipStats.shield_level,
-            avatar_url: shipStats.avatar_url,
-          })
-          .eq('account_id', accountId);
-
+      if (error) throw error;
+      
+      if (data && data.success) {
         return {
           success: true,
-          server_code: canonical.code,
-          server_id: canonical.id,
-          reconnected: true,
+          server_code: data.server_code,
+          server_id: data.server_id,
+          reconnected: false,
         };
       }
-
-      // 2. Check player's last_server_code in player_progress
-      const { data: progress } = await supabase
-        .from('player_progress')
-        .select('last_server_code')
-        .eq('account_id', accountId)
-        .maybeSingle();
-
-      let targetCode = progress?.last_server_code
-        ? normalizeServerCode(progress.last_server_code)
-        : '';
-
-      // If no preferred server code (new player flow):
-      // Atomically search GLOBAL-1, GLOBAL-2, GLOBAL-3 up to 30 ships capacity
-      if (!targetCode) {
-        for (let num = 1; num <= 50; num++) {
-          const checkCode = `GLOBAL-${num}`;
-          const checkCanonical = await getOrCreateCanonicalServer(checkCode);
-          const { count } = await supabase
-            .from('global_server_players')
-            .select('account_id', { count: 'exact', head: true })
-            .eq('server_id', checkCanonical.id);
-
-          if ((count ?? 0) < checkCanonical.capacity) {
-            targetCode = checkCode;
-            break;
-          }
-        }
-        if (!targetCode) targetCode = 'GLOBAL-1';
-      }
-
-      const canonical = await getOrCreateCanonicalServer(targetCode);
-
-      // 3. Upsert player into the single canonical server
-      await supabase
-        .from('global_server_players')
-        .upsert(
-          {
-            server_id: canonical.id,
-            account_id: accountId,
-            username,
-            ship_level: shipStats.ship_level,
-            ship_condition: shipStats.ship_condition,
-            current_hp: shipStats.current_hp,
-            max_hp: shipStats.max_hp,
-            cannon_level: shipStats.cannon_level,
-            cannon_count: shipStats.cannon_count,
-            shield_level: shipStats.shield_level,
-            avatar_url: shipStats.avatar_url,
-            x_pos: 15.0 + Math.random() * 70.0,
-            y_pos: 15.0 + Math.random() * 65.0,
-            is_online: true,
-            last_seen_at: new Date().toISOString(),
-          },
-          { onConflict: 'account_id' }
-        );
-
-      // Persist preferred server choice
+      
+      throw new Error(data?.error || 'Failed to assign global server');
+    } catch (e) {
+      console.warn('Error in joinOrAssignGlobalServer RPC flow, falling back:', e);
+      const canonical = await getOrCreateCanonicalServer('GLOBAL-1');
+      
+      // Fallback: manually upsert the player if RPC fails
       try {
         await supabase
-          .from('player_progress')
-          .update({ last_server_code: canonical.code, updated_at: new Date().toISOString() })
-          .eq('account_id', accountId);
-      } catch (e) {}
+          .from('global_server_players')
+          .upsert(
+            {
+              server_id: canonical.id,
+              account_id: accountId,
+              username,
+              ship_level: shipStats.ship_level,
+              ship_condition: shipStats.ship_condition,
+              current_hp: shipStats.current_hp,
+              max_hp: shipStats.max_hp,
+              cannon_level: shipStats.cannon_level,
+              cannon_count: shipStats.cannon_count,
+              shield_level: shipStats.shield_level,
+              avatar_url: shipStats.avatar_url,
+              x_pos: 15.0 + Math.random() * 70.0,
+              y_pos: 15.0 + Math.random() * 65.0,
+              is_online: true,
+              last_seen_at: new Date().toISOString(),
+            },
+            { onConflict: 'account_id' }
+          );
+      } catch (upsertErr) {
+        console.warn('Fallback upsert failed:', upsertErr);
+      }
 
       return {
         success: true,
-        server_code: canonical.code,
-        server_id: canonical.id,
-        reconnected: false,
-      };
-    } catch (e) {
-      console.warn('Error in joinOrAssignGlobalServer direct flow, resolving canonical GLOBAL-1:', e);
-      const canonical = await getOrCreateCanonicalServer('GLOBAL-1');
-      return {
-        success: true,
-        server_code: canonical.code,
+        server_code: 'GLOBAL-1',
         server_id: canonical.id,
         reconnected: false,
       };

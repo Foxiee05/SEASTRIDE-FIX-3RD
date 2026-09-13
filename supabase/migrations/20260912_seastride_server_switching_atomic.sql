@@ -5,6 +5,36 @@
 --              and automatic cleanup of previous server memberships.
 -- =============================================================================
 
+-- 0. Ensure unique constraints exist for UPSERT operations to work
+DO $$ 
+BEGIN
+  -- Cleanup duplicate global_servers by code (keep the latest one)
+  DELETE FROM public.global_servers
+  WHERE ctid NOT IN (
+      SELECT max(ctid) FROM public.global_servers GROUP BY code
+  );
+
+  -- Cleanup duplicate global_server_players by account_id (keep the latest one)
+  DELETE FROM public.global_server_players
+  WHERE ctid NOT IN (
+      SELECT max(ctid) FROM public.global_server_players GROUP BY account_id
+  );
+
+  -- Add UNIQUE constraint to global_servers(code) if it doesn't exist
+  IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'global_servers_code_key'
+  ) THEN
+      ALTER TABLE public.global_servers ADD CONSTRAINT global_servers_code_key UNIQUE (code);
+  END IF;
+
+  -- Add UNIQUE constraint to global_server_players(account_id) if it doesn't exist
+  IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'global_server_players_account_id_key'
+  ) THEN
+      ALTER TABLE public.global_server_players ADD CONSTRAINT global_server_players_account_id_key UNIQUE (account_id);
+  END IF;
+END $$;
+
 -- 1. Ensure capacity on existing global_servers is capped at 30
 UPDATE public.global_servers
 SET capacity = 30
