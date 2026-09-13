@@ -1,13 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  ArrowLeft,
-  Anchor,
   CircleDollarSign,
-  Medal,
   Calendar,
   Footprints,
-  Globe,
-  Users,
   Loader2,
 } from "lucide-react";
 import { useGame } from "../context/GameContext";
@@ -23,7 +18,6 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
   const { profile, coins, playerLevel, currentServer, currentAccount, dailyCoinsHistory, t } =
     useGame();
   const [activeTab, setActiveTab] = useState<"level" | "coins">("level");
-  const [scope, setScope] = useState<"server" | "global">("server");
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardPlayer[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -32,8 +26,8 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
     setIsLoading(true);
 
     const loadData = async () => {
-      const serverIdToQuery = currentServer?.code || 'GLOBAL-1';
-      const data = await fetchLeaderboard(serverIdToQuery, scope);
+      // Default to Global All Fleets ranking across all servers
+      const data = await fetchLeaderboard(undefined, "global");
 
       if (isMounted) {
         setLeaderboardData(data);
@@ -46,7 +40,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [currentServer?.code, scope]);
+  }, []);
 
   const sortedLeaderboard = useMemo(() => {
     let list = [...leaderboardData];
@@ -111,32 +105,6 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
     <div className="flex flex-col h-full bg-[#f0dec1] text-[#4a2c17] font-serif selection:bg-[#f0c242] border-b-4 border-[#be9325] text-white selection:text-stone-950 overflow-hidden relative">
       {/* Main Content Area */}
       <div className="tutorial-leaderboard flex-1 overflow-y-auto p-4 sm:p-6 pb-24">
-        {/* Scope Selector: Server Fleet vs Global */}
-        <div className="flex bg-[#2b1d19] rounded-xl border-2 border-[#4a2c17] p-1 mb-4 gap-1">
-          <button
-            onClick={() => setScope("server")}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-              scope === "server"
-                ? "bg-[#eebb3f] text-[#2b1d19] shadow-md font-black"
-                : "text-[#f0dec1]/70 hover:text-white hover:bg-[#4a2c17]"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            {currentServer?.name || currentServer?.code || "Current Fleet"}
-          </button>
-          <button
-            onClick={() => setScope("global")}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-              scope === "global"
-                ? "bg-[#eebb3f] text-[#2b1d19] shadow-md font-black"
-                : "text-[#f0dec1]/70 hover:text-white hover:bg-[#4a2c17]"
-            }`}
-          >
-            <Globe className="w-4 h-4" />
-            Global All Fleets
-          </button>
-        </div>
-
         {/* Metric Tabs */}
         <div className="tutorial-fleet-tabs flex bg-[#8b5a33] rounded-xl border-4 border-[#4a2c17] p-1.5 mb-6 shadow-inner">
           <button
@@ -337,7 +305,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                     >
                       {player.username} {player.isCurrentUser && `(${t("you")})`}
                     </span>
-                    {scope === 'global' && player.server_code && (
+                    {player.server_code && (
                       <span className="text-[10px] text-[#facc15]/80 font-mono">
                         {player.server_code}
                       </span>

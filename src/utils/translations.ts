@@ -151,6 +151,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     legendary: "⭐ Legendary",
 
     // Leaderboard
+    global_all_fleets: "Global All Fleets",
+    all_fleets_ranking: "Rankings across all fleets & seas",
     player_level: "Player Level",
     coins_earned: "Coins Earned",
     my_weekly_voyage: "My Weekly Voyage",
@@ -679,6 +681,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     legendary: "⭐ Huyền Thoại",
 
     // Leaderboard
+    global_all_fleets: "Toàn Bộ Hạm Đội",
+    all_fleets_ranking: "Bảng xếp hạng toàn bộ hạm đội & các vùng biển",
     player_level: "Cấp Người Chơi",
     coins_earned: "Vàng Thu Thập",
     my_weekly_voyage: "Hải Trình Tuần Này",
