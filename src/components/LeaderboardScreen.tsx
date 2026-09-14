@@ -255,7 +255,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                 key={player.account_id || player.username}
                 className={`grid grid-cols-[2.5rem_1fr_3.5rem_4.5rem] sm:grid-cols-[4rem_1fr_4.5rem_6.5rem] gap-2 sm:gap-4 items-center p-2.5 sm:p-4 rounded-xl border-2 transition-all shadow-md ${
                   player.isCurrentUser
-                    ? "bg-[#eebb3f] border-[#b58c27] shadow-[0_0_15px_rgba(250,204,21,0.2)]"
+                    ? "bg-sky-800 border-sky-600 shadow-[0_0_15px_rgba(2,132,199,0.3)]"
                     : "bg-[#2b1d19] border-[#4a2c17]"
                 }`}
               >
@@ -270,20 +270,19 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                           : player.rank === 3
                             ? "text-amber-500 drop-shadow-[0_0_8px_rgba(217,119,6,0.6)]"
                             : player.isCurrentUser
-                              ? "text-[#8b5a33]"
-                              : "text-[#f0dec1]/70"
+                              ? "text-sky-200"
+                              : "text-[#b89f81]"
                     }`}
                   >
                     #{player.rank}
                   </span>
                 </div>
-
                 {/* Pirate Avatar & Name */}
                 <div className="flex items-center gap-2 sm:gap-3 px-1 overflow-hidden">
                   <div
                     className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 bg-[#4a2c17] overflow-hidden ${
                       player.isCurrentUser
-                        ? "border-white shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                        ? "border-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.3)]"
                         : "border-[#b45309]"
                     }`}
                   >
@@ -300,30 +299,28 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
                   <div className="flex flex-col overflow-hidden min-w-0">
                     <span
                       className={`font-black text-[clamp(0.85rem,3.5vw,1.15rem)] truncate ${
-                        player.isCurrentUser ? "text-stone-900" : "text-white"
+                        player.isCurrentUser ? "text-white" : "text-white"
                       }`}
                     >
                       {player.username} {player.isCurrentUser && `(${t("you")})`}
                     </span>
                     {player.server_code && (
-                      <span className="text-[10px] text-[#facc15]/80 font-mono">
+                      <span className={`text-[10px] font-mono ${player.isCurrentUser ? "text-sky-300" : "text-[#b45309]"}`}>
                         {player.server_code}
                       </span>
                     )}
                   </div>
                 </div>
-
                 {/* Player Level */}
                 <div className="text-center">
-                  <span className={`font-extrabold text-[clamp(0.7rem,2.5vw,0.9rem)] sm:text-[clamp(0.85rem,3vw,1rem)] ${player.isCurrentUser ? "text-stone-800" : "text-sky-300"}`}>
+                  <span className={`font-extrabold text-[clamp(0.7rem,2.5vw,0.9rem)] sm:text-[clamp(0.85rem,3vw,1rem)] ${player.isCurrentUser ? "text-sky-100" : "text-sky-300"}`}>
                     {t("lvl")} {player.player_level}
                   </span>
                 </div>
-
                 {/* Gold */}
                 <div className="flex items-center justify-end gap-1 text-right overflow-hidden min-w-0">
-                  <CircleDollarSign className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${player.isCurrentUser ? "text-stone-800" : "text-[#facc15]"}`} />
-                  <span className={`font-black text-[clamp(0.85rem,3.5vw,1.15rem)] truncate ${player.isCurrentUser ? "text-stone-900" : "text-[#fbbf24]"}`}>
+                  <CircleDollarSign className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${player.isCurrentUser ? "text-sky-200" : "text-[#facc15]"}`} />
+                  <span className={`font-black text-[clamp(0.85rem,3.5vw,1.15rem)] truncate ${player.isCurrentUser ? "text-white" : "text-[#fbbf24]"}`}>
                     {player.coins.toLocaleString()}
                   </span>
                 </div>
