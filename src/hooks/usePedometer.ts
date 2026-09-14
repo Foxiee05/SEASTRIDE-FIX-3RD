@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { trackEvent } from "../utils/analytics";
 
 export type SensorPermissionState =
   "prompt" | "granted" | "denied" | "unsupported";
@@ -55,6 +56,14 @@ export function usePedometer({ onStep }: UsePedometerOptions) {
   };
 
   // Motion event handler with High-Pass Filter and Peak Detection
+  const trackingStartedRef = useRef(false);
+  useEffect(() => {
+    if (isListening && !trackingStartedRef.current) {
+      trackingStartedRef.current = true;
+      trackEvent('activity_tracking_started');
+    }
+  }, [isListening]);
+
   const handleDeviceMotion = useCallback(
     (event: DeviceMotionEvent) => {
       let rawX: number | null = null;

@@ -16,6 +16,7 @@ import {
   BarChart3,
   Info,
 } from "lucide-react";
+import { trackEvent } from "../utils/analytics";
 import { usePedometer } from "../hooks/usePedometer";
 import { StepMapView } from "./StepMapView";
 import { InfoModal } from "./InfoModal";
@@ -89,6 +90,7 @@ export const HomeScreen: React.FC = () => {
 
     soundFx.playVictory();
     setAnimating(true);
+    trackEvent('quest_claimed');
 
     setTimeout(() => {
       claimQuest(currentQuest.id, currentQuest.xp);

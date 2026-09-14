@@ -33,6 +33,7 @@ import {
   subscribeToServerPlayers,
   subscribeToAllServersMembership,
 } from '../utils/supabaseClient';
+import { trackEvent } from '../utils/analytics';
 
 export interface PlayerProfile {
   username: string;
@@ -813,9 +814,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return [newServer, ...others];
           });
         }
+        trackEvent('server_joined', { server_code: assignment.server_code });
       }
     } catch (err: any) {
       console.error('Server allocation error:', err);
+      trackEvent('server_join_failed', { error_message_category: err?.message?.toLowerCase().includes('network') ? 'network_failed' : 'unknown' });
     }
   };
 
@@ -877,8 +880,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       soundFx.playVictory();
+      trackEvent('account_created');
     } catch (err: any) {
       setAccountError(err.message || 'Failed to create account');
+      // Could also track account_create_failed here but user didn't ask for it specifically.
       throw err;
     }
   };
@@ -1044,8 +1049,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       soundFx.playClick();
+      trackEvent('account_login_success');
     } catch (err: any) {
       setAccountError(err.message || 'Failed to login account');
+      const category = err.message?.toLowerCase().includes('network') ? 'network_failed' : 'unknown';
+      trackEvent('account_login_failed', { error_message_category: category });
       throw err;
     }
   };
@@ -1069,7 +1077,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const active = localStorage.getItem('seastride_active_username');
     if (active) {
-      loginExistingAccount(active).catch(() => {
+      loginExistingAccount(active).catch((err) => {
+        trackEvent('account_load_failed', { error_message_category: err?.message?.toLowerCase().includes('network') ? 'network_failed' : 'unknown' });
         setIsAccountModalOpen(true);
       });
     } else {
@@ -1597,6 +1606,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ]);
 
     soundFx.playMonsterRoar();
+    trackEvent('raid_joined', { raid_boss_id: sessionBossId, server_code });
   };
 
   // Deal Raid Damage Function (1 step = 1 HP, or direct attack)
@@ -2265,6 +2275,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     soundFx.playVictory();
     gainXp(reward.rarity === 'legendary' ? 250 : reward.rarity === 'rare' ? 100 : reward.rarity === 'uncommon' ? 50 : 25);
 
+    trackEvent('treasure_claimed', { reward_type: reward.type, amount: reward.type === 'secret_item' ? 1 : reward.amount });
     return { reward, success: true };
   };
 
@@ -2455,9 +2466,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         soundFx.playClick();
+        trackEvent('server_switched', { server_code: res.server_code });
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to switch server:', e);
+      trackEvent('server_switch_failed', { error_message_category: e?.message?.toLowerCase().includes('network') ? 'network_failed' : 'unknown' });
     } finally {
       setIsSwitchingServer(false);
     }
@@ -2473,6 +2486,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newCode = `PRIV-${Math.floor(100 + Math.random() * 900)}`;
     await switchServer(newCode, serverName.trim());
     soundFx.playVictory();
+    trackEvent('private_server_created', { server_code: newCode });
     return newCode;
   };
 
@@ -2708,6 +2722,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCoins(c => c - cost);
     setShipCondition(prev => Math.min(100, prev + percentToRepair));
     soundFx.playUpgrade();
+    trackEvent('ship_repaired', { amount: cost, currency_type: 'coins' });
     return true;
   };
 
@@ -2725,6 +2740,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCoins(c => c - 100);
     setShipCondition(50);
     soundFx.playUpgrade();
+    trackEvent('ship_repaired', { amount: 100, currency_type: 'coins', rebuild: true });
     return true;
   };
 
@@ -2743,6 +2759,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCoins(c => c - cost);
     setShipLevel(l => l + 1);
     soundFx.playUpgrade();
+    trackEvent('upgrade_purchased', { item_type: 'ship', ship_level: shipLevel + 1, currency_type: 'coins', amount: cost });
     return true;
   };
 
@@ -2761,6 +2778,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setEquippedCannons(prev => [...prev, newId]);
     }
     soundFx.playUpgrade();
+    trackEvent('upgrade_purchased', { item_type: 'cannon', currency_type: 'coins', amount: 100 });
     return true;
   };
 
@@ -2780,6 +2798,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCoins(c => c - 100);
     setOwnedCannons(prev => prev.map(c => c.id === id ? { ...c, level: c.level + 1 } : c));
     soundFx.playUpgrade();
+    trackEvent('upgrade_purchased', { item_type: 'cannon', currency_type: 'coins', amount: 100 });
     return true;
   };
   
@@ -2791,6 +2810,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setEquippedCannons(prev => [...prev, id]);
     soundFx.playClick();
+    trackEvent('item_equipped', { item_type: 'cannon' });
   };
   
   const unequipCannon = (id: string) => {
@@ -2811,6 +2831,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setEquippedShield(newId);
     }
     soundFx.playUpgrade();
+    trackEvent('upgrade_purchased', { item_type: 'shield', currency_type: 'coins', amount: 100 });
     return true;
   };
 
@@ -2839,6 +2860,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const equipShield = (id: string) => {
     setEquippedShield(id);
     soundFx.playClick();
+    trackEvent('item_equipped', { item_type: 'shield' });
   };
   
   const unequipShield = () => {

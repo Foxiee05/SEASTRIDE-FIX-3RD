@@ -22,6 +22,7 @@ import { TutorialOverlay } from "./components/TutorialOverlay";
 import { SettingsModal } from "./components/SettingsModal";
 import { AccountAuthModal } from "./components/AccountAuthModal";
 import { Player } from "./types";
+import { trackScreenView } from "./utils/analytics";
 
 type ActiveModal =
   | "upgrades"
@@ -46,11 +47,20 @@ function MainAppContent() {
     closeCoinsModal,
     isAccountModalOpen,
     closeAccountModal,
-    currentAccount,
+    currentAccount, seaGameMode,
   } = useGame();
   const [activeTab, setActiveTab] = useState<
     "menu" | "home" | "build" | "sea" | "leaderboard"
   >("menu");
+
+  useEffect(() => {
+    let screenName: string = activeTab;
+    if (activeTab === "sea") {
+      screenName = seaGameMode === "treasure" ? "treasure_hunt" : seaGameMode === "raid" ? "raid" : "sea";
+    }
+    trackScreenView(screenName);
+  }, [activeTab, seaGameMode]);
+
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [pendingAttackTarget, setPendingAttackTarget] = useState<Player | null>(null);
   const [tutorialTrigger, setTutorialTrigger] = useState<{
