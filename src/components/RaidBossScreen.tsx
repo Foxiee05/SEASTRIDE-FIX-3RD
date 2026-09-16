@@ -170,12 +170,12 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
       <div 
         id="raid-boss-dormant-screen"
         data-no-swipe="true"
-        className="w-full max-w-full h-full flex flex-col bg-gradient-to-b from-[#1c120c] via-[#101b2b] to-[#070c14] text-amber-100 overflow-y-auto overflow-x-hidden relative select-none p-4 pb-12"
+        className="w-full h-full flex flex-col bg-gradient-to-b from-[#1c120c] via-[#101b2b] to-[#070c14] text-amber-100 overflow-hidden relative select-none p-4"
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(180,83,9,0.15)_0%,transparent_70%)] pointer-events-none" />
         <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-[75vh] text-center max-w-sm mx-auto w-full gap-4">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center max-w-sm mx-auto w-full gap-4">
           {/* Leviathan Icon in Dormant Slumber */}
           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-900/90 border-2 border-amber-500/40 flex items-center justify-center shadow-2xl relative">
             <span className="text-5xl sm:text-6xl filter grayscale opacity-75 animate-pulse">🌊</span>
