@@ -179,9 +179,6 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
           {/* Leviathan Icon in Dormant Slumber */}
           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-900/90 border-2 border-amber-500/40 flex items-center justify-center shadow-2xl relative">
             <span className="text-5xl sm:text-6xl filter grayscale opacity-75 animate-pulse">🌊</span>
-            <div className="absolute -bottom-1 px-2.5 py-0.5 rounded-full bg-[#2b1d19] border border-amber-400 text-[10px] font-bold text-amber-300">
-              {t("dormant", "DORMANT")}
-            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -201,9 +198,6 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
             </div>
             <div className="text-xl sm:text-2xl font-black font-mono text-yellow-300 tracking-wider">
               {timeRemaining}
-            </div>
-            <div className="text-[10.5px] font-mono text-amber-400/80 bg-[#170e0c] px-3 py-1 rounded-full border border-[#8b5a2b]/50">
-              UTC+7 In-App Time
             </div>
           </div>
 
