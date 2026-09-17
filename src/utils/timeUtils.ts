@@ -205,3 +205,57 @@ export function formatDuration(ms: number): string {
   }
   return `${pad(hours)}h ${pad(mins)}m ${pad(secs)}s`;
 }
+
+export const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export interface StepRecordItem {
+  date: string;
+  dayOfWeek: string;
+  steps: number;
+}
+
+/**
+ * Builds or normalizes a rolling 7-day window of step records ending on today's UTC+7 date.
+ * Preserves historical steps for past dates, and sets today's steps to todaySteps.
+ */
+export function ensureRollingStepRecords(
+  existingRecords: StepRecordItem[] = [],
+  todaySteps: number = 0,
+  now: number = Date.now()
+): StepRecordItem[] {
+  const todayStr = getUtc7DateString(now);
+  const parts = getUtc7Parts(now);
+  const todayDayOfWeek = DAY_NAMES_SHORT[parts.day];
+
+  const map = new Map<string, StepRecordItem>();
+  if (Array.isArray(existingRecords)) {
+    for (const rec of existingRecords) {
+      if (rec && typeof rec.date === 'string') {
+        map.set(rec.date, rec);
+      }
+    }
+  }
+
+  // Always set or update today's entry
+  map.set(todayStr, {
+    date: todayStr,
+    dayOfWeek: todayDayOfWeek,
+    steps: Math.max(0, todaySteps),
+  });
+
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const result: StepRecordItem[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const t = now - (i * DAY_MS);
+    const dStr = getUtc7DateString(t);
+    const p = getUtc7Parts(t);
+    const dow = DAY_NAMES_SHORT[p.day];
+    const existing = map.get(dStr);
+    result.push({
+      date: dStr,
+      dayOfWeek: dow,
+      steps: existing ? Math.max(0, Number(existing.steps) || 0) : 0,
+    });
+  }
+  return result;
+}

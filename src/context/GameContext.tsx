@@ -16,6 +16,7 @@ import {
   RaidSessionInfo,
   ENERGY_REGEN_INTERVAL_MS,
   formatEnergyCountdown,
+  ensureRollingStepRecords,
 } from '../utils/timeUtils';
 import {
   DbAccount,
@@ -203,15 +204,7 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-const INITIAL_STEP_RECORDS: StepRecord[] = [
-  { date: '2026-08-04', dayOfWeek: 'Mon', steps: 6200 },
-  { date: '2026-08-05', dayOfWeek: 'Tue', steps: 8400 },
-  { date: '2026-08-06', dayOfWeek: 'Wed', steps: 4900 },
-  { date: '2026-08-07', dayOfWeek: 'Thu', steps: 9100 },
-  { date: '2026-08-08', dayOfWeek: 'Fri', steps: 7300 },
-  { date: '2026-08-09', dayOfWeek: 'Sat', steps: 11200 },
-  { date: '2026-08-10', dayOfWeek: 'Sun', steps: 4250 },
-];
+const INITIAL_STEP_RECORDS: StepRecord[] = ensureRollingStepRecords([], 0);
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [coins, setCoins] = useState<number>(() => {
@@ -593,19 +586,44 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   // Steps
-  const [totalStepsToday, setTotalStepsToday] = useState<number>(4250);
-  const totalStepsTodayRef = useRef<number>(4250);
+  const [totalStepsToday, setTotalStepsToday] = useState<number>(() => {
+    try {
+      const todayStr = getUtc7DateString(Date.now());
+      const savedDate = localStorage.getItem('pirate_steps_date_utc7');
+      if (savedDate === todayStr) {
+        const saved = localStorage.getItem('pirate_total_steps_today');
+        if (saved !== null) {
+          const parsed = parseInt(saved, 10);
+          if (!isNaN(parsed) && parsed >= 0) return parsed;
+        }
+      }
+    } catch (e) {}
+    return 0;
+  });
+  const totalStepsTodayRef = useRef<number>(totalStepsToday);
+
   // Track gold coins awarded from steps today so possessed gold and "energy charged" match exactly
   const [stepCoinsAwardedToday, setStepCoinsAwardedToday] = useState<number>(() => {
     try {
-      const todayKey = new Date().toISOString().split('T')[0];
+      const todayKey = getUtc7DateString(Date.now());
       const saved = localStorage.getItem(`seastride_step_coins_awarded_${todayKey}`);
       if (saved) return Number(saved);
     } catch (e) {}
     return 0;
   });
 
-  const [stepRecords, setStepRecords] = useState<StepRecord[]>(INITIAL_STEP_RECORDS);
+  const [stepRecords, setStepRecords] = useState<StepRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('pirate_step_records');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return ensureRollingStepRecords(parsed, totalStepsToday);
+        }
+      }
+    } catch (e) {}
+    return ensureRollingStepRecords([], totalStepsToday);
+  });
   const [dailyCoinsHistory] = useState<DailyCoinRecord[]>([
     { day: 'Mon', coins: 150 },
     { day: 'Tue', coins: 280 },
@@ -895,6 +913,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { account, progress, records } = await getAccountByUsername(username);
       setCurrentAccount(account);
 
+      const now = Date.now();
+      const todayStr = getUtc7DateString(now);
+      let isProgressFromToday = false;
+      let stepsToday = 0;
+      let rollingRecords: StepRecord[] = [];
+
       if (progress) {
         setProfile({
           username: account.username,
@@ -907,7 +931,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 2-Hour energy reset / regeneration calculation:
         let effectiveEnergy = progress.energy ?? 5;
         let nextTarget: number | null = null;
-        const now = Date.now();
 
         if (effectiveEnergy < maxEnergy) {
           const savedTargetStr = localStorage.getItem(`pirate_energy_next_reset_time_${account.id}`) ||
@@ -966,15 +989,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setEquippedCannons(progress.equipped_cannons || ['c_1']);
         setOwnedShields(progress.owned_shields || []);
         setEquippedShield(progress.equipped_shield || null);
+        // Check if progress is from today in UTC+7
+        if (progress.updated_at) {
+          const updatedAtMs = new Date(progress.updated_at).getTime();
+          isProgressFromToday = (getUtc7DateString(updatedAtMs) === todayStr);
+        } else {
+          const savedDate = localStorage.getItem(`pirate_steps_date_utc7_${account.id}`) ||
+                            localStorage.getItem('pirate_steps_date_utc7');
+          isProgressFromToday = (savedDate === todayStr);
+        }
+
+        stepsToday = isProgressFromToday ? (Number(progress.total_steps_today) || 0) : 0;
+        rollingRecords = ensureRollingStepRecords(progress.step_records || [], stepsToday, now);
+
         setOwnedDecorations(progress.owned_decorations || ['dec_jolly_roger']);
         setEquippedDecorations(progress.equipped_decorations || ['dec_jolly_roger']);
-        setTotalStepsToday(progress.total_steps_today ?? 0);
-        setStepRecords(progress.step_records || []);
+        setTotalStepsToday(stepsToday);
+        totalStepsTodayRef.current = stepsToday;
+        setStepRecords(rollingRecords);
         setPlayerLevel(progress.player_level ?? 1);
         setPlayerXp(progress.player_xp ?? 0);
-        setQuestIndex(progress.quest_index ?? 0);
-        setQuestXp(progress.quest_xp ?? 0);
-        setClaimedQuests(new Set(progress.claimed_quests || []));
+        setQuestIndex(isProgressFromToday ? (progress.quest_index ?? 0) : 0);
+        setQuestXp(isProgressFromToday ? (progress.quest_xp ?? 0) : 0);
+        setClaimedQuests(isProgressFromToday ? new Set(progress.claimed_quests || []) : new Set());
 
         const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
         const mappedLogs: RaidLog[] = (records || [])
@@ -1027,11 +1064,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const accCondition = progress?.ship_condition !== undefined ? Number(progress.ship_condition) : 75;
       const accCurrentHp = progress?.ship_current_hp !== undefined ? Number(progress.ship_current_hp) : Math.round(accMaxHp * (accCondition / 100));
 
-      const stepsToday = Number(progress?.total_steps_today) || 0;
-      setTotalStepsToday(stepsToday);
-      totalStepsTodayRef.current = stepsToday;
       const eligibleStepCoins = Math.floor(stepsToday / 100) * 10;
       setStepCoinsAwardedToday(eligibleStepCoins);
+
+      try {
+        localStorage.setItem(`pirate_steps_date_utc7_${account.id}`, todayStr);
+        localStorage.setItem(`pirate_total_steps_today_${account.id}`, stepsToday.toString());
+        localStorage.setItem('pirate_steps_date_utc7', todayStr);
+        localStorage.setItem('pirate_total_steps_today', stepsToday.toString());
+        localStorage.setItem(`seastride_step_coins_awarded_${todayStr}`, eligibleStepCoins.toString());
+        localStorage.setItem('pirate_step_records', JSON.stringify(rollingRecords));
+      } catch (e) {}
+
+      if (!isProgressFromToday) {
+        savePlayerProgress(account.id, {
+          total_steps_today: 0,
+          quest_index: 0,
+          quest_xp: 0,
+          claimed_quests: [],
+          step_records: rollingRecords,
+        });
+      }
 
       await syncAndAssignServer(
         account,
@@ -2093,18 +2146,57 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [currentServer.code, ownedDecorations]);
 
-  // Periodic 24-Hour Treasure Reset Monitor in UTC+7 (checks every second)
+  // Periodic 24-Hour Daily Reset Monitor in UTC+7 (Footsteps, Quests, Loot, Treasures at 00:00:00)
   useEffect(() => {
     const checkReset = () => {
       const now = Date.now();
 
-      // Daily Treasure Hunt Reset at 00:00:00 UTC+7
+      // Daily Reset at 00:00:00 UTC+7
       if (now >= treasureResetTime) {
         const nextTime = calculateNextResetTime();
         setTreasureResetTime(nextTime);
         try {
           localStorage.setItem('pirate_treasure_reset_time_utc7', nextTime.toString());
         } catch (e) {}
+
+        const todayDateStr = getUtc7DateString(now);
+
+        // Reset footsteps and daily quests for the new UTC+7 day
+        setTotalStepsToday(0);
+        totalStepsTodayRef.current = 0;
+        setStepCoinsAwardedToday(0);
+        setQuestIndex(0);
+        setQuestXp(0);
+        setClaimedQuests(new Set());
+
+        try {
+          localStorage.setItem('pirate_steps_date_utc7', todayDateStr);
+          localStorage.setItem('pirate_total_steps_today', '0');
+          localStorage.setItem(`seastride_step_coins_awarded_${todayDateStr}`, '0');
+          if (currentAccount?.id) {
+            localStorage.setItem(`pirate_steps_date_utc7_${currentAccount.id}`, todayDateStr);
+            localStorage.setItem(`pirate_total_steps_today_${currentAccount.id}`, '0');
+          }
+        } catch (e) {}
+
+        // Roll over step records history for the new day
+        setStepRecords((prevRecords) => {
+          const rolled = ensureRollingStepRecords(prevRecords, 0, now);
+          try {
+            localStorage.setItem('pirate_step_records', JSON.stringify(rolled));
+          } catch (e) {}
+          return rolled;
+        });
+
+        // If logged in, update player_progress on Supabase
+        if (currentAccount?.id) {
+          savePlayerProgress(currentAccount.id, {
+            total_steps_today: 0,
+            quest_index: 0,
+            quest_xp: 0,
+            claimed_quests: [],
+          });
+        }
 
         // Reset today's plunder stash for new UTC+7 day
         const freshLoot: UserTodayLoot = {
@@ -2117,7 +2209,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTodayLoot(freshLoot);
         try {
           localStorage.setItem('pirate_walk_today_loot_utc7', JSON.stringify({
-            date: getUtc7DateString(Date.now()),
+            date: todayDateStr,
             loot: freshLoot,
           }));
         } catch (e) {}
@@ -2299,13 +2391,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setTotalStepsToday(updated);
 
+    const todayStr = getUtc7DateString(Date.now());
+    try {
+      localStorage.setItem('pirate_steps_date_utc7', todayStr);
+      localStorage.setItem('pirate_total_steps_today', updated.toString());
+      if (currentAccount?.id) {
+        localStorage.setItem(`pirate_steps_date_utc7_${currentAccount.id}`, todayStr);
+        localStorage.setItem(`pirate_total_steps_today_${currentAccount.id}`, updated.toString());
+      }
+    } catch (e) {}
+
     if (coinsToAdd > 0) {
       setCoins(c => c + coinsToAdd);
       setStepCoinsAwardedToday(awarded => {
         const next = awarded + coinsToAdd;
         try {
-          const todayKey = new Date().toISOString().split('T')[0];
-          localStorage.setItem(`seastride_step_coins_awarded_${todayKey}`, String(next));
+          localStorage.setItem(`seastride_step_coins_awarded_${todayStr}`, String(next));
         } catch (e) {}
         return next;
       });
@@ -2322,11 +2423,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // update today's record in chart
     setStepRecords(prevRecords => {
       const next = [...prevRecords];
-      const todayIndex = next.length - 1;
+      const todayIndex = next.findIndex(r => r.date === todayStr);
       if (todayIndex >= 0) {
         next[todayIndex] = { ...next[todayIndex], steps: next[todayIndex].steps + amount };
+        try {
+          localStorage.setItem('pirate_step_records', JSON.stringify(next));
+        } catch (e) {}
+        return next;
       }
-      return next;
+      const rolled = ensureRollingStepRecords(prevRecords, updated);
+      try {
+        localStorage.setItem('pirate_step_records', JSON.stringify(rolled));
+      } catch (e) {}
+      return rolled;
     });
   };
 
