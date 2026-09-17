@@ -33,6 +33,10 @@ import {
   fetchServerPlayers,
   subscribeToServerPlayers,
   subscribeToAllServersMembership,
+  recordServerRaidJoin,
+  recordServerRaidDamage,
+  fetchServerRaidState,
+  subscribeToRaidUpdates,
 } from '../utils/supabaseClient';
 import { trackEvent } from '../utils/analytics';
 
@@ -1581,75 +1585,273 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
   ]);
 
+  // Helper to identify if a participant belongs to the currently active user/account
+  const isCurrentPlayer = useCallback((p: RaidParticipant): boolean => {
+    if (currentAccount) {
+      return p.id === currentAccount.id || (Boolean(p.name) && p.name.toLowerCase() === currentAccount.username.toLowerCase());
+    }
+    return Boolean(p.isUser) || p.id === 'user_player' || (Boolean(p.name) && p.name.toLowerCase() === profile.username.toLowerCase());
+  }, [currentAccount, profile.username]);
+
   // Current server active raid state
   const sessionBossId = getOrInitSessionBoss(raidSessionInfo.sessionId);
-  const currentRaidState: ServerRaidState = raidStates[currentServer.code] || {
+  const rawServerState: ServerRaidState = raidStates[currentServer.code] || {
     serverCode: currentServer.code,
     sessionId: raidSessionInfo.sessionId,
     bossId: sessionBossId,
     currentHp: SEA_MONSTERS[sessionBossId]?.maxHp || 200000,
     maxHp: SEA_MONSTERS[sessionBossId]?.maxHp || 200000,
-    participants: [
-      {
-        id: 'user_player',
-        name: profile.username,
-        title: 'Dread Navigator',
-        avatarUrl: profile.avatarUrl,
-        damage: 0,
-        isUser: true,
-        shipLevel,
-      }
-    ],
+    participants: [],
     isDefeated: false,
     dailyPrizeClaimed: false,
     expiresAt: raidSessionInfo.sessionEndTime,
     hasJoined: false,
   };
 
+  const myAccountId = currentAccount ? currentAccount.id : ('acc_' + profile.username);
+  const myUsername = currentAccount ? currentAccount.username : profile.username;
+
+  // Check saved join record for this specific account so account switching keeps joined state
+  const hasSavedJoinRecord = (() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const saved = localStorage.getItem(`seastride_account_raid_joined_${myAccountId}_${raidSessionInfo.sessionId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Boolean(parsed && parsed.hasJoined);
+      }
+    } catch (e) {}
+    return false;
+  })();
+
+  const userParticipant = (rawServerState.participants || []).find(isCurrentPlayer);
+  const userHasJoined = Boolean(userParticipant || hasSavedJoinRecord || rawServerState.hasJoined);
+
+  // Dynamic participants array where each participant has isUser evaluated for current active account
+  const displayParticipants: RaidParticipant[] = (rawServerState.participants || []).map(p => ({
+    ...p,
+    isUser: isCurrentPlayer(p),
+  }));
+
+  // If user has joined but not in displayParticipants yet, ensure user is included
+  if (userHasJoined && !displayParticipants.some(p => p.isUser)) {
+    displayParticipants.push({
+      id: myAccountId,
+      name: myUsername,
+      title: shipLevel >= 5 ? 'Fleet Commander' : 'Dread Navigator',
+      avatarUrl: profile.avatarUrl || PIRATE_AVATARS[0]?.url,
+      damage: 0,
+      isUser: true,
+      shipLevel,
+      joinedAt: Date.now(),
+      joinedAtHp: rawServerState.currentHp,
+      joinedHpPercent: Math.round(((rawServerState.currentHp / rawServerState.maxHp) * 100) * 10) / 10,
+    });
+  }
+
+  const currentRaidState: ServerRaidState = {
+    ...rawServerState,
+    hasJoined: userHasJoined,
+    joinedAtHp: userParticipant?.joinedAtHp ?? rawServerState.joinedAtHp,
+    joinedHpPercent: userParticipant?.joinedHpPercent ?? rawServerState.joinedHpPercent,
+    participants: displayParticipants,
+  };
+
   const currentMonster = SEA_MONSTERS[currentRaidState.bossId] || SEA_MONSTERS[sessionBossId] || SEA_MONSTERS.megalodon;
 
-  // Join Raid Function
-  const joinRaid = (targetServerCode?: string) => {
-    const server_code = targetServerCode || currentServer.code;
-    setRaidStates(prev => {
-      const serverState = prev[server_code] || currentRaidState;
-      if (serverState.hasJoined) return prev;
+  // Realtime & Periodic synchronization with Supabase and local shared storage
+  useEffect(() => {
+    const serverCode = currentServer.code;
+    const sessionId = raidSessionInfo.sessionId;
+    const monster = SEA_MONSTERS[sessionBossId] || SEA_MONSTERS.megalodon;
 
-      const currentHpPercent = Math.max(0, Math.min(100, (serverState.currentHp / serverState.maxHp) * 100));
+    // Fetch authoritative state
+    fetchServerRaidState(serverCode, sessionId, sessionBossId, monster.maxHp).then(remoteData => {
+      if (remoteData && remoteData.sessionId === sessionId) {
+        setRaidStates(prev => {
+          const existing = prev[serverCode];
+          const fallback = existing || rawServerState;
+          const existingList = existing?.participants || [];
+          const remoteList = remoteData.participants || [];
+          const mergedMap = new Map<string, RaidParticipant>();
+          existingList.forEach(p => mergedMap.set(p.id, p));
+          remoteList.forEach(p => mergedMap.set(p.id, { ...mergedMap.get(p.id), ...p }));
 
-      const hasUser = serverState.participants.some(p => p.isUser || p.id === 'user_player');
-      const updatedParticipants = hasUser
-        ? serverState.participants.map(p => (p.isUser || p.id === 'user_player') ? { ...p, name: profile.username, avatarUrl: profile.avatarUrl, shipLevel } : p)
-        : [
-            ...serverState.participants,
-            {
-              id: 'user_player',
-              name: profile.username,
-              title: 'Dread Navigator',
-              avatarUrl: profile.avatarUrl,
-              damage: 0,
-              isUser: true,
-              shipLevel,
+          return {
+            ...prev,
+            [serverCode]: {
+              ...fallback,
+              sessionId: remoteData.sessionId || sessionId,
+              bossId: (remoteData.bossId as SeaMonsterId) || sessionBossId,
+              maxHp: remoteData.maxHp || fallback.maxHp,
+              currentHp: remoteData.currentHp,
+              isDefeated: remoteData.isDefeated,
+              participants: Array.from(mergedMap.values()),
             }
-          ];
+          };
+        });
+      }
+    });
+
+    // Realtime events
+    const sub = subscribeToRaidUpdates(serverCode, (payload) => {
+      if (!payload) return;
+
+      if (payload.participant) {
+        const newP = payload.participant as RaidParticipant;
+        setRaidStates(prev => {
+          const sState = prev[serverCode];
+          if (!sState) return prev;
+          const pList = sState.participants || [];
+          const existingIdx = pList.findIndex(p => p.id === newP.id || (p.name && p.name.toLowerCase() === newP.name.toLowerCase()));
+          const nextList = existingIdx >= 0
+            ? pList.map((p, idx) => idx === existingIdx ? { ...p, ...newP } : p)
+            : [...pList, newP];
+          return {
+            ...prev,
+            [serverCode]: {
+              ...sState,
+              participants: nextList,
+            }
+          };
+        });
+      }
+
+      if (payload.damageDealt !== undefined && payload.participantId) {
+        setRaidStates(prev => {
+          const sState = prev[serverCode];
+          if (!sState) return prev;
+          const nextHp = payload.currentHp !== undefined ? payload.currentHp : Math.max(0, sState.currentHp - payload.damageDealt);
+          const nextDefeated = payload.isDefeated !== undefined ? payload.isDefeated : nextHp <= 0;
+          const nextParticipants = (sState.participants || []).map(p =>
+            p.id === payload.participantId
+              ? { ...p, damage: (p.damage || 0) + payload.damageDealt }
+              : p
+          );
+          return {
+            ...prev,
+            [serverCode]: {
+              ...sState,
+              currentHp: nextHp,
+              isDefeated: nextDefeated,
+              participants: nextParticipants,
+            }
+          };
+        });
+      }
+
+      if (payload.sessionId === sessionId && Array.isArray(payload.participants)) {
+        setRaidStates(prev => {
+          const sState = prev[serverCode] || currentRaidState;
+          return {
+            ...prev,
+            [serverCode]: {
+              ...sState,
+              currentHp: payload.currentHp ?? sState.currentHp,
+              isDefeated: Boolean(payload.isDefeated),
+              participants: payload.participants,
+            }
+          };
+        });
+      }
+    });
+
+    // Periodic poll every 4 seconds to sync participants across all clients/devices
+    const pollTimer = setInterval(() => {
+      fetchServerRaidState(serverCode, sessionId, sessionBossId, monster.maxHp).then(remoteData => {
+        if (remoteData && remoteData.sessionId === sessionId && Array.isArray(remoteData.participants)) {
+          setRaidStates(prev => {
+            const sState = prev[serverCode];
+            if (!sState) return prev;
+            
+            const pMap = new Map<string, RaidParticipant>();
+            (sState.participants || []).forEach(p => pMap.set(p.id, p));
+            remoteData.participants.forEach(p => {
+              const existing = pMap.get(p.id);
+              pMap.set(p.id, existing ? { ...existing, ...p, damage: Math.max(existing.damage, p.damage) } : p);
+            });
+
+            return {
+              ...prev,
+              [serverCode]: {
+                ...sState,
+                currentHp: Math.min(sState.currentHp, remoteData.currentHp),
+                isDefeated: sState.isDefeated || remoteData.isDefeated,
+                participants: Array.from(pMap.values()),
+              }
+            };
+          });
+        }
+      });
+    }, 4000);
+
+    return () => {
+      sub.unsubscribe();
+      clearInterval(pollTimer);
+    };
+  }, [currentServer.code, raidSessionInfo.sessionId, sessionBossId]);
+
+  // Join Raid Function (multiplayer recorded across all accounts)
+  const joinRaid = async (targetServerCode?: string) => {
+    const server_code = targetServerCode || currentServer.code;
+    const serverState = raidStates[server_code] || currentRaidState;
+    if (userHasJoined) return;
+
+    const currentHp = serverState.currentHp;
+    const maxHp = serverState.maxHp;
+    const currentHpPercent = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
+    const roundedHpPercent = Math.round(currentHpPercent * 10) / 10;
+
+    const newParticipantRecord: RaidParticipant = {
+      id: myAccountId,
+      name: myUsername,
+      title: shipLevel >= 5 ? 'Fleet Commander' : 'Dread Navigator',
+      avatarUrl: profile.avatarUrl || PIRATE_AVATARS[0]?.url,
+      damage: 0,
+      isUser: true,
+      shipLevel,
+      joinedAt: Date.now(),
+      joinedAtHp: currentHp,
+      joinedHpPercent: roundedHpPercent,
+    };
+
+    // Update local state immediately
+    setRaidStates(prev => {
+      const sState = prev[server_code] || currentRaidState;
+      const pList = sState.participants || [];
+      const exists = pList.some(isCurrentPlayer);
+      const updatedParticipants = exists
+        ? pList.map(p => isCurrentPlayer(p) ? { ...p, ...newParticipantRecord, isUser: true } : p)
+        : [...pList, newParticipantRecord];
 
       return {
         ...prev,
         [server_code]: {
-          ...serverState,
+          ...sState,
           hasJoined: true,
-          joinedHpPercent: Math.round(currentHpPercent * 10) / 10,
-          joinedAtHp: serverState.currentHp,
+          joinedHpPercent: roundedHpPercent,
+          joinedAtHp: currentHp,
           participants: updatedParticipants,
         }
       };
     });
 
+    // Save individual join record for this account to persist across logouts
+    try {
+      localStorage.setItem(`seastride_account_raid_joined_${myAccountId}_${raidSessionInfo.sessionId}`, JSON.stringify({
+        serverCode: server_code,
+        sessionId: raidSessionInfo.sessionId,
+        hasJoined: true,
+        joinedAtHp: currentHp,
+        joinedHpPercent: roundedHpPercent,
+      }));
+    } catch (e) {}
+
     // Add join announcement log
     setRaidCombatLogs(prev => [
       {
         id: `clog_join_${Date.now()}`,
-        playerName: profile.username,
+        playerName: myUsername,
         avatarUrl: profile.avatarUrl,
         damage: 0,
         time: 'Just now',
@@ -1660,13 +1862,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     soundFx.playMonsterRoar();
     trackEvent('raid_joined', { raid_boss_id: sessionBossId, server_code });
+
+    // Persist to Supabase & broadcast to all other players in this server
+    try {
+      await recordServerRaidJoin(server_code, raidSessionInfo.sessionId, sessionBossId, maxHp, {
+        id: myAccountId,
+        name: myUsername,
+        title: shipLevel >= 5 ? 'Fleet Commander' : 'Dread Navigator',
+        avatarUrl: profile.avatarUrl || PIRATE_AVATARS[0]?.url,
+        shipLevel,
+        joinedAtHp: currentHp,
+        joinedHpPercent: roundedHpPercent,
+      });
+    } catch (err) {
+      console.warn('Error syncing raid join to server:', err);
+    }
   };
 
   // Deal Raid Damage Function (1 step = 1 HP, or direct attack)
   const dealRaidDamage = (amount: number, isDirectAttack: boolean = false): { damageDealt: number; isCritical: boolean; bossDefeated: boolean } => {
     if (amount <= 0) return { damageDealt: 0, isCritical: false, bossDefeated: false };
 
-    // Critical strike chance based on equipped cannons & ship level
     const isCritical = isDirectAttack && Math.random() < 0.25;
     const finalDamage = isCritical ? Math.round(amount * 1.75) : amount;
 
@@ -1679,12 +1895,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const nextHp = Math.max(0, serverState.currentHp - finalDamage);
       isDefeated = nextHp <= 0;
 
-      // Update user participant
-      const nextParticipants = serverState.participants.map(p => {
-        if (p.isUser || p.id === 'user_player') {
+      let found = false;
+      const nextParticipants = (serverState.participants || []).map(p => {
+        if (isCurrentPlayer(p)) {
+          found = true;
           return {
             ...p,
-            name: profile.username,
+            name: myUsername,
             avatarUrl: profile.avatarUrl,
             shipLevel,
             damage: p.damage + finalDamage,
@@ -1692,6 +1909,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return p;
       });
+
+      if (!found) {
+        nextParticipants.push({
+          id: myAccountId,
+          name: myUsername,
+          title: shipLevel >= 5 ? 'Fleet Commander' : 'Dread Navigator',
+          avatarUrl: profile.avatarUrl || PIRATE_AVATARS[0]?.url,
+          damage: finalDamage,
+          isUser: true,
+          shipLevel,
+          joinedAt: Date.now(),
+          joinedAtHp: serverState.currentHp,
+          joinedHpPercent: Math.round(((serverState.currentHp / serverState.maxHp) * 100) * 10) / 10,
+        });
+      }
 
       return {
         ...prev,
@@ -1704,11 +1936,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     });
 
+    // Sync damage to Supabase and shared storage
+    recordServerRaidDamage(currentServer.code, raidSessionInfo.sessionId, myAccountId, finalDamage).catch(console.warn);
+
     // Add battle log
     setRaidCombatLogs(prev => [
       {
         id: `clog_${Date.now()}_${Math.random()}`,
-        playerName: profile.username,
+        playerName: myUsername,
         avatarUrl: profile.avatarUrl,
         damage: finalDamage,
         time: 'Just now',
@@ -1913,7 +2148,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const npcInterval = setInterval(() => {
       if (currentRaidState.isDefeated) return;
-      const npcs = currentRaidState.participants.filter(p => !p.isUser);
+      const npcs = currentRaidState.participants.filter(p => p.isNpc);
       if (npcs.length === 0) return;
 
       const randomNpc = npcs[Math.floor(Math.random() * npcs.length)];

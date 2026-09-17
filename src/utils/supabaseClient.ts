@@ -1,5 +1,6 @@
+import { trackEvent } from "./analytics";
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import { ServerInfo, ServerType } from '../types';
+import { ServerInfo, ServerType, RaidParticipant } from '../types';
 import { PIRATE_AVATARS } from '../assets';
 
 // Configuration constants
@@ -1281,6 +1282,20 @@ export const updateShipState = async (
  * Fetches current players in a given server, merging latest authoritative progress from player_progress.
  * Resolves all duplicate server IDs matching the same server code.
  */
+export const trackSupabaseError = (error: any, context: string) => {
+  const code = error?.code || 'unknown';
+  const msg = (error?.message || '').toLowerCase();
+  let category = 'unknown';
+  
+  if (code === '401' || msg.includes('unauthorized') || msg.includes('jwt')) category = 'unauthorized';
+  else if (msg.includes('network') || msg.includes('fetch')) category = 'network_failed';
+  else if (msg.includes('timeout')) category = 'timeout';
+  else if (msg.includes('validation')) category = 'rpc_validation_failed';
+  
+  if (category === 'unauthorized') trackEvent('supabase_request_unauthorized', { error_code: code, error_message_category: category });
+  else trackEvent('supabase_rpc_failed', { error_code: code, error_message_category: category });
+};
+
 export const fetchServerPlayers = async (serverId: string): Promise<DbGlobalServerPlayer[]> => {
   const supabase = getSupabase();
 
@@ -1541,6 +1556,425 @@ export const subscribeToServerPlayers = (
   return {
     unsubscribe: () => {
       supabase.removeChannel(channel);
+    },
+  };
+};
+
+/**
+ * Records a player account joining the Raid Boss on a server.
+ * Persists to Supabase `global_servers.state->raid`, adds a persistent game_records row,
+ * updates local storage for offline/same-browser multi-account sync, and broadcasts to Realtime channel.
+ */
+export const recordServerRaidJoin = async (
+  serverCode: string,
+  sessionId: string,
+  bossId: string,
+  maxHp: number,
+  participant: {
+    id: string;
+    name: string;
+    title: string;
+    avatarUrl: string;
+    shipLevel: number;
+    joinedAtHp: number;
+    joinedHpPercent: number;
+  }
+): Promise<{ success: boolean; participants: RaidParticipant[]; currentHp: number; isDefeated: boolean }> => {
+  const normCode = normalizeServerCode(serverCode);
+  const supabase = getSupabase();
+  const localRaidKey = `seastride_server_raid_${normCode}_${sessionId}`;
+  
+  const newParticipant: RaidParticipant = {
+    id: participant.id,
+    name: participant.name,
+    title: participant.title,
+    avatarUrl: participant.avatarUrl,
+    shipLevel: participant.shipLevel,
+    damage: 0,
+    isUser: false,
+    joinedAt: Date.now(),
+    joinedAtHp: participant.joinedAtHp,
+    joinedHpPercent: participant.joinedHpPercent,
+  };
+
+  let finalParticipants: RaidParticipant[] = [];
+  let finalHp = participant.joinedAtHp;
+  let finalDefeated = false;
+
+  // 1. Supabase persistence
+  if (supabase) {
+    try {
+      const { data: serverRow } = await supabase
+        .from('global_servers')
+        .select('id, state')
+        .eq('code', normCode)
+        .maybeSingle();
+
+      if (serverRow) {
+        const existingState = serverRow.state || {};
+        const existingRaid = existingState.raid && existingState.raid.sessionId === sessionId
+          ? existingState.raid
+          : {
+              sessionId,
+              bossId,
+              currentHp: maxHp,
+              maxHp,
+              isDefeated: false,
+              participants: [],
+            };
+
+        finalHp = existingRaid.currentHp ?? maxHp;
+        finalDefeated = Boolean(existingRaid.isDefeated);
+
+        const currentParticipants: RaidParticipant[] = Array.isArray(existingRaid.participants)
+          ? [...existingRaid.participants]
+          : [];
+
+        const existingIdx = currentParticipants.findIndex(
+          (p: RaidParticipant) => p.id === participant.id || (p.name && p.name.toLowerCase() === participant.name.toLowerCase())
+        );
+
+        if (existingIdx >= 0) {
+          currentParticipants[existingIdx] = {
+            ...currentParticipants[existingIdx],
+            name: participant.name,
+            avatarUrl: participant.avatarUrl,
+            shipLevel: participant.shipLevel,
+            title: participant.title,
+          };
+        } else {
+          currentParticipants.push(newParticipant);
+        }
+
+        finalParticipants = currentParticipants;
+
+        const updatedState = {
+          ...existingState,
+          raid: {
+            ...existingRaid,
+            currentHp: finalHp,
+            maxHp,
+            isDefeated: finalDefeated,
+            participants: finalParticipants,
+            updatedAt: Date.now(),
+          },
+        };
+
+        await supabase
+          .from('global_servers')
+          .update({ state: updatedState })
+          .eq('id', serverRow.id);
+
+        // Broadcast event to other players in this server
+        try {
+          const channel = supabase.channel(`raid_room:${normCode}`);
+          channel.send({
+            type: 'broadcast',
+            event: 'raid_player_joined',
+            payload: {
+              serverCode: normCode,
+              sessionId,
+              participant: newParticipant,
+              totalParticipants: finalParticipants.length,
+            },
+          });
+        } catch (bErr) {}
+      }
+    } catch (err) {
+      console.warn('Supabase raid join sync error:', err);
+    }
+  }
+
+  // 2. Local shared storage sync (for offline, same-browser multi-account testing & instant response)
+  try {
+    const rawLocal = localStorage.getItem(localRaidKey);
+    let localData = rawLocal ? JSON.parse(rawLocal) : null;
+    if (!localData || localData.sessionId !== sessionId) {
+      localData = {
+        sessionId,
+        bossId,
+        currentHp: maxHp,
+        maxHp,
+        isDefeated: false,
+        participants: [],
+      };
+    }
+
+    if (finalParticipants.length > 0) {
+      localData.participants = finalParticipants;
+      localData.currentHp = finalHp;
+      localData.isDefeated = finalDefeated;
+    } else {
+      const pList: RaidParticipant[] = Array.isArray(localData.participants) ? localData.participants : [];
+      const idx = pList.findIndex((p: RaidParticipant) => p.id === participant.id || (p.name && p.name.toLowerCase() === participant.name.toLowerCase()));
+      if (idx >= 0) {
+        pList[idx] = {
+          ...pList[idx],
+          name: participant.name,
+          avatarUrl: participant.avatarUrl,
+          shipLevel: participant.shipLevel,
+          title: participant.title,
+        };
+      } else {
+        pList.push(newParticipant);
+      }
+      localData.participants = pList;
+      finalParticipants = pList;
+      finalHp = localData.currentHp ?? maxHp;
+      finalDefeated = Boolean(localData.isDefeated);
+    }
+
+    localStorage.setItem(localRaidKey, JSON.stringify(localData));
+    
+    // Also save personal join record for this account so it persists across refreshes
+    localStorage.setItem(`seastride_account_raid_joined_${participant.id}_${sessionId}`, JSON.stringify({
+      serverCode: normCode,
+      sessionId,
+      hasJoined: true,
+      joinedAtHp: participant.joinedAtHp,
+      joinedHpPercent: participant.joinedHpPercent,
+    }));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('seastride_raid_sync', { detail: localData }));
+    }
+  } catch (lErr) {
+    console.warn('Local raid storage error:', lErr);
+  }
+
+  // 3. Persistent game record
+  addGameRecord(participant.id, 'raid_join', {
+    server_code: normCode,
+    session_id: sessionId,
+    boss_id: bossId,
+    joined_at_hp: participant.joinedAtHp,
+    joined_hp_percent: participant.joinedHpPercent,
+  }).catch(() => {});
+
+  return {
+    success: true,
+    participants: finalParticipants,
+    currentHp: finalHp,
+    isDefeated: finalDefeated,
+  };
+};
+
+/**
+ * Records damage dealt to the Raid Boss on a server.
+ * Updates the shared boss HP and the participant's damage counter.
+ */
+export const recordServerRaidDamage = async (
+  serverCode: string,
+  sessionId: string,
+  participantId: string,
+  damageDealt: number
+): Promise<{ success: boolean; currentHp: number; isDefeated: boolean; participants: RaidParticipant[] }> => {
+  const normCode = normalizeServerCode(serverCode);
+  const supabase = getSupabase();
+  const localRaidKey = `seastride_server_raid_${normCode}_${sessionId}`;
+
+  let finalHp = 0;
+  let finalDefeated = false;
+  let finalParticipants: RaidParticipant[] = [];
+
+  // Update local shared storage first for instantaneous UI update
+  try {
+    const rawLocal = localStorage.getItem(localRaidKey);
+    if (rawLocal) {
+      const localData = JSON.parse(rawLocal);
+      if (localData && localData.sessionId === sessionId) {
+        localData.currentHp = Math.max(0, (localData.currentHp ?? 200000) - damageDealt);
+        localData.isDefeated = localData.currentHp <= 0;
+        if (Array.isArray(localData.participants)) {
+          localData.participants = localData.participants.map((p: RaidParticipant) =>
+            p.id === participantId ? { ...p, damage: (p.damage || 0) + damageDealt } : p
+          );
+        }
+        localStorage.setItem(localRaidKey, JSON.stringify(localData));
+        finalHp = localData.currentHp;
+        finalDefeated = localData.isDefeated;
+        finalParticipants = localData.participants;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('seastride_raid_sync', { detail: localData }));
+        }
+      }
+    }
+  } catch (e) {}
+
+  // Update Supabase
+  if (supabase) {
+    try {
+      const { data: serverRow } = await supabase
+        .from('global_servers')
+        .select('id, state')
+        .eq('code', normCode)
+        .maybeSingle();
+
+      if (serverRow && serverRow.state?.raid && serverRow.state.raid.sessionId === sessionId) {
+        const raid = serverRow.state.raid;
+        const nextHp = Math.max(0, (raid.currentHp ?? raid.maxHp) - damageDealt);
+        const nextDefeated = nextHp <= 0;
+        const nextParticipants: RaidParticipant[] = (raid.participants || []).map((p: RaidParticipant) =>
+          p.id === participantId ? { ...p, damage: (p.damage || 0) + damageDealt } : p
+        );
+
+        finalHp = nextHp;
+        finalDefeated = nextDefeated;
+        finalParticipants = nextParticipants;
+
+        await supabase
+          .from('global_servers')
+          .update({
+            state: {
+              ...serverRow.state,
+              raid: {
+                ...raid,
+                currentHp: nextHp,
+                isDefeated: nextDefeated,
+                participants: nextParticipants,
+                updatedAt: Date.now(),
+              },
+            },
+          })
+          .eq('id', serverRow.id);
+
+        try {
+          const channel = supabase.channel(`raid_room:${normCode}`);
+          channel.send({
+            type: 'broadcast',
+            event: 'raid_damage_dealt',
+            payload: {
+              serverCode: normCode,
+              sessionId,
+              participantId,
+              damageDealt,
+              currentHp: nextHp,
+              isDefeated: nextDefeated,
+            },
+          });
+        } catch (bErr) {}
+      }
+    } catch (err) {
+      console.warn('Supabase raid damage sync error:', err);
+    }
+  }
+
+  return {
+    success: true,
+    currentHp: finalHp,
+    isDefeated: finalDefeated,
+    participants: finalParticipants,
+  };
+};
+
+/**
+ * Fetches the current authoritative Raid state for a server and session.
+ * Merges Supabase state and local shared state.
+ */
+export const fetchServerRaidState = async (
+  serverCode: string,
+  sessionId: string,
+  bossId: string,
+  maxHp: number
+): Promise<{
+  sessionId: string;
+  bossId: string;
+  currentHp: number;
+  maxHp: number;
+  isDefeated: boolean;
+  participants: RaidParticipant[];
+} | null> => {
+  const normCode = normalizeServerCode(serverCode);
+  const supabase = getSupabase();
+  const localRaidKey = `seastride_server_raid_${normCode}_${sessionId}`;
+
+  let serverRaidData: any = null;
+
+  if (supabase) {
+    try {
+      const { data: serverRow } = await supabase
+        .from('global_servers')
+        .select('state')
+        .eq('code', normCode)
+        .maybeSingle();
+
+      if (serverRow && serverRow.state?.raid && serverRow.state.raid.sessionId === sessionId) {
+        serverRaidData = serverRow.state.raid;
+      }
+    } catch (err) {
+      console.warn('Error fetching server raid state from Supabase:', err);
+    }
+  }
+
+  // Check local shared storage
+  let localRaidData: any = null;
+  try {
+    const raw = localStorage.getItem(localRaidKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.sessionId === sessionId) {
+        localRaidData = parsed;
+      }
+    }
+  } catch (e) {}
+
+  // If server had data, sync back to local
+  if (serverRaidData) {
+    try {
+      localStorage.setItem(localRaidKey, JSON.stringify(serverRaidData));
+    } catch (e) {}
+    return serverRaidData;
+  }
+
+  if (localRaidData) {
+    return localRaidData;
+  }
+
+  return null;
+};
+
+/**
+ * Subscribes to Realtime updates on a server's Raid Boss (joins and damage).
+ */
+export const subscribeToRaidUpdates = (
+  serverCode: string,
+  onRaidUpdate: (payload: any) => void
+): { unsubscribe: () => void } => {
+  const normCode = normalizeServerCode(serverCode);
+  const supabase = getSupabase();
+
+  let channel: RealtimeChannel | null = null;
+
+  if (supabase) {
+    channel = supabase
+      .channel(`raid_room:${normCode}`)
+      .on('broadcast', { event: 'raid_player_joined' }, (payload) => {
+        onRaidUpdate(payload.payload);
+      })
+      .on('broadcast', { event: 'raid_damage_dealt' }, (payload) => {
+        onRaidUpdate(payload.payload);
+      })
+      .subscribe();
+  }
+
+  const handleLocalSync = (e: any) => {
+    if (e.detail) {
+      onRaidUpdate(e.detail);
+    }
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('seastride_raid_sync', handleLocalSync);
+  }
+
+  return {
+    unsubscribe: () => {
+      if (supabase && channel) {
+        supabase.removeChannel(channel);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('seastride_raid_sync', handleLocalSync);
+      }
     },
   };
 };

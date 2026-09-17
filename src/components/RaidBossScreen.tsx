@@ -170,33 +170,33 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
       <div 
         id="raid-boss-dormant-screen"
         data-no-swipe="true"
-        className="w-full h-full flex flex-col bg-gradient-to-b from-[#1c120c] via-[#101b2b] to-[#070c14] text-amber-100 overflow-hidden relative select-none p-4"
+        className="w-full h-full min-h-0 flex flex-col justify-center items-center bg-gradient-to-b from-[#1c120c] via-[#101b2b] to-[#070c14] text-amber-100 overflow-hidden relative select-none p-3 sm:p-4"
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(180,83,9,0.15)_0%,transparent_70%)] pointer-events-none" />
         <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
 
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center max-w-sm mx-auto w-full gap-4">
+        <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-xs sm:max-w-sm mx-auto w-full gap-3 sm:gap-4 my-auto">
           {/* Leviathan Icon in Dormant Slumber */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-900/90 border-2 border-amber-500/40 flex items-center justify-center shadow-2xl relative">
-            <span className="text-5xl sm:text-6xl filter grayscale opacity-75 animate-pulse">🌊</span>
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-900/90 border-2 border-amber-500/40 flex items-center justify-center shadow-xl relative shrink-0">
+            <span className="text-3xl sm:text-4xl filter grayscale opacity-75 animate-pulse">🌊</span>
           </div>
 
-          <div className="space-y-1.5">
-            <h2 className="text-base sm:text-lg font-black font-serif uppercase tracking-wider text-amber-300">
+          <div className="space-y-1">
+            <h2 className="text-sm sm:text-base font-black font-serif uppercase tracking-wider text-amber-300">
               {t("raid_session_inactive", "Sea Monster Has Retreated")}
             </h2>
-            <p className="text-xs text-amber-200/80 leading-relaxed px-2">
+            <p className="text-[11px] sm:text-xs text-amber-200/80 leading-relaxed px-1">
               {t("raid_session_desc", "Raid Boss session appears from Friday 00:00:00 AM until Monday 23:59:59 PM (UTC+7).")}
             </p>
           </div>
 
           {/* Countdown Card to next session */}
-          <div className="w-full bg-[#2b1d19]/90 border-2 border-[#b45309] rounded-2xl p-4 shadow-xl flex flex-col items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-serif font-black uppercase text-amber-400">
-              <Clock size={14} className="animate-spin" style={{ animationDuration: '10s' }} />
+          <div className="w-full bg-[#2b1d19]/90 border-2 border-[#b45309] rounded-xl p-3 shadow-lg flex flex-col items-center gap-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-serif font-black uppercase text-amber-400">
+              <Clock size={13} className="animate-spin" style={{ animationDuration: '10s' }} />
               <span>{t("next_session_starts_in", "Next Raid Awakens In")}</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black font-mono text-yellow-300 tracking-wider">
+            <div className="text-lg sm:text-xl font-black font-mono text-yellow-300 tracking-wider">
               {timeRemaining}
             </div>
           </div>
@@ -207,9 +207,9 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
               soundFx.playClick();
               onBackToMenu?.();
             }}
-            className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-lg border-2 border-yellow-200 active:scale-95 transition-all flex items-center justify-center gap-2 font-serif"
+            className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-lg border-2 border-yellow-200 active:scale-95 transition-all flex items-center justify-center gap-2 font-serif"
           >
-            <ArrowLeft size={16} /> {t("return_to_ocean", "Return to Ocean")}
+            <ArrowLeft size={15} /> {t("return_to_ocean", "Return to Ocean")}
           </button>
         </div>
       </div>
@@ -321,6 +321,33 @@ export function RaidBossScreen({ onBackToMenu, openServerModal, embeddedMode = f
                 <Users size={10} className="text-sky-400" /> {currentRaidState.participants.length} Active
               </span>
             </div>
+
+            {/* List of currently joined captains */}
+            {currentRaidState.participants.length > 0 && (
+              <div className="w-full mt-2.5 pt-2 border-t border-[#8b5a2b]/40 flex flex-col gap-1 text-left">
+                <div className="flex items-center justify-between text-[9.5px] font-bold uppercase tracking-wider text-amber-300/90 font-serif px-0.5">
+                  <span>{t("active_captains", "Joined Captains")}</span>
+                  <span className="text-sky-400 font-mono font-bold">{currentRaidState.participants.length}</span>
+                </div>
+                <div className="flex items-center gap-1.5 overflow-x-auto py-1 max-w-full">
+                  {currentRaidState.participants.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-1.5 bg-[#2b1d19]/95 border border-amber-500/40 rounded-lg px-2 py-1 shrink-0 shadow"
+                    >
+                      <img
+                        src={p.avatarUrl}
+                        alt={p.name}
+                        className="w-4 h-4 rounded-full object-cover border border-amber-400/60"
+                      />
+                      <span className="text-[10px] font-bold text-amber-100 truncate max-w-[80px]">
+                        {p.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>

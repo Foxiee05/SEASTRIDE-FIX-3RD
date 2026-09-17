@@ -192,6 +192,10 @@ export interface RaidParticipant {
   damage: number;
   isUser: boolean;
   shipLevel: number;
+  isNpc?: boolean;
+  joinedAt?: number;
+  joinedAtHp?: number;
+  joinedHpPercent?: number;
 }
 
 export interface ServerRaidState {
