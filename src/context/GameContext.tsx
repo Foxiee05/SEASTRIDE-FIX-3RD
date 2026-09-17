@@ -1587,11 +1587,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Helper to identify if a participant belongs to the currently active user/account
   const isCurrentPlayer = useCallback((p: RaidParticipant): boolean => {
-    if (currentAccount) {
-      return p.id === currentAccount.id || (Boolean(p.name) && p.name.toLowerCase() === currentAccount.username.toLowerCase());
-    }
-    return Boolean(p.isUser) || p.id === 'user_player' || (Boolean(p.name) && p.name.toLowerCase() === profile.username.toLowerCase());
-  }, [currentAccount, profile.username]);
+    if (!p || p.isNpc) return false;
+    const targetAccountId = currentAccount?.id;
+    const targetUsername = (currentAccount?.username || profile?.username || '').trim().toLowerCase();
+
+    // 1. Match by explicit account ID
+    if (targetAccountId && p.id === targetAccountId) return true;
+    
+    // 2. Match by exact username
+    if (targetUsername && p.name && p.name.trim().toLowerCase() === targetUsername) return true;
+
+    return false;
+  }, [currentAccount?.id, currentAccount?.username, profile?.username]);
 
   // Current server active raid state
   const sessionBossId = getOrInitSessionBoss(raidSessionInfo.sessionId);
@@ -1625,13 +1632,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   })();
 
   const userParticipant = (rawServerState.participants || []).find(isCurrentPlayer);
-  const userHasJoined = Boolean(userParticipant || hasSavedJoinRecord || rawServerState.hasJoined);
+  // An account has joined ONLY IF this account has explicitly clicked 'Yes, Join Raid' (hasSavedJoinRecord)
+  // OR has already contributed damage (> 0) in the battle
+  const userHasJoined = Boolean(hasSavedJoinRecord || (userParticipant && userParticipant.damage > 0));
 
   // Dynamic participants array where each participant has isUser evaluated for current active account
-  const displayParticipants: RaidParticipant[] = (rawServerState.participants || []).map(p => ({
-    ...p,
-    isUser: isCurrentPlayer(p),
-  }));
+  const displayParticipants: RaidParticipant[] = (rawServerState.participants || [])
+    .filter(p => {
+      // If participant belongs to current account but user hasn't joined yet, don't show as active participant
+      if (isCurrentPlayer(p) && !userHasJoined) {
+        return false;
+      }
+      return true;
+    })
+    .map(p => ({
+      ...p,
+      isUser: isCurrentPlayer(p),
+    }));
 
   // If user has joined but not in displayParticipants yet, ensure user is included
   if (userHasJoined && !displayParticipants.some(p => p.isUser)) {
@@ -1828,7 +1845,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...prev,
         [server_code]: {
           ...sState,
-          hasJoined: true,
+          hasJoined: false,
           joinedHpPercent: roundedHpPercent,
           joinedAtHp: currentHp,
           participants: updatedParticipants,
